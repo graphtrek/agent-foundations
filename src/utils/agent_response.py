@@ -1,7 +1,9 @@
 from pprint import PrettyPrinter
+
 from langchain.messages import HumanMessage
 
-def stream_agent(agent, prompt: str):
+
+def stream_agent(agent, prompt: str) -> None:
     messages = {"messages": [HumanMessage(content=prompt)]}
     response_metadata = None  # Enable streaming in metadata
     for token, metadata in agent.stream(messages, stream_mode="messages"):

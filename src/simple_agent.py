@@ -1,7 +1,9 @@
-from utils.config import load_config
-from utils.agent_response import stream_agent
-from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
+
+from utils.agent_response import stream_agent
+from utils.config import load_config
+
 
 def simple_agent(model_name: str):
     api_key = load_config()
@@ -14,8 +16,7 @@ def simple_agent(model_name: str):
         verbose=True
     )  # Initialize the chat model with the API key
 
-    agent_simple = create_agent(model=model_simple)
-    return agent_simple
+    return create_agent(model=model_simple)
 
 def main():
     agent = simple_agent("poolside/laguna-s-2.1:free")

@@ -1,6 +1,8 @@
-import os
 import getpass
-from dotenv import load_dotenv, find_dotenv
+import os
+
+from dotenv import find_dotenv, load_dotenv
+
 
 def load_config() -> str:
     env_path = find_dotenv()
