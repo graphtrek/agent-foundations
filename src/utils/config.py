@@ -6,6 +6,7 @@ from dotenv import find_dotenv, load_dotenv
 
 def load_config() -> str:
     env_path = find_dotenv()
+    print("\nLoading configuration...")
     if env_path:
         print(f"Loading environment variables from: {env_path}")
         load_dotenv(env_path)
