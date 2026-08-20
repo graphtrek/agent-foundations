@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Tutorial project for building LLM agents with LangChain, using OpenRouter as the model provider.
+Foundation project for building LLM agents with LangChain, using OpenRouter as the model provider.
 
 ## Setup & run
 
