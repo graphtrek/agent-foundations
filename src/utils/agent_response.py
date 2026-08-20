@@ -1,6 +1,6 @@
 from pprint import PrettyPrinter
 
-from langchain.messages import HumanMessage
+from langchain.messages import AIMessageChunk, HumanMessage
 
 
 def agent_stream_response(agent, prompt: str) -> None:
@@ -8,10 +8,10 @@ def agent_stream_response(agent, prompt: str) -> None:
     # response_metadata = None  # Enable streaming in metadata
     for token, metadata in agent.stream(messages, stream_mode="messages"):
         # response_metadata = metadata  # Update response metadata with each token
-        if token.content:  # Check if there's actual content
+        if isinstance(token, AIMessageChunk) and token.content:  # Check if there's actual content
             print(token.content, end="", flush=True)  # Print token
     
-    print("\nResponse Metadata:")
+    # print("\nResponse Metadata:")
     # Print the final response metadata
     # pp = PrettyPrinter(indent=4)
     # pp.pprint(response_metadata) 
