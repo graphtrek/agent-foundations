@@ -11,4 +11,5 @@ dependencies = [
     "duckduckgo-search>=0.4.2",
     "ddgs>=0.4.2",
     "python-dotenv>=1.2.0",
+    "langsmith>=0.8.18",
 ]

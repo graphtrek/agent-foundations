@@ -1,5 +1,5 @@
-from pprint import PrettyPrinter
 from pathlib import Path
+from pprint import PrettyPrinter
 
 from langchain.agents import create_agent
 from langchain.chat_models import BaseChatModel, init_chat_model
@@ -73,7 +73,7 @@ def shortterm_memory_agent_response(model) -> None:
     agent = create_agent(model, system_prompt=system_prompt, checkpointer=InMemorySaver())
 
     user_prompt_1 = [HumanMessage(content="Remember that my favorite color is blue.")]
-    config = {"configurable": {"thread_id": "1"}}
+    config = {"configurable": {"thread_id": "color_memory_thread"}}  # Specify a thread ID for short-term memory
     agent_response(agent, user_prompt_1, config=config)  # Store the information in memory
 
     user_prompt_2 = [HumanMessage(content="What is my favorite color?")]
