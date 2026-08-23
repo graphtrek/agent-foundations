@@ -1,7 +1,6 @@
 import base64
 
 
-# Utility functions for file operations
 def encode_file_to_base64(file_path: str) -> str:
     """
     Encodes the contents of a file to a base64 string.

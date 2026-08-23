@@ -11,7 +11,10 @@ def load_config() -> str:
         print(f"Loading environment variables from: {env_path}")
         load_dotenv(env_path)
     else:
-        print("No .env file found. Please ensure that the .env file exists in the project directory.")      
+        print(
+            "No .env file found. Please ensure that the .env file exists "
+            "in the project directory."
+        )
 
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if api_key is None:
@@ -20,7 +23,7 @@ def load_config() -> str:
         os.environ["OPENROUTER_API_KEY"] = api_key
 
     if api_key and api_key.strip():
-        print('OPENROUTER_API_KEY environment variable is set.')
+        print("OPENROUTER_API_KEY environment variable is set.")
     else:
         print("OPENROUTER_API_KEY environment variable is not set.")
 
