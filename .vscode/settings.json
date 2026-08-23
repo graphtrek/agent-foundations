@@ -1,18 +1,17 @@
 {
-  "python.analysis.include": [
-    "libs/**",
-  ],
+  "python.analysis.include": ["libs/**"],
   "python.analysis.exclude": [
     "**/node_modules",
     "**/__pycache__",
     "**/.pytest_cache",
-    "**/.*",
+    "**/.*"
   ],
   "python.analysis.autoImportCompletions": true,
   "python.analysis.typeCheckingMode": "basic",
   "python.testing.cwd": "${workspaceFolder}",
   "python.linting.enabled": true,
   "python.linting.ruffEnabled": true,
+  "editor.formatOnSave": true,
   "[python]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
@@ -21,9 +20,7 @@
     },
     "editor.defaultFormatter": "charliermarsh.ruff"
   },
-  "editor.rulers": [
-    88
-  ],
+  "editor.rulers": [88],
   "editor.tabSize": 4,
   "editor.insertSpaces": true,
   "editor.trimAutoWhitespace": true,
@@ -74,5 +71,6 @@
     {
       "file": ".github/workflows/pr_lint.yml"
     }
-  ]
+  ],
+  "python.analysis.inlayHints.functionReturnTypes": true
 }
