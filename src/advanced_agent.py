@@ -16,15 +16,18 @@ class ColourContext:
     favorite_color: str = "blue"
     least_favorite_color: str = "green"
 
+
 @tool
 def get_favorite_color(runtime: ToolRuntime[ColourContext]) -> str:
     "Returns the favorite color from the runtime context."
     return runtime.context.favorite_color
 
+
 @tool
 def get_least_favorite_color(runtime: ToolRuntime[ColourContext]) -> str:
     "Returns the least favorite color from the runtime context."
     return runtime.context.least_favorite_color
+
 
 def get_chat_model(name: str) -> Any:
     chat_model = init_chat_model(
@@ -35,20 +38,23 @@ def get_chat_model(name: str) -> Any:
     return chat_model
 
 
-def dataclass_agent_response(model: BaseChatModel, prompt: str) -> None:
+def immutable_runtime_context(model: BaseChatModel, prompt: str) -> None:
     agent = create_agent(
         model=model,
         tools=[get_favorite_color, get_least_favorite_color],
         system_prompt="You are a helpful assistant that provides information about ColourContext in Python.",
-        context_schema=ColourContext
+        context_schema=ColourContext,
     )
     human_message = {"type": "human", "content": prompt}
 
-    response = agent.invoke({"messages": [human_message]}, context=ColourContext(favorite_color="blue", least_favorite_color="green"))
+    response = agent.invoke(
+        {"messages": [human_message]},
+        context=ColourContext(favorite_color="blue", least_favorite_color="green"),
+    )
     pprint(response)
 
 
 if __name__ == "__main__":
-    model = get_chat_model("openai/gpt-oss-120b")
-    dataclass_agent_response(model, "What is the favorite color?")
     print("Advanced Agent is running...")
+    model = get_chat_model("openai/gpt-oss-120b")
+    immutable_runtime_context(model, "What is the favorite color?")
