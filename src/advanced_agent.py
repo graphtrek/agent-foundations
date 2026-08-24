@@ -57,4 +57,9 @@ def immutable_runtime_context(model: BaseChatModel, prompt: str) -> None:
 if __name__ == "__main__":
     print("Advanced Agent is running...")
     model = get_chat_model("openai/gpt-oss-120b")
+
+    # We don't restrict the model's own text reply - only the data/context passed to
+    # tools is strictly typed, so it stays deterministic and verifiable instead
+    # of free-form text we'd have to parse and trust. It's "immutable" because
+    # tools only read runtime.context - nothing mutates it during the run.
     immutable_runtime_context(model, "What is the favorite color?")
