@@ -7,7 +7,9 @@ show how an agent can answer normally, stream output, call a tool, remember
 messages for a conversation, and analyze an image.
 
 The project is intentionally split into simple Python files. Read
-`src/simple_agent.py` first, then follow its imports into `src/utils/`.
+`src/simple_agent.py` first, then follow its imports into `src/utils/`. Once the
+basics are clear, move on to `src/advanced_agent.py` for runtime context and
+state-aware tools.
 
 ## Prerequisites
 
@@ -49,6 +51,15 @@ JPEG at `test.jpg` in the project root. Add an image there before running that
 example, or temporarily comment out the `image_analysis_agent_response` call
 in `main()` while learning about the other examples.
 
+Run the advanced customer-support example with:
+
+```bash
+uv run python src/advanced_agent.py
+```
+
+This example shows how tools read a typed runtime context and read/write
+conversation state across turns.
+
 To run the MCP server example:
 
 ```bash
@@ -65,6 +76,7 @@ host and port are displayed for visibility, but the selected transport is
 ```text
 src/
 ├── simple_agent.py          # Main LangChain agent demonstrations
+├── advanced_agent.py        # Runtime context and state-aware tools
 ├── mcp_server.py            # MCP server with a search tool and GitHub resource
 └── utils/
       ├── agent_response.py    # Helpers for invoke and stream response formats
@@ -114,6 +126,41 @@ The demonstration functions are:
 `main()` chooses text and image-capable models and runs the examples. The
 `if __name__ == "__main__":` guard means `main()` runs when this file is
 executed directly, but not when the module is imported by another script.
+
+### `src/advanced_agent.py`
+
+This script builds on `simple_agent.py` and demonstrates two features that
+matter for real applications: a typed runtime context and mutable conversation
+state.
+
+`SupportContext` is a dataclass passed to `agent.invoke(..., context=...)`. It
+carries per-request data such as the user id and customer tier. Tools read it
+through `ToolRuntime[SupportContext]`. The context is immutable for the run:
+tools only read `runtime.context`, so this data stays deterministic and
+verifiable instead of being inferred from free-form model text. It is also kept
+out of the conversation messages, which suits secrets like auth tokens.
+
+`CustomerState` extends `AgentState` with extra keys (`ticket_id`,
+`issue_category`, `status`). Unlike the context, state is mutable: a tool can
+return a `Command(update=...)` to write into it, and later tools read it back.
+
+The tools are:
+
+- `get_support_policy(runtime)`: reads the typed context and returns a policy
+   string for the current customer.
+- `update_ticket(...)`: writes ticket fields into state by returning a
+   `Command` and appends a `ToolMessage` acknowledging the change.
+- `read_ticket(runtime)`: reads the ticket fields previously stored in state.
+
+`run_customer_support_demo(model)` creates the agent with `context_schema`,
+`state_schema`, and an `InMemorySaver` checkpointer, then runs two turns on the
+same `thread_id`. The first turn opens a ticket; the second asks for its status
+and reads it back from state, showing how context, state, and short-term memory
+work together.
+
+Because `@tool` evaluates type hints eagerly, `CustomerState` is defined before
+the tools that reference it, and `thread_config` is annotated as
+`RunnableConfig` so the type checker accepts it.
 
 ### `src/utils/config.py`
 
@@ -210,6 +257,15 @@ what the model actually produced.
 applications, use a durable checkpointer or database instead of relying on
 this tutorial-only storage.
 
+### Runtime context versus state
+
+`src/advanced_agent.py` shows the difference between two ways to give tools
+data beyond the chat messages. Runtime context (`context_schema`) is passed per
+`invoke()` call and is read-only for the run, which suits request-scoped values
+like user ids, tiers, or auth tokens. State (`state_schema`) is mutable: tools
+write to it by returning a `Command(update=...)`, and it is persisted by the
+checkpointer so later turns can read it back.
+
 ### Tools versus MCP tools
 
 `src/utils/tools.py` creates a tool directly for a LangChain agent. In
@@ -225,4 +281,6 @@ search capability is similar, but the integration boundary is different.
 4. Change the `thread_id` in the memory example and observe that a new thread
     has no previous conversation.
 5. Add an image and trace the multimodal message in the image example.
-6. Run the MCP server and connect it to an MCP-compatible client.
+6. Run `advanced_agent.py` and trace how context stays fixed while state changes
+    across the two turns.
+7. Run the MCP server and connect it to an MCP-compatible client.
