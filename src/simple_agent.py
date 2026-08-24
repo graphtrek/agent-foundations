@@ -135,12 +135,32 @@ def image_analysis_agent_response(model: BaseChatModel) -> None:
 
 # Main function to run the different agent response demonstrations
 def main() -> None:
+
+    # Choosing an LLM is like hiring: more experienced/qualified models (like senior
+    # contractors) cost more, priced per token instead of per hour.
     text_model = get_model("poolside/laguna-s-2.1")
+
+    # Now that we hired our contractor, the simplest task is one question expecting
+    # a direct answer, e.g. asking for the model's training cut-off date.
     basic_agent_response(text_model)
+
+    # We want the answer word by word, like talking to a person, so we can read it
+    # as it arrives instead of waiting for the whole response.
     streaming_agent_response(text_model)
+
+    # For the latest news our contractor needs a web search tool (DuckDuckGo here,
+    # like a Google search) to go out and look things up on the internet.
     search_agent_response(text_model)
+
+    # So far every call was a one-off Q&A with no memory of prior turns. Real
+    # conversations need our contractor to remember, e.g. we tell it our favorite
+    # color then ask about it later; without memory it simply wouldn't know. Short-term
+    # memory takes our communication to the next level.
     shortterm_memory_agent_response(text_model)
 
+    # Time to hire a different contractor: Gemma from Google can analyze images as
+    # well as text, while our laguna model is great at text but clueless about images.
+    # We need to carefully pick the best model for the specific problem at hand.
     image_text_model = get_model("google/gemma-4-26b-a4b-it")
     image_analysis_agent_response(image_text_model)
 
