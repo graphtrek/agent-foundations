@@ -16,6 +16,8 @@ downloaded from Wikimedia Commons and cached locally by
 ``utils.offsite_images``.
 """
 
+import logging
+import os
 from pathlib import Path
 from typing import Any, cast
 
@@ -35,8 +37,11 @@ from utils.tools import create_offsite_tools
 
 SEPARATOR = "-" * 80
 CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent / "conversations"
+LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
+LOG_FILE = LOGS_DIR / "corporate_offsite_planner.log"
 REQUIRED_TOOL_NAMES = {"update_state", "choose_venue", "choose_catering", "plan_agenda"}
 MAX_COORDINATOR_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 config = load_config()
 openrouter_api_key = config.openrouter_api_key
@@ -97,6 +102,9 @@ def _conversation_status(messages: list[Any]) -> tuple[set[str], bool]:
     }
     missing_tools = REQUIRED_TOOL_NAMES - completed_tools
     if missing_tools:
+        logger.debug(
+            "Conversation is missing required tools: %s", sorted(missing_tools)
+        )
         return missing_tools, False
 
     last_tool_index = max(
@@ -111,6 +119,7 @@ def _conversation_status(messages: list[Any]) -> tuple[set[str], bool]:
         and not message_was_truncated(message)
         for message in messages[last_tool_index + 1 :]
     )
+    logger.debug("Conversation status: final_answer=%s", has_final_answer)
     return set(), has_final_answer
 
 
@@ -118,16 +127,21 @@ def _run_coordinator_to_completion(user_prompt: str) -> dict[str, Any]:
     """Run the coordinator, resuming boundedly if it ends before completion."""
     state: dict[str, Any] = {"messages": [HumanMessage(content=user_prompt)]}
     config: RunnableConfig = {"tags": ["OFFSITE"], "recursion_limit": 40}
+    logger.info("Starting coordinator run")
 
     for attempt in range(1, MAX_COORDINATOR_ATTEMPTS + 1):
+        logger.info("Coordinator attempt %d/%d", attempt, MAX_COORDINATOR_ATTEMPTS)
         response = cast(
             dict[str, Any], coordinator.invoke(cast(Any, state), config=config)
         )
+        logger.debug("Coordinator returned %d messages", len(response["messages"]))
         missing_tools, has_final_answer = _conversation_status(response["messages"])
         if not missing_tools and has_final_answer:
+            logger.info("Coordinator completed successfully on attempt %d", attempt)
             return response
         if attempt == MAX_COORDINATOR_ATTEMPTS:
             missing = ", ".join(sorted(missing_tools)) or "final proposal"
+            logger.error("Coordinator failed to complete; missing: %s", missing)
             raise RuntimeError(
                 f"Coordinator did not complete after {attempt} attempts; missing: {missing}."
             )
@@ -139,6 +153,9 @@ def _run_coordinator_to_completion(user_prompt: str) -> dict[str, Any]:
                 "All specialist results are available. The previous answer was "
                 "missing or truncated, so write a concise, complete replacement. "
             )
+        )
+        logger.warning(
+            "Coordinator incomplete; requesting recovery: %s", remaining_work
         )
         recovery_message = HumanMessage(
             content=(
@@ -157,10 +174,12 @@ def run_offsite_demo() -> None:
         "Plan a corporate offsite in Lisbon for 40 people. The objective is "
         "to align the product team on next year's roadmap."
     )
+    logger.info("Running corporate offsite demo")
     response = _run_coordinator_to_completion(user_prompt)
     conversation_path = save_conversation(
         user_prompt, response["messages"], CONVERSATIONS_DIR, IMAGE_PATHS
     )
+    logger.info("Conversation saved to %s", conversation_path)
     print(SEPARATOR)
     print("\nConversation:\n")
     for message in response["messages"]:
@@ -177,5 +196,14 @@ def run_offsite_demo() -> None:
 
 
 if __name__ == "__main__":
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=[
+            logging.FileHandler(LOG_FILE, encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
+    )
     print("Corporate Offsite Planner is running...")
     run_offsite_demo()
