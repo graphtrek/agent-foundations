@@ -16,6 +16,7 @@ downloaded from Wikimedia Commons and cached locally by
 ``utils.offsite_images``.
 """
 
+from dataclasses import replace
 from typing import Any
 
 from langchain.agents import AgentState, create_agent
@@ -25,7 +26,7 @@ from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
 from utils.config import ModelConfig, load_config
-from utils.file_util import encode_file_to_base64
+from utils.file_util import encode_file_to_base64, load_prompt_template
 from utils.offsite_images import generate_images
 
 SEPARATOR = "-" * 80
@@ -69,6 +70,12 @@ def get_model(config: ModelConfig) -> BaseChatModel:
     return init_chat_model(**params)
 
 
+def load_agent(name: str, base_config: ModelConfig) -> tuple[str, BaseChatModel]:
+    """Load a prompt template and build its model, applying any frontmatter overrides."""
+    system_prompt, overrides = load_prompt_template(name)
+    return system_prompt, get_model(replace(base_config, **overrides))
+
+
 def _image_block(name: str) -> dict[str, str]:
     """Build an image content block for the given generated example image."""
     return {
@@ -94,45 +101,14 @@ class OffsiteState(AgentState):
 
 # --- Specialist subagents ---------------------------------------------------
 
-vision_model = get_model(VISION_CONFIG)
-text_model = get_model(TEXT_CONFIG)
+venue_prompt, venue_model = load_agent("venue_agent", VISION_CONFIG)
+venue_agent = create_agent(model=venue_model, system_prompt=venue_prompt)
 
-venue_agent = create_agent(
-    model=vision_model,
-    system_prompt=(
-        "You are a venue scout. You are shown several candidate offsite venue "
-        "photos labelled Option A, B, C and D. Compare their look and feel: "
-        "lighting, tidiness, seating and overall atmosphere. Recommend the "
-        "single best-looking venue as your top pick and one runner-up as an "
-        "alternative. Explicitly reject any venue that looks dim, cramped or "
-        "run down. Reply as: 'Best: <option> - <reason>. Alternative: "
-        "<option> - <reason>. Rejected: <options> - <reason>.'"
-    ),
-)
+catering_prompt, catering_model = load_agent("catering_agent", VISION_CONFIG)
+catering_agent = create_agent(model=catering_model, system_prompt=catering_prompt)
 
-catering_agent = create_agent(
-    model=vision_model,
-    system_prompt=(
-        "You are a catering scout. You are shown several plated meal photos "
-        "labelled Option A, B, C and D. Compare their presentation: colour, "
-        "freshness and plating. Recommend the single best-looking meal as your "
-        "top pick and one runner-up as an alternative. Explicitly reject any "
-        "meal that looks greasy, dull or messy. Reply as: 'Best: <option> - "
-        "<reason>. Alternative: <option> - <reason>. Rejected: <options> - "
-        "<reason>.'"
-    ),
-)
-
-agenda_agent = create_agent(
-    model=text_model,
-    system_prompt=(
-        "You are an agenda writer for corporate offsites. Given the objective "
-        "and attendee count, draft a concise one-day agenda with time blocks "
-        "covering a kickoff, focused working sessions aligned to the "
-        "objective, a team-building activity, meals and a wrap-up. Keep it to "
-        "a tidy bulleted timeline."
-    ),
-)
+agenda_prompt, agenda_model = load_agent("agenda_agent", TEXT_CONFIG)
+agenda_agent = create_agent(model=agenda_model, system_prompt=agenda_prompt)
 
 
 # --- Coordinator tools ------------------------------------------------------
@@ -243,22 +219,12 @@ def update_state(
     )
 
 
+coordinator_prompt, coordinator_model = load_agent("coordinator", PLANNER_CONFIG)
 coordinator = create_agent(
-    model=get_model(PLANNER_CONFIG),
+    model=coordinator_model,
     tools=[update_state, choose_venue, choose_catering, plan_agenda],
     state_schema=OffsiteState,
-    system_prompt=(
-        "You are a corporate offsite planner. First call update_state with the "
-        "destination, attendee_count and objective from the request. Once that "
-        "returns, delegate to your specialists: choose_venue and "
-        "choose_catering (vision scouts) and plan_agenda (agenda writer). "
-        "The scouts return an 'Image links:' legend mapping each option to a "
-        "file:// URL. After collecting their answers, present a final proposal "
-        "that clearly states the recommended venue, meal and agenda as the best "
-        "choice, and lists the runner-up venue and meal as alternatives. For "
-        "every venue and meal you mention, include its file:// image link taken "
-        "from the matching legend so the reader can view the photo."
-    ),
+    system_prompt=coordinator_prompt,
 )
 
 
