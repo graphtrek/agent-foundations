@@ -11,7 +11,7 @@ from langgraph.types import Command
 
 from utils.config import load_config
 
-openrouter_api_key = load_config()
+openrouter_api_key = load_config().openrouter_api_key
 
 
 @dataclass

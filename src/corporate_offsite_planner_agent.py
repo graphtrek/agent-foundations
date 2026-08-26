@@ -24,31 +24,49 @@ from langchain.messages import HumanMessage, ToolMessage
 from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 
-from utils.config import load_config
+from utils.config import ModelConfig, load_config
 from utils.file_util import encode_file_to_base64
 from utils.offsite_images import generate_images
 
 SEPARATOR = "-" * 80
 
-openrouter_api_key = load_config()
+config = load_config()
+openrouter_api_key = config.openrouter_api_key
 
-# Model ids reused from simple_agent.py and advanced_agent.py.
-PLANNER_MODEL = "openai/gpt-oss-120b"  # coordinator / planner
-VISION_MODEL = "google/gemma-4-26b-a4b-it"  # gemma - venue & catering (images)
-TEXT_MODEL = "poolside/laguna-s-2.1"  # laguna - agenda (text)
+# Model configs loaded from the environment (see .env.example).
+PLANNER_CONFIG = config.planner
+VISION_CONFIG = config.vision
+TEXT_CONFIG = config.text
 
 # Example images the vision model chooses from (good- and bad-looking options).
 IMAGE_PATHS = generate_images()
 
 
-def get_model(name: str, **kwargs: Any) -> BaseChatModel:
-    """Create an OpenRouter chat model with the shared configuration."""
-    return init_chat_model(
-        model=name,
-        model_provider="openrouter",
-        api_key=openrouter_api_key,
-        **kwargs,
-    )
+def get_model(config: ModelConfig) -> BaseChatModel:
+    """Create an OpenRouter chat model from a ModelConfig."""
+    params: dict[str, Any] = {
+        "model": config.name,
+        "model_provider": "openrouter",
+        "api_key": openrouter_api_key,
+        # Sampling temperature: higher = more creative, lower = more deterministic.
+        "temperature": config.temperature,
+        # Upper bound on generated tokens for the reply.
+        "max_tokens": config.max_tokens,
+    }
+    # Only send tuning params that are set so provider defaults apply otherwise.
+    if config.top_p is not None:
+        # Nucleus sampling: sample from the top tokens summing to this probability.
+        params["top_p"] = config.top_p
+    if config.frequency_penalty is not None:
+        # Discourage repeating tokens in proportion to how often they appeared.
+        params["frequency_penalty"] = config.frequency_penalty
+    if config.presence_penalty is not None:
+        # Discourage reusing any already-seen token, nudging toward new topics.
+        params["presence_penalty"] = config.presence_penalty
+    if config.seed is not None:
+        # Fix the RNG seed for reproducible outputs on identical inputs.
+        params["seed"] = config.seed
+    return init_chat_model(**params)
 
 
 def _image_block(name: str) -> dict[str, str]:
@@ -76,8 +94,8 @@ class OffsiteState(AgentState):
 
 # --- Specialist subagents ---------------------------------------------------
 
-vision_model = get_model(VISION_MODEL, temperature=0.3, max_tokens=500)
-text_model = get_model(TEXT_MODEL, temperature=0.7, max_tokens=500)
+vision_model = get_model(VISION_CONFIG)
+text_model = get_model(TEXT_CONFIG)
 
 venue_agent = create_agent(
     model=vision_model,
@@ -226,7 +244,7 @@ def update_state(
 
 
 coordinator = create_agent(
-    model=get_model(PLANNER_MODEL, temperature=0.7, max_tokens=900),
+    model=get_model(PLANNER_CONFIG),
     tools=[update_state, choose_venue, choose_catering, plan_agenda],
     state_schema=OffsiteState,
     system_prompt=(
