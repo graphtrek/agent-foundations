@@ -1,76 +1,14 @@
-from dataclasses import dataclass
 from pprint import pprint
 
-from langchain.agents import AgentState, create_agent
+from langchain.agents import create_agent
 from langchain.chat_models import BaseChatModel, init_chat_model
-from langchain.messages import ToolMessage
-from langchain.tools import ToolRuntime, tool
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import Command
 
 from utils.config import load_config
+from utils.tools import CustomerState, SupportContext, create_customer_support_tools
 
 openrouter_api_key = load_config().openrouter_api_key
-
-
-@dataclass
-class SupportContext:
-    user_id: str
-    locale: str = "en"
-    customer_tier: str = "standard"
-    refund_limit: float = 50.0
-
-
-class CustomerState(AgentState):
-    ticket_id: str | None
-    issue_category: str | None
-    status: str | None
-
-
-@tool
-def get_support_policy(runtime: ToolRuntime[SupportContext]) -> str:
-    """Return the support policy for the current user and runtime context."""
-    return (
-        f"User {runtime.context.user_id} is a {runtime.context.customer_tier} customer. "
-        f"The maximum self-service refund is {runtime.context.refund_limit:.2f}."
-    )
-
-
-@tool
-def update_ticket(
-    ticket_id: str,
-    issue_category: str,
-    status: str,
-    runtime: ToolRuntime[SupportContext, "CustomerState"],
-) -> Command:
-    """Store ticket details in conversation state."""
-    return Command(
-        update={
-            "ticket_id": ticket_id,
-            "issue_category": issue_category,
-            "status": status,
-            "messages": [
-                ToolMessage(
-                    content=f"Ticket {ticket_id} updated to {status}.",
-                    tool_call_id=runtime.tool_call_id,
-                )
-            ],
-        }
-    )
-
-
-@tool
-def read_ticket(runtime: ToolRuntime[SupportContext, "CustomerState"]) -> str:
-    """Read the ticket details accumulated in conversation state."""
-    ticket_id = runtime.state.get("ticket_id")
-    if not ticket_id:
-        return "No ticket has been created yet."
-
-    return (
-        f"Ticket {ticket_id}: {runtime.state.get('issue_category', 'unknown issue')}, "
-        f"status {runtime.state.get('status', 'unknown')}."
-    )
 
 
 def get_chat_model(name: str) -> BaseChatModel:
@@ -83,9 +21,10 @@ def get_chat_model(name: str) -> BaseChatModel:
 
 
 def run_customer_support_demo(model: BaseChatModel) -> None:
+    support_tools = create_customer_support_tools()
     agent = create_agent(
         model=model,
-        tools=[get_support_policy, update_ticket, read_ticket],
+        tools=support_tools,
         system_prompt=(
             "You are a customer support agent. Use get_support_policy for customer "
             "permissions. When a customer reports an issue, use update_ticket to save "

@@ -16,20 +16,27 @@ downloaded from Wikimedia Commons and cached locally by
 ``utils.offsite_images``.
 """
 
-from dataclasses import replace
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 from langchain.agents import AgentState, create_agent
-from langchain.chat_models import BaseChatModel, init_chat_model
-from langchain.messages import HumanMessage, ToolMessage
-from langchain.tools import ToolRuntime, tool
-from langgraph.types import Command
+from langchain.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
 
-from utils.config import ModelConfig, load_config
-from utils.file_util import encode_file_to_base64, load_prompt_template
+from utils.config import load_config
+from utils.conversation_util import (
+    message_text,
+    message_was_truncated,
+    save_conversation,
+)
+from utils.model_util import load_configured_model
 from utils.offsite_images import generate_images
+from utils.tools import create_offsite_tools
 
 SEPARATOR = "-" * 80
+CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent / "conversations"
+REQUIRED_TOOL_NAMES = {"update_state", "choose_venue", "choose_catering", "plan_agenda"}
+MAX_COORDINATOR_ATTEMPTS = 3
 
 config = load_config()
 openrouter_api_key = config.openrouter_api_key
@@ -43,56 +50,6 @@ TEXT_CONFIG = config.text
 IMAGE_PATHS = generate_images()
 
 
-def get_model(config: ModelConfig) -> BaseChatModel:
-    """Create an OpenRouter chat model from a ModelConfig."""
-    params: dict[str, Any] = {
-        "model": config.name,
-        "model_provider": "openrouter",
-        "api_key": openrouter_api_key,
-        # Sampling temperature: higher = more creative, lower = more deterministic.
-        "temperature": config.temperature,
-        # Upper bound on generated tokens for the reply.
-        "max_tokens": config.max_tokens,
-    }
-    # Only send tuning params that are set so provider defaults apply otherwise.
-    if config.top_p is not None:
-        # Nucleus sampling: sample from the top tokens summing to this probability.
-        params["top_p"] = config.top_p
-    if config.frequency_penalty is not None:
-        # Discourage repeating tokens in proportion to how often they appeared.
-        params["frequency_penalty"] = config.frequency_penalty
-    if config.presence_penalty is not None:
-        # Discourage reusing any already-seen token, nudging toward new topics.
-        params["presence_penalty"] = config.presence_penalty
-    if config.seed is not None:
-        # Fix the RNG seed for reproducible outputs on identical inputs.
-        params["seed"] = config.seed
-    return init_chat_model(**params)
-
-
-def load_agent(name: str, base_config: ModelConfig) -> tuple[str, BaseChatModel]:
-    """Load a prompt template and build its model, applying any frontmatter overrides."""
-    system_prompt, overrides = load_prompt_template(name)
-    return system_prompt, get_model(replace(base_config, **overrides))
-
-
-def _image_block(name: str) -> dict[str, str]:
-    """Build an image content block for the given generated example image."""
-    return {
-        "type": "image",
-        "base64": encode_file_to_base64(str(IMAGE_PATHS[name])),
-        "mime_type": "image/jpeg",
-    }
-
-
-def _image_legend(options: dict[str, str]) -> str:
-    """Render an 'Option -> file:// link' legend so the planner can cite images."""
-    lines = [
-        f"{label}: {IMAGE_PATHS[name].as_uri()}" for label, name in options.items()
-    ]
-    return "Image links:\n" + "\n".join(lines)
-
-
 class OffsiteState(AgentState):
     destination: str
     attendee_count: str
@@ -101,164 +58,122 @@ class OffsiteState(AgentState):
 
 # --- Specialist subagents ---------------------------------------------------
 
-venue_prompt, venue_model = load_agent("venue_agent", VISION_CONFIG)
+venue_prompt, venue_model = load_configured_model(
+    "venue_agent", VISION_CONFIG, openrouter_api_key
+)
 venue_agent = create_agent(model=venue_model, system_prompt=venue_prompt)
 
-catering_prompt, catering_model = load_agent("catering_agent", VISION_CONFIG)
+catering_prompt, catering_model = load_configured_model(
+    "catering_agent", VISION_CONFIG, openrouter_api_key
+)
 catering_agent = create_agent(model=catering_model, system_prompt=catering_prompt)
 
-agenda_prompt, agenda_model = load_agent("agenda_agent", TEXT_CONFIG)
+agenda_prompt, agenda_model = load_configured_model(
+    "agenda_agent", TEXT_CONFIG, openrouter_api_key
+)
 agenda_agent = create_agent(model=agenda_model, system_prompt=agenda_prompt)
 
 
-# --- Coordinator tools ------------------------------------------------------
-
-
-@tool
-def choose_venue(runtime: ToolRuntime) -> str:
-    """Vision scout reviews candidate venue photos and recommends the best plus an alternative."""
-    destination = runtime.state.get("destination", "the destination")
-    content: list[Any] = [
-        {
-            "type": "text",
-            "text": (
-                f"Review these candidate offsite venues in {destination} and "
-                "recommend the best-looking one and an alternative."
-            ),
-        },
-        {"type": "text", "text": "Option A:"},
-        _image_block("venue_good_1.jpg"),
-        {"type": "text", "text": "Option B:"},
-        _image_block("venue_good_2.jpg"),
-        {"type": "text", "text": "Option C:"},
-        _image_block("venue_bad_1.jpg"),
-        {"type": "text", "text": "Option D:"},
-        _image_block("venue_bad_2.jpg"),
-    ]
-    response = venue_agent.invoke({"messages": [HumanMessage(content=content)]})
-    legend = _image_legend(
-        {
-            "Option A": "venue_good_1.jpg",
-            "Option B": "venue_good_2.jpg",
-            "Option C": "venue_bad_1.jpg",
-            "Option D": "venue_bad_2.jpg",
-        }
-    )
-    return f"{response['messages'][-1].content}\n\n{legend}"
-
-
-@tool
-def choose_catering(runtime: ToolRuntime) -> str:
-    """Vision scout reviews candidate meal photos and recommends the best plus an alternative."""
-    content: list[Any] = [
-        {
-            "type": "text",
-            "text": (
-                "Review these candidate catering meals and recommend the "
-                "best-looking one and an alternative."
-            ),
-        },
-        {"type": "text", "text": "Option A:"},
-        _image_block("meal_good_1.jpg"),
-        {"type": "text", "text": "Option B:"},
-        _image_block("meal_good_2.jpg"),
-        {"type": "text", "text": "Option C:"},
-        _image_block("meal_bad_1.jpg"),
-        {"type": "text", "text": "Option D:"},
-        _image_block("meal_bad_2.jpg"),
-    ]
-    response = catering_agent.invoke({"messages": [HumanMessage(content=content)]})
-    legend = _image_legend(
-        {
-            "Option A": "meal_good_1.jpg",
-            "Option B": "meal_good_2.jpg",
-            "Option C": "meal_bad_1.jpg",
-            "Option D": "meal_bad_2.jpg",
-        }
-    )
-    return f"{response['messages'][-1].content}\n\n{legend}"
-
-
-@tool
-def plan_agenda(runtime: ToolRuntime) -> str:
-    """Agenda writer drafts the offsite agenda for the objective and attendee count."""
-    objective = runtime.state.get("objective", "team alignment")
-    attendee_count = runtime.state.get("attendee_count", "the team")
-    query = (
-        f"Draft a one-day offsite agenda for {attendee_count} attendees with "
-        f"the objective: {objective}."
-    )
-    response = agenda_agent.invoke({"messages": [HumanMessage(content=query)]})
-    return response["messages"][-1].content
-
-
-@tool
-def update_state(
-    destination: str,
-    attendee_count: str,
-    objective: str,
-    runtime: ToolRuntime,
-) -> Command:
-    """Record the offsite details once destination, attendee_count and objective are known.
-
-    Call this alone, before delegating to the specialists, so the details are
-    available to the other tools.
-    """
-    return Command(
-        update={
-            "destination": destination,
-            "attendee_count": attendee_count,
-            "objective": objective,
-            "messages": [
-                ToolMessage(
-                    content="Successfully recorded offsite details.",
-                    tool_call_id=runtime.tool_call_id,
-                )
-            ],
-        }
-    )
-
-
-coordinator_prompt, coordinator_model = load_agent("coordinator", PLANNER_CONFIG)
+coordinator_prompt, coordinator_model = load_configured_model(
+    "coordinator", PLANNER_CONFIG, openrouter_api_key
+)
+offsite_tools = create_offsite_tools(
+    venue_agent, catering_agent, agenda_agent, IMAGE_PATHS
+)
 coordinator = create_agent(
     model=coordinator_model,
-    tools=[update_state, choose_venue, choose_catering, plan_agenda],
+    tools=offsite_tools,
     state_schema=OffsiteState,
     system_prompt=coordinator_prompt,
 )
 
 
+def _conversation_status(messages: list[Any]) -> tuple[set[str], bool]:
+    """Return missing required tools and whether a final answer follows them."""
+    completed_tools = {
+        message.name
+        for message in messages
+        if getattr(message, "type", None) == "tool" and message.name
+    }
+    missing_tools = REQUIRED_TOOL_NAMES - completed_tools
+    if missing_tools:
+        return missing_tools, False
+
+    last_tool_index = max(
+        index
+        for index, message in enumerate(messages)
+        if getattr(message, "type", None) == "tool"
+        and message.name in REQUIRED_TOOL_NAMES
+    )
+    has_final_answer = any(
+        getattr(message, "type", None) == "ai"
+        and message_text(message.content)
+        and not message_was_truncated(message)
+        for message in messages[last_tool_index + 1 :]
+    )
+    return set(), has_final_answer
+
+
+def _run_coordinator_to_completion(user_prompt: str) -> dict[str, Any]:
+    """Run the coordinator, resuming boundedly if it ends before completion."""
+    state: dict[str, Any] = {"messages": [HumanMessage(content=user_prompt)]}
+    config: RunnableConfig = {"tags": ["OFFSITE"], "recursion_limit": 40}
+
+    for attempt in range(1, MAX_COORDINATOR_ATTEMPTS + 1):
+        response = cast(
+            dict[str, Any], coordinator.invoke(cast(Any, state), config=config)
+        )
+        missing_tools, has_final_answer = _conversation_status(response["messages"])
+        if not missing_tools and has_final_answer:
+            return response
+        if attempt == MAX_COORDINATOR_ATTEMPTS:
+            missing = ", ".join(sorted(missing_tools)) or "final proposal"
+            raise RuntimeError(
+                f"Coordinator did not complete after {attempt} attempts; missing: {missing}."
+            )
+
+        remaining_work = (
+            f"Call these missing tools: {', '.join(sorted(missing_tools))}. "
+            if missing_tools
+            else (
+                "All specialist results are available. The previous answer was "
+                "missing or truncated, so write a concise, complete replacement. "
+            )
+        )
+        recovery_message = HumanMessage(
+            content=(
+                "Continue and complete the offsite plan. "
+                f"{remaining_work}Then provide the final proposal."
+            ),
+            additional_kwargs={"internal_recovery": True},
+        )
+        state = {**response, "messages": [*response["messages"], recovery_message]}
+
+    raise RuntimeError("Coordinator completion loop exited unexpectedly.")
+
+
 def run_offsite_demo() -> None:
-    response = coordinator.invoke(
-        {
-            "messages": [
-                HumanMessage(
-                    content=(
-                        "Plan a corporate offsite in Lisbon for 40 people. The "
-                        "objective is to align the product team on next year's "
-                        "roadmap."
-                    )
-                )
-            ]
-        },
-        config={"tags": ["OFFSITE"], "recursion_limit": 40},
+    user_prompt = (
+        "Plan a corporate offsite in Lisbon for 40 people. The objective is "
+        "to align the product team on next year's roadmap."
+    )
+    response = _run_coordinator_to_completion(user_prompt)
+    conversation_path = save_conversation(
+        user_prompt, response["messages"], CONVERSATIONS_DIR, IMAGE_PATHS
     )
     print(SEPARATOR)
     print("\nConversation:\n")
     for message in response["messages"]:
         role = getattr(message, "type", message.__class__.__name__)
-        content = message.content
-        if isinstance(content, list):
-            content = " ".join(
-                part.get("text", "") for part in content if isinstance(part, dict)
-            )
-        if str(content).strip():
+        content = message_text(message.content)
+        if content:
             print(f"[{role}] {content}\n")
 
     print(SEPARATOR)
     print("\nFinal proposal:\n")
     print(response["messages"][-1].content)
     print(SEPARATOR)
+    print(f"Conversation saved to: {conversation_path}")
 
 
 if __name__ == "__main__":

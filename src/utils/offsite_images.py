@@ -9,6 +9,7 @@ Each entry lists fallback search queries; the first query that yields a usable
 bitmap wins. Downloaded images are normalised to a ~640px-wide RGB JPEG.
 """
 
+import base64
 import json
 import time
 import urllib.error
@@ -61,6 +62,20 @@ QUERIES: dict[str, list[str]] = {
         "rotten spoiled food",
     ],
 }
+
+
+def image_content_block(image_path: Path) -> dict[str, str]:
+    """Build a base64 image content block for a generated offsite image."""
+    encoded_image = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+    return {"type": "image", "base64": encoded_image, "mime_type": "image/jpeg"}
+
+
+def image_legend(options: dict[str, str], image_paths: dict[str, Path]) -> str:
+    """Render an option-to-local-image legend for the coordinator."""
+    lines = [
+        f"{label}: {image_paths[name].as_uri()}" for label, name in options.items()
+    ]
+    return "Image links:\n" + "\n".join(lines)
 
 
 def _search_thumb_urls(query: str, limit: int = 6) -> list[str]:
@@ -118,7 +133,7 @@ def _download_jpeg(thumb_url: str, dest: Path) -> bool:
             return True
         except urllib.error.HTTPError as error:
             if error.code == 429 and attempt < 3:  # rate limited -> back off
-                time.sleep(2 ** attempt * 2)
+                time.sleep(2**attempt * 2)
                 continue
             print(f"  skip {thumb_url[:70]}...: {error}")
             return False

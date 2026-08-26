@@ -2,7 +2,7 @@
 ```yaml
 name: openai/gpt-oss-120b        # OpenRouter model identifier
 temperature: 0.7                # Randomness of sampling: higher = more creative, lower = more deterministic
-max_tokens: 900                 # Hard cap on the number of tokens generated in the response
+max_tokens: 1800                # Allows a complete proposal after specialist results are collected
 top_p: 0.9                      # Nucleus sampling: keep only the smallest set of tokens whose probs sum to top_p
 # frequency_penalty: 0.0        # Penalize tokens by how often they already appeared (reduces verbatim repetition)
 presence_penalty: 0.3            # Penalize tokens that appeared at all (pushes the model toward new topics)

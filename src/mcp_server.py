@@ -1,16 +1,11 @@
 import requests
-from langchain_community.tools import DuckDuckGoSearchResults
 from mcp.server.fastmcp import FastMCP
+
+from utils.tools import search_web
 
 mcp = FastMCP(name="LangChain Agent Server", host="0.0.0.0", port=8000)
 
-duckduckgo_client = DuckDuckGoSearchResults(output_format="string")
-
-
-@mcp.tool()
-def search_web(query: str) -> str:
-    """Search the web for information."""
-    return duckduckgo_client.run(query)
+mcp.tool()(search_web)
 
 
 @mcp.prompt()
