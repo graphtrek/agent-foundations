@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      How an Agent Works | simple_agent.py + corporate_offsite_planner_agent.py
+    </title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+      :root {
+        --ink: #17212b;
+        --muted: #64717b;
+        --paper: #f5f2ea;
+        --white: #fffdf8;
+        --lime: #c8e85b;
+        --coral: #ff765c;
+        --blue: #7bb9d8;
+        --line: #d9d6cc;
+        --shadow: 0 18px 50px rgba(23, 33, 43, 0.13);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Manrope, sans-serif;
+        overflow: hidden;
+      }
+
+      .deck {
+        min-height: 100vh;
+        position: relative;
+      }
+      .deck::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.35;
+        background-image:
+          linear-gradient(rgba(23, 33, 43, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(23, 33, 43, 0.04) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(to bottom, black, transparent 80%);
+      }
+
+      .slide {
+        display: none;
+        min-height: 100vh;
+        padding: clamp(32px, 7vw, 88px) clamp(24px, 9vw, 140px) 90px;
+        position: relative;
+        isolation: isolate;
+      }
+      .slide.active {
+        display: flex;
+        animation: enter 0.45s ease both;
+      }
+      .content {
+        width: min(1120px, 100%);
+        margin: auto;
+      }
+      .eyebrow,
+      .label,
+      code,
+      pre,
+      .counter {
+        font-family: 'DM Mono', monospace;
+      }
+      .eyebrow {
+        color: var(--coral);
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+      }
+      h1,
+      h2 {
+        font-weight: 800;
+        letter-spacing: -2px;
+        line-height: 0.98;
+        margin: 0;
+        max-width: 850px;
+      }
+      h1 {
+        font-size: clamp(50px, 9vw, 120px);
+      }
+      h2 {
+        font-size: clamp(38px, 6vw, 78px);
+      }
+      h3 {
+        font-size: 20px;
+        margin: 0 0 8px;
+      }
+      p {
+        color: var(--muted);
+        font-size: clamp(16px, 2vw, 21px);
+        line-height: 1.55;
+        max-width: 680px;
+      }
+      .lede {
+        margin-top: 28px;
+      }
+      .accent {
+        color: var(--coral);
+      }
+      .marker {
+        background: var(--lime);
+        padding: 0 0.12em;
+      }
+
+      .hero-stamp {
+        display: inline-block;
+        background: var(--ink);
+        color: var(--lime);
+        padding: 10px 14px;
+        border-radius: 3px;
+        transform: rotate(-2deg);
+        margin-top: 38px;
+        font:
+          500 13px 'DM Mono',
+          monospace;
+      }
+      .step {
+        position: absolute;
+        top: 34px;
+        right: clamp(24px, 9vw, 140px);
+        color: var(--muted);
+        font:
+          13px 'DM Mono',
+          monospace;
+      }
+      .step strong {
+        color: var(--ink);
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 44px;
+      }
+      .flow-item,
+      .panel {
+        background: var(--white);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        border-radius: 4px;
+      }
+      .flow-item {
+        padding: 21px;
+        min-height: 142px;
+        position: relative;
+      }
+      .flow-item:not(:last-child)::after {
+        content: '>';
+        position: absolute;
+        right: -12px;
+        top: 53px;
+        color: var(--coral);
+        font-weight: 800;
+        z-index: 2;
+      }
+      .number {
+        color: var(--coral);
+        font:
+          500 13px 'DM Mono',
+          monospace;
+      }
+      .flow-item h3 {
+        margin-top: 20px;
+      }
+      .flow-item p {
+        font-size: 14px;
+        line-height: 1.4;
+        margin: 0;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1.05fr;
+        gap: clamp(28px, 6vw, 82px);
+        align-items: center;
+      }
+      pre {
+        background: var(--ink);
+        color: #ecf2e4;
+        border-radius: 4px;
+        padding: 25px;
+        overflow: auto;
+        font-size: clamp(12px, 1.4vw, 16px);
+        line-height: 1.65;
+        box-shadow: var(--shadow);
+      }
+      .kw {
+        color: var(--lime);
+      }
+      .str {
+        color: #ffaf88;
+      }
+      .fn {
+        color: var(--blue);
+      }
+      .cm {
+        color: #82909a;
+      }
+      .callout {
+        border-left: 4px solid var(--coral);
+        padding: 8px 0 8px 18px;
+        margin-top: 26px;
+      }
+      .callout p {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .loop {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-top: 42px;
+      }
+      .loop .panel {
+        padding: 28px;
+        min-height: 190px;
+      }
+      .panel p {
+        font-size: 15px;
+        margin-bottom: 0;
+      }
+      .tag {
+        display: inline-block;
+        background: var(--lime);
+        padding: 5px 8px;
+        font:
+          500 12px 'DM Mono',
+          monospace;
+        margin-bottom: 20px;
+      }
+
+      .memory-demo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 40px;
+      }
+      .memory-demo .panel {
+        padding: 24px;
+      }
+      .bubble {
+        padding: 14px 16px;
+        margin-top: 12px;
+        border-radius: 3px;
+        font-size: 15px;
+        line-height: 1.4;
+      }
+      .bubble.you {
+        background: #e5eef2;
+      }
+      .bubble.agent {
+        background: var(--lime);
+      }
+      .thread {
+        margin-top: 18px;
+        font:
+          12px 'DM Mono',
+          monospace;
+        color: var(--muted);
+      }
+
+      .takeaways {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin-top: 36px;
+      }
+      .takeaways .panel {
+        padding: 22px;
+      }
+      .takeaways p {
+        margin: 5px 0 0;
+        font-size: 15px;
+      }
+      .architecture {
+        display: grid;
+        grid-template-columns: 1fr 1.25fr 1fr;
+        gap: 18px;
+        align-items: center;
+        margin-top: 42px;
+      }
+      .architecture .panel {
+        padding: 24px;
+      }
+      .architecture .panel p {
+        font-size: 14px;
+      }
+      .hub {
+        background: var(--ink);
+        color: var(--white);
+        padding: 34px 26px;
+        text-align: center;
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .hub h3 {
+        color: var(--lime);
+      }
+      .hub p {
+        color: #d7e0d5;
+        font-size: 14px;
+        margin: 8px auto 0;
+      }
+      .specialists {
+        display: grid;
+        gap: 10px;
+      }
+      .specialist {
+        background: var(--white);
+        border: 1px solid var(--line);
+        padding: 15px 18px;
+        box-shadow: var(--shadow);
+        border-radius: 4px;
+      }
+      .specialist strong {
+        display: block;
+        font-size: 15px;
+      }
+      .specialist span {
+        color: var(--muted);
+        font:
+          12px 'DM Mono',
+          monospace;
+      }
+      .sequence {
+        display: grid;
+        gap: 10px;
+        margin-top: 34px;
+      }
+      .sequence-item {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 16px;
+        align-items: center;
+        background: var(--white);
+        border: 1px solid var(--line);
+        padding: 14px 18px;
+        border-radius: 4px;
+      }
+      .sequence-item .number {
+        font-size: 15px;
+      }
+      .sequence-item p {
+        font-size: 15px;
+        margin: 0;
+      }
+      .code-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 34px;
+      }
+      .code-card {
+        min-width: 0;
+      }
+      .code-card .tag {
+        margin-bottom: 10px;
+      }
+      .code-card pre {
+        margin: 0;
+        height: calc(100% - 34px);
+        padding: 20px;
+        font-size: clamp(11px, 1.2vw, 14px);
+      }
+      .mermaid-wrap {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        margin-top: 28px;
+        padding: 20px;
+        overflow: hidden;
+      }
+      .mermaid {
+        width: 100%;
+        text-align: center;
+        background: transparent;
+      }
+      pre.mermaid {
+        background: transparent;
+        color: var(--ink);
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        overflow: visible;
+        font-family: 'Manrope', sans-serif;
+        white-space: pre;
+      }
+      .mermaid svg {
+        display: block;
+        margin: 0 auto;
+        width: 100%;
+        max-width: 100%;
+        max-height: 46vh;
+        height: auto;
+      }
+      .slide.compact {
+        padding-top: clamp(24px, 4vw, 48px);
+      }
+      .slide.compact h2 {
+        font-size: clamp(28px, 4vw, 46px);
+        letter-spacing: -1px;
+      }
+      .slide.compact .mermaid-wrap {
+        margin-top: 18px;
+      }
+      .slide.compact .callout {
+        margin-top: 16px;
+      }
+      .footer-note {
+        position: absolute;
+        bottom: 28px;
+        left: clamp(24px, 9vw, 140px);
+        color: var(--muted);
+        font:
+          12px 'DM Mono',
+          monospace;
+      }
+
+      .controls {
+        position: fixed;
+        z-index: 10;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .controls button {
+        border: 1px solid var(--ink);
+        background: var(--white);
+        color: var(--ink);
+        border-radius: 3px;
+        min-width: 38px;
+        height: 34px;
+        cursor: pointer;
+        font:
+          500 15px 'DM Mono',
+          monospace;
+      }
+      .controls button:hover,
+      .controls button:focus-visible {
+        background: var(--lime);
+        outline: none;
+      }
+      .counter {
+        font-size: 12px;
+        min-width: 48px;
+        text-align: center;
+      }
+      .progress {
+        position: fixed;
+        z-index: 10;
+        top: 0;
+        left: 0;
+        height: 5px;
+        background: var(--coral);
+        transition: width 0.3s ease;
+      }
+
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (max-width: 720px) {
+        body {
+          overflow: auto;
+        }
+        .slide {
+          min-height: 100svh;
+          padding-bottom: 88px;
+        }
+        .flow,
+        .loop,
+        .memory-demo,
+        .takeaways,
+        .split,
+        .architecture,
+        .code-grid {
+          grid-template-columns: 1fr;
+        }
+        .flow-item {
+          min-height: auto;
+        }
+        .flow-item:not(:last-child)::after {
+          content: 'v';
+          right: 50%;
+          top: auto;
+          bottom: -17px;
+        }
+        .flow-item h3 {
+          margin-top: 12px;
+        }
+        pre {
+          font-size: 12px;
+        }
+        .footer-note {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck" aria-label="Presentation: How an agent works">
+      <div class="progress" id="progress"></div>
+
+      <section class="slide active">
+        <div class="content">
+          <div class="eyebrow">A guided reading of two agent examples</div>
+          <h1>How an <span class="accent">agent</span> works.</h1>
+          <p class="lede">
+            A model, a prompt, and a loop that can gain tools, memory, and new
+            senses.
+          </p>
+          <div class="hero-stamp">START HERE / PYTHON + SIMPLE PROMPTS</div>
+        </div>
+        <div class="step"><strong>01</strong> / 09</div>
+        <div class="footer-note">agent-foundations / LangChain + LangGraph</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">The mental model</div>
+          <h2>It is still Python.</h2>
+          <p>
+            “Agent” sounds mysterious. In this file, it is a Python object that
+            receives messages, calls a model, and returns messages.
+          </p>
+          <div class="flow">
+            <div class="flow-item">
+              <div class="number">01 / CONFIG</div>
+              <h3>Load a key</h3>
+              <p><code>load_config()</code> reads your environment.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">02 / MODEL</div>
+              <h3>Choose a model</h3>
+              <p><code>init_chat_model()</code> connects to OpenRouter.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">03 / AGENT</div>
+              <h3>Add behavior</h3>
+              <p><code>create_agent()</code> wraps the model.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">04 / RUN</div>
+              <h3>Send a prompt</h3>
+              <p>Messages go in; an answer comes out.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>02</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Step 1 / setup</div>
+            <h2>Load the configuration.</h2>
+            <p>
+              The API key is not a prompt. It is application configuration,
+              loaded before the agent runs.
+            </p>
+            <div class="callout">
+              <p>
+                Keep secrets in <code>.env</code>. Keep user instructions in
+                messages.
+              </p>
+            </div>
+          </div>
+          <pre><span class="kw">from</span> utils.config <span class="kw">import</span> load_config
+
+openrouter_api_key = <span class="fn">load_config</span>()
+
+<span class="cm"># Later, the model uses this key</span>
+model = <span class="fn">init_chat_model</span>(
+    model=<span class="str">"poolside/laguna-s-2.1"</span>,
+    model_provider=<span class="str">"openrouter"</span>,
+    api_key=openrouter_api_key,
+)</pre>
+        </div>
+        <div class="step"><strong>03</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Step 2 / model</div>
+          <h2>Choose the brain.</h2>
+          <p>
+            <code>get_model()</code> hides provider details and returns a common
+            <code>BaseChatModel</code>. The rest of the script can focus on
+            behavior.
+          </p>
+          <div class="loop">
+            <div class="panel">
+              <span class="tag">model name</span>
+              <h3>Who answers?</h3>
+              <p>
+                <code>poolside/laguna-s-2.1</code> handles the text examples.
+              </p>
+            </div>
+            <div class="panel">
+              <span class="tag">temperature</span>
+              <h3>How varied?</h3>
+              <p><code>0.7</code> allows some variation in generated text.</p>
+            </div>
+            <div class="panel">
+              <span class="tag">max tokens</span>
+              <h3>How long?</h3>
+              <p><code>150</code> places an upper bound on the output.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>04</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Step 3 / first run</div>
+            <h2>Give the agent a job.</h2>
+            <p>
+              Two message layers set the scene: a system prompt describes the
+              role; a human message asks the question.
+            </p>
+          </div>
+          <pre>system_prompt = <span class="str">"You are helpful."</span>
+
+user_prompt = [
+    <span class="fn">HumanMessage</span>(
+        content=<span class="str">"What is your last training
+        data cutoff date?"</span>
+    )
+]
+
+agent = <span class="fn">create_agent</span>(
+    model=model,
+    system_prompt=system_prompt
+)
+
+response = <span class="fn">agent_response</span>(
+    agent, user_prompt
+)</pre>
+        </div>
+        <div class="step"><strong>05</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">What happens inside</div>
+          <h2>A request becomes a message loop.</h2>
+          <p>
+            For a basic question, the loop is short. With capabilities, the
+            agent may take more steps before it answers.
+          </p>
+          <div class="flow">
+            <div class="flow-item">
+              <div class="number">A / INPUT</div>
+              <h3>HumanMessage</h3>
+              <p>Your plain-English request is packaged as structured data.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">B / DECIDE</div>
+              <h3>Model call</h3>
+              <p>The model reads the system instruction and conversation.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">C / ACT</div>
+              <h3>Optional tool</h3>
+              <p>If a tool exists, the model can request it.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">D / OUTPUT</div>
+              <h3>AIMessage</h3>
+              <p>The helper extracts or prints the final response.</p>
+            </div>
+          </div>
+          <div class="callout">
+            <p>
+              <strong>Key idea:</strong> the model generates decisions; Python
+              and tools perform the outside-world work.
+            </p>
+          </div>
+        </div>
+        <div class="step"><strong>06</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Step 4 / streaming</div>
+            <h2>Do not wait for the whole answer.</h2>
+            <p>
+              <code>agent.stream()</code> yields message chunks. The helper
+              prints each non-empty chunk as it arrives.
+            </p>
+            <div class="callout">
+              <p>
+                Same model. Same kind of prompt. Different delivery experience.
+              </p>
+            </div>
+          </div>
+          <pre>agent = <span class="fn">create_agent</span>(
+    model=model,
+    system_prompt=<span class="str">"You are a Python
+    LangChain expert."</span>
+)
+
+<span class="kw">for</span> chunk <span class="kw">in</span> agent.<span class="fn">stream</span>(
+    {<span class="str">"messages"</span>: user_prompt},
+    stream_mode=<span class="str">"messages"</span>
+):
+    <span class="fn">print</span>(chunk, end=<span class="str">""</span>)</pre>
+        </div>
+        <div class="step"><strong>07</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Step 5 / capability</div>
+          <h2>Tools let the agent reach beyond its training.</h2>
+          <p>
+            Register <code>web_search</code>. The model can now choose a tool
+            call, receive the result, and use it to write a response.
+          </p>
+          <div class="flow">
+            <div class="flow-item">
+              <div class="number">01 / ASK</div>
+              <h3>“Latest AI news”</h3>
+              <p>The user asks for information that can change.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">02 / CALL</div>
+              <h3>Search the web</h3>
+              <p>The model requests <code>web_search</code>.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">03 / RETURN</div>
+              <h3>Tool result</h3>
+              <p>DuckDuckGo returns search content to the agent.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">04 / ANSWER</div>
+              <h3>Summarize</h3>
+              <p>The model turns results into a useful reply.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>08</strong> / 09</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Step 6 / state and senses</div>
+          <h2>Memory changes the next turn.</h2>
+          <p>
+            <code>InMemorySaver</code> stores short-term conversation state. The
+            same <code>thread_id</code> connects two prompts during this
+            process.
+          </p>
+          <div class="memory-demo">
+            <div class="panel">
+              <span class="tag">turn 1</span>
+              <div class="bubble you">
+                Remember that my favorite color is blue.
+              </div>
+              <div class="bubble agent">Saved in the conversation state.</div>
+              <div class="thread">thread_id: color_memory_thread</div>
+            </div>
+            <div class="panel">
+              <span class="tag">turn 2</span>
+              <div class="bubble you">What is my favorite color?</div>
+              <div class="bubble agent">Blue.</div>
+              <div class="thread">
+                same thread_id -> prior messages available
+              </div>
+            </div>
+          </div>
+          <div class="callout">
+            <p>
+              Finally, the script swaps in Gemma for
+              <strong>image input</strong>: text plus base64 image data becomes
+              one multimodal message.
+            </p>
+          </div>
+        </div>
+        <div class="step"><strong>09</strong> / 09</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">
+            Second act / corporate_offsite_planner_agent.py
+          </div>
+          <h2>One agent becomes a team.</h2>
+          <p>
+            The offsite planner uses the same basic pattern, then adds a
+            coordinator that delegates focused jobs to specialist agents.
+          </p>
+          <div class="architecture">
+            <div class="panel">
+              <span class="tag">user request</span>
+              <h3>Plan an offsite</h3>
+              <p>Lisbon. 40 people. Align the product roadmap.</p>
+            </div>
+            <div class="hub">
+              <h3>coordinator</h3>
+              <p>
+                <code>openai/gpt-oss-120b</code><br />plans, delegates,
+                assembles
+              </p>
+            </div>
+            <div class="specialists">
+              <div class="specialist">
+                <strong>Venue scout</strong><span>vision model</span>
+              </div>
+              <div class="specialist">
+                <strong>Catering scout</strong><span>vision model</span>
+              </div>
+              <div class="specialist">
+                <strong>Agenda writer</strong><span>text model</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>10</strong> / 14</div>
+      </section>
+
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Step 7 / coordinator state</div>
+            <h2>Record facts before delegating.</h2>
+            <p>
+              <code>update_state</code> writes the destination, attendee count,
+              and objective into <code>OffsiteState</code>. Every specialist can
+              then use the same facts.
+            </p>
+            <div class="callout">
+              <p>The state is shared data. The prompt is the request.</p>
+            </div>
+          </div>
+          <pre><span class="kw">class</span> <span class="fn">OffsiteState</span>(AgentState):
+    destination: str
+    attendee_count: str
+    objective: str
+
+<span class="kw">@tool</span>
+<span class="kw">def</span> <span class="fn">update_state</span>(destination, attendee_count, objective, runtime):
+    <span class="kw">return</span> <span class="fn">Command</span>(update={
+        <span class="str">"destination"</span>: destination,
+        <span class="str">"attendee_count"</span>: attendee_count,
+        <span class="str">"objective"</span>: objective,
+    })</pre>
+        </div>
+        <div class="step"><strong>11</strong> / 14</div>
+      </section>
+
+      <section class="slide compact">
+        <div class="content">
+          <div class="eyebrow">Communication / Mermaid diagram</div>
+          <h2>How the agents talk to each other.</h2>
+          <p>
+            The coordinator is the hub: it first records shared facts, then
+            delegates to the specialists, and finally assembles the proposal.
+          </p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+  U["User"] -->|1. agent message| C["Coordinator agent"]
+  C -->|2. tool call| S["update_state tool"]
+  S -->|3. state write| ST["OffsiteState"]
+  ST -.->|read| C
+  subgraph P["Parallel delegation (steps 4-7)"]
+    direction TB
+    V["choose_venue tool"] -->|5. agent message| VS["Venue scout agent"]
+    M["choose_catering tool"] -->|5. agent message| CS["Catering scout agent"]
+    A["plan_agenda tool"] -->|5. agent message| AW["Agenda writer agent"]
+    VS -->|6. agent reply| V
+    CS -->|6. agent reply| M
+    AW -->|6. agent reply| A
+  end
+  C -->|4. tool call| V
+  C -->|4. tool call| M
+  C -->|4. tool call| A
+  V -->|7. tool message| C
+  M -->|7. tool message| C
+  A -->|7. tool message| C
+  C -->|8. agent message| OUT["Final proposal"]
+  classDef agent fill:#c8e85b,stroke:#17212b,color:#17212b
+  classDef tool fill:#fffdf8,stroke:#ff765c,color:#17212b
+  classDef state fill:#e5eef2,stroke:#7bb9d8,color:#17212b
+  classDef result fill:#17212b,stroke:#c8e85b,color:#fffdf8
+  class C,VS,CS,AW agent
+  class S,V,M,A tool
+  class ST state
+  class U,OUT result</pre
+            >
+          </div>
+          <div class="callout">
+            <p>
+              <strong>Legend:</strong> green = agent, white = tool, blue =
+              state, dark = in/out. Numbers show call order; the boxed area is
+              the three <em>parallel</em> delegations (steps 4-7 run together).
+            </p>
+          </div>
+        </div>
+        <div class="step"><strong>12</strong> / 14</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Step 8 / delegation</div>
+          <h2>Each tool has one clear responsibility.</h2>
+          <p>
+            The coordinator does not do every task itself. It chooses the right
+            specialist, passes a focused request, and collects the result.
+          </p>
+          <div class="sequence">
+            <div class="sequence-item">
+              <div class="number">01</div>
+              <p>
+                <code>choose_venue</code> sends four venue photos to a vision
+                agent.
+              </p>
+            </div>
+            <div class="sequence-item">
+              <div class="number">02</div>
+              <p>
+                <code>choose_catering</code> sends four meal photos to a vision
+                agent.
+              </p>
+            </div>
+            <div class="sequence-item">
+              <div class="number">03</div>
+              <p>
+                <code>plan_agenda</code> sends the objective and headcount to a
+                text agent.
+              </p>
+            </div>
+            <div class="sequence-item">
+              <div class="number">04</div>
+              <p>The coordinator combines the three specialist answers.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>12</strong> / 14</div>
+      </section>
+
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Step 9 / multimodal input</div>
+            <h2>Images are message content too.</h2>
+            <p>
+              <code>_image_block()</code> encodes a local JPEG as base64. The
+              vision agent receives text labels and image blocks in one
+              <code>HumanMessage</code>.
+            </p>
+          </div>
+          <pre>content = [
+    {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"Option A:"</span>},
+    {<span class="str">"type"</span>: <span class="str">"image"</span>,
+     <span class="str">"base64"</span>: <span class="fn">encode_file_to_base64</span>(path),
+     <span class="str">"mime_type"</span>: <span class="str">"image/jpeg"</span>},
+]
+
+response = venue_agent.<span class="fn">invoke</span>(
+    {<span class="str">"messages"</span>: [<span class="fn">HumanMessage</span>(content=content)]}
+)</pre>
+        </div>
+        <div class="step"><strong>13</strong> / 14</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">The complete picture</div>
+          <h2>Prompt in. Coordinated proposal out.</h2>
+          <p>
+            Start with a simple prompt. Add the smallest capability that the
+            task needs: a tool, state, another agent, or a different model.
+          </p>
+          <div class="takeaways">
+            <div class="panel">
+              <h3>Model</h3>
+              <p>Generates language and decides what to do next.</p>
+            </div>
+            <div class="panel">
+              <h3>Agent</h3>
+              <p>Connects the model to messages, tools, and state.</p>
+            </div>
+            <div class="panel">
+              <h3>Tools</h3>
+              <p>Perform work outside the model, such as search.</p>
+            </div>
+            <div class="panel">
+              <h3>Orchestration</h3>
+              <p>Lets a coordinator combine specialized answers.</p>
+            </div>
+          </div>
+          <div class="hero-stamp">NEXT: OPEN advanced_agent.py</div>
+        </div>
+        <div class="step"><strong>14</strong> / 14</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Code lab / specialist agents</div>
+          <h2>Build specialists with a focused prompt.</h2>
+          <p>
+            Each specialist is just another agent. Its system prompt narrows the
+            job and makes the coordinator's request easier to fulfill.
+          </p>
+          <div class="code-grid">
+            <div class="code-card">
+              <span class="tag">vision specialist</span>
+              <pre>venue_agent = <span class="fn">create_agent</span>(
+    model=vision_model,
+    system_prompt=<span class="str">"You are a venue
+    scout. Compare lighting,
+    tidiness and seating."</span>,
+)</pre>
+            </div>
+            <div class="code-card">
+              <span class="tag">text specialist</span>
+              <pre>agenda_agent = <span class="fn">create_agent</span>(
+    model=text_model,
+    system_prompt=<span class="str">"Draft a concise
+    one-day agenda with
+    time blocks."</span>,
+)</pre>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>15</strong> / 17</div>
+      </section>
+
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Code lab / tools</div>
+          <h2>A tool can call another agent.</h2>
+          <p>
+            The coordinator's tool is ordinary Python: read state, build a
+            message, invoke the specialist, and return its final message.
+          </p>
+          <div class="code-grid">
+            <div class="code-card">
+              <span class="tag">delegate</span>
+              <pre><span class="kw">@tool</span>
+<span class="kw">def</span> <span class="fn">plan_agenda</span>(runtime):
+    objective = runtime.state.<span class="fn">get</span>(
+        <span class="str">"objective"</span>, <span class="str">"team alignment"</span>
+    )
+    people = runtime.state.<span class="fn">get</span>(
+        <span class="str">"attendee_count"</span>, <span class="str">"the team"</span>
+    )</pre>
+            </div>
+            <div class="code-card">
+              <span class="tag">specialist call</span>
+              <pre>    query = <span class="str">f"Draft a one-day
+    agenda for {people} with
+    objective: {objective}."</span>
+
+    response = agenda_agent.<span class="fn">invoke</span>(
+        {<span class="str">"messages"</span>: [<span class="fn">HumanMessage</span>(
+            content=query
+        )]}
+    )
+    <span class="kw">return</span> response[<span class="str">"messages"</span>][-1].content</pre>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>16</strong> / 17</div>
+      </section>
+
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Code lab / run the workflow</div>
+            <h2>One prompt starts the whole plan.</h2>
+            <p>
+              The coordinator receives one human message. Its instructions and
+              tools determine the sequence of work, then the final message is
+              printed for the audience.
+            </p>
+            <div class="callout">
+              <p>
+                Simple prompt on the outside. Structured collaboration
+                underneath.
+              </p>
+            </div>
+          </div>
+          <pre>response = coordinator.<span class="fn">invoke</span>(
+    {<span class="str">"messages"</span>: [<span class="fn">HumanMessage</span>(
+        content=<span class="str">"Plan a corporate offsite
+        in Lisbon for 40 people.
+        Align the product roadmap."</span>
+    )]},
+    config={
+        <span class="str">"tags"</span>: [<span class="str">"OFFSITE"</span>],
+        <span class="str">"recursion_limit"</span>: 40,
+    },
+)
+
+<span class="fn">print</span>(response[<span class="str">"messages"</span>][-1].content)</pre>
+        </div>
+        <div class="step"><strong>17</strong> / 17</div>
+      </section>
+    </main>
+
+    <nav class="controls" aria-label="Slide controls">
+      <button id="previous" aria-label="Previous slide">&lt;</button>
+      <span class="counter" id="counter">01 / 09</span>
+      <button id="next" aria-label="Next slide">&gt;</button>
+    </nav>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#fffdf8',
+          primaryTextColor: '#17212b',
+          primaryBorderColor: '#ff765c',
+          lineColor: '#ff765c',
+          secondaryColor: '#c8e85b',
+          tertiaryColor: '#e5eef2',
+          fontFamily: 'Manrope, sans-serif',
+        },
+      });
+
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const counter = document.getElementById('counter');
+      const progress = document.getElementById('progress');
+      let current = 0;
+
+      function renderMermaid(slide) {
+        const nodes = slide.querySelectorAll('.mermaid:not([data-processed])');
+        if (nodes.length) {
+          mermaid.run({ nodes }).catch(() => {});
+        }
+      }
+
+      function showSlide(index) {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, slideIndex) =>
+          slide.classList.toggle('active', slideIndex === current),
+        );
+        renderMermaid(slides[current]);
+        const label = String(current + 1).padStart(2, '0');
+        document.querySelectorAll('.step').forEach((step, slideIndex) => {
+          const stepLabel = String(slideIndex + 1).padStart(2, '0');
+          step.innerHTML =
+            '<strong>' +
+            stepLabel +
+            '</strong> / ' +
+            String(slides.length).padStart(2, '0');
+        });
+        counter.textContent =
+          label + ' / ' + String(slides.length).padStart(2, '0');
+        progress.style.width = ((current + 1) / slides.length) * 100 + '%';
+      }
+
+      document
+        .getElementById('previous')
+        .addEventListener('click', () => showSlide(current - 1));
+      document
+        .getElementById('next')
+        .addEventListener('click', () => showSlide(current + 1));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === ' ')
+          showSlide(current + 1);
+        if (event.key === 'ArrowLeft') showSlide(current - 1);
+        if (event.key === 'Home') showSlide(0);
+        if (event.key === 'End') showSlide(slides.length - 1);
+      });
+      showSlide(0);
+    </script>
+  </body>
+</html>

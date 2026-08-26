@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hogyan működik egy agent? | agent-foundations</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+      :root {
+        --ink: #17212b;
+        --muted: #64717b;
+        --paper: #f5f2ea;
+        --white: #fffdf8;
+        --lime: #c8e85b;
+        --coral: #ff765c;
+        --blue: #7bb9d8;
+        --line: #d9d6cc;
+        --shadow: 0 18px 50px rgba(23, 33, 43, 0.13);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Manrope, sans-serif;
+        overflow: hidden;
+      }
+      .deck {
+        min-height: 100vh;
+        position: relative;
+      }
+      .deck:before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.35;
+        background-image:
+          linear-gradient(rgba(23, 33, 43, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(23, 33, 43, 0.04) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(to bottom, #000, transparent 80%);
+      }
+      .slide {
+        display: none;
+        min-height: 100vh;
+        padding: clamp(32px, 7vw, 88px) clamp(24px, 9vw, 140px) 90px;
+        position: relative;
+        isolation: isolate;
+      }
+      .slide.active {
+        display: flex;
+        animation: enter 0.45s ease both;
+      }
+      .content {
+        width: min(1120px, 100%);
+        margin: auto;
+      }
+      .eyebrow,
+      code,
+      pre,
+      .counter,
+      .step,
+      .tag,
+      .number {
+        font-family: 'DM Mono', monospace;
+      }
+      .eyebrow {
+        color: var(--coral);
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 18px;
+      }
+      h1,
+      h2 {
+        font-weight: 800;
+        letter-spacing: -2px;
+        line-height: 0.98;
+        margin: 0;
+        max-width: 900px;
+      }
+      h1 {
+        font-size: clamp(50px, 9vw, 120px);
+      }
+      h2 {
+        font-size: clamp(38px, 6vw, 78px);
+      }
+      h3 {
+        font-size: 20px;
+        margin: 0 0 8px;
+      }
+      p {
+        color: var(--muted);
+        font-size: clamp(16px, 2vw, 21px);
+        line-height: 1.55;
+        max-width: 720px;
+      }
+      .lede {
+        margin-top: 28px;
+      }
+      .accent {
+        color: var(--coral);
+      }
+      .hero-stamp,
+      .tag {
+        display: inline-block;
+        background: var(--lime);
+        padding: 7px 10px;
+        font:
+          500 12px 'DM Mono',
+          monospace;
+      }
+      .hero-stamp {
+        background: var(--ink);
+        color: var(--lime);
+        padding: 10px 14px;
+        transform: rotate(-2deg);
+        margin-top: 38px;
+      }
+      .step {
+        position: absolute;
+        top: 34px;
+        right: clamp(24px, 9vw, 140px);
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .step strong {
+        color: var(--ink);
+      }
+      .flow,
+      .cards,
+      .code-grid,
+      .memory {
+        display: grid;
+        gap: 14px;
+        margin-top: 40px;
+      }
+      .flow {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .cards,
+      .code-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .memory {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .panel,
+      .flow-item,
+      .code-card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .flow-item,
+      .panel {
+        padding: 22px;
+      }
+      .flow-item {
+        min-height: 145px;
+        position: relative;
+      }
+      .flow-item:not(:last-child):after {
+        content: '>';
+        position: absolute;
+        right: -12px;
+        top: 54px;
+        color: var(--coral);
+        font-weight: 800;
+        z-index: 2;
+      }
+      .number {
+        color: var(--coral);
+        font-size: 13px;
+      }
+      .flow-item h3 {
+        margin-top: 20px;
+      }
+      .flow-item p,
+      .panel p {
+        font-size: 15px;
+        line-height: 1.45;
+        margin-bottom: 0;
+      }
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1.05fr;
+        gap: clamp(28px, 6vw, 82px);
+        align-items: center;
+      }
+      pre {
+        background: var(--ink);
+        color: #ecf2e4;
+        border-radius: 4px;
+        padding: 24px;
+        overflow: auto;
+        font-size: clamp(11px, 1.3vw, 15px);
+        line-height: 1.6;
+        box-shadow: var(--shadow);
+        margin: 0;
+      }
+      .kw {
+        color: var(--lime);
+      }
+      .str {
+        color: #ffaf88;
+      }
+      .fn {
+        color: var(--blue);
+      }
+      .cm {
+        color: #82909a;
+      }
+      .callout {
+        border-left: 4px solid var(--coral);
+        padding: 8px 0 8px 18px;
+        margin-top: 26px;
+      }
+      .callout p {
+        margin: 0;
+        font-size: 16px;
+      }
+      .architecture {
+        display: grid;
+        grid-template-columns: 1fr 1.25fr 1fr;
+        gap: 18px;
+        align-items: center;
+        margin-top: 42px;
+      }
+      .hub {
+        background: var(--ink);
+        color: var(--white);
+        padding: 34px 26px;
+        text-align: center;
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .hub h3 {
+        color: var(--lime);
+      }
+      .hub p {
+        color: #d7e0d5;
+        font-size: 14px;
+        margin: 8px auto 0;
+      }
+      .specialists {
+        display: grid;
+        gap: 10px;
+      }
+      .specialist {
+        background: var(--white);
+        border: 1px solid var(--line);
+        padding: 15px 18px;
+        box-shadow: var(--shadow);
+        border-radius: 4px;
+      }
+      .specialist strong {
+        display: block;
+        font-size: 15px;
+      }
+      .specialist span {
+        color: var(--muted);
+        font:
+          12px 'DM Mono',
+          monospace;
+      }
+      .sequence {
+        display: grid;
+        gap: 10px;
+        margin-top: 34px;
+      }
+      .sequence-item {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 16px;
+        align-items: center;
+        background: var(--white);
+        border: 1px solid var(--line);
+        padding: 14px 18px;
+        border-radius: 4px;
+      }
+      .sequence-item p {
+        font-size: 15px;
+        margin: 0;
+      }
+      .mermaid-wrap {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        margin-top: 28px;
+        padding: 20px;
+        overflow: hidden;
+      }
+      .mermaid {
+        width: 100%;
+        text-align: center;
+        background: transparent;
+      }
+      pre.mermaid {
+        background: transparent;
+        color: var(--ink);
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        overflow: visible;
+        font-family: 'Manrope', sans-serif;
+        white-space: pre;
+      }
+      .mermaid svg {
+        display: block;
+        margin: 0 auto;
+        width: 100%;
+        max-width: 100%;
+        max-height: 46vh;
+        height: auto;
+      }
+      .slide.compact {
+        padding-top: clamp(24px, 4vw, 48px);
+      }
+      .slide.compact h2 {
+        font-size: clamp(28px, 4vw, 46px);
+        letter-spacing: -1px;
+      }
+      .slide.compact .mermaid-wrap {
+        margin-top: 18px;
+      }
+      .slide.compact .callout {
+        margin-top: 16px;
+      }
+      .bubble {
+        padding: 14px 16px;
+        margin-top: 12px;
+        border-radius: 3px;
+        font-size: 15px;
+        line-height: 1.4;
+      }
+      .you {
+        background: #e5eef2;
+      }
+      .agent {
+        background: var(--lime);
+      }
+      .thread {
+        margin-top: 18px;
+        color: var(--muted);
+        font:
+          12px 'DM Mono',
+          monospace;
+      }
+      .controls {
+        position: fixed;
+        z-index: 10;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .controls button {
+        border: 1px solid var(--ink);
+        background: var(--white);
+        color: var(--ink);
+        border-radius: 3px;
+        min-width: 38px;
+        height: 34px;
+        cursor: pointer;
+        font:
+          500 15px 'DM Mono',
+          monospace;
+      }
+      .controls button:hover,
+      .controls button:focus-visible {
+        background: var(--lime);
+        outline: none;
+      }
+      .counter {
+        font-size: 12px;
+        min-width: 48px;
+        text-align: center;
+      }
+      .progress {
+        position: fixed;
+        z-index: 10;
+        top: 0;
+        left: 0;
+        height: 5px;
+        background: var(--coral);
+        transition: width 0.3s ease;
+      }
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (max-width: 720px) {
+        body {
+          overflow: auto;
+        }
+        .slide {
+          min-height: 100svh;
+          padding-bottom: 88px;
+        }
+        .flow,
+        .cards,
+        .code-grid,
+        .memory,
+        .split,
+        .architecture {
+          grid-template-columns: 1fr;
+        }
+        .flow-item {
+          min-height: auto;
+        }
+        .flow-item:not(:last-child):after {
+          content: 'v';
+          right: 50%;
+          top: auto;
+          bottom: -17px;
+        }
+        .flow-item h3 {
+          margin-top: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck" aria-label="Bemutató: Hogyan működik egy agent?">
+      <div class="progress" id="progress"></div>
+      <section class="slide active">
+        <div class="content">
+          <div class="eyebrow">
+            A simple_agent.py és a corporate_offsite_planner_agent.py alapján
+          </div>
+          <h1>Hogyan működik egy <span class="accent">agent</span>?</h1>
+          <p class="lede">
+            Egy modell, egy prompt, és egy folyamat, amely eszközökkel,
+            memóriával és új érzékekkel bővíthető.
+          </p>
+          <div class="hero-stamp">KEZDÉS / PYTHON + EGYSZERŰ PROMPTOK</div>
+        </div>
+        <div class="step"><strong>01</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Az alapmodell</div>
+          <h2>Ez továbbra is Python.</h2>
+          <p>
+            Az „agent” nem varázslat: egy Python-objektum, amely üzeneteket kap,
+            modellt hív, majd üzeneteket ad vissza.
+          </p>
+          <div class="flow">
+            <div class="flow-item">
+              <div class="number">01 / KONFIGURÁCIÓ</div>
+              <h3>Kulcs betöltése</h3>
+              <p>A <code>load_config()</code> beolvassa a környezetet.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">02 / MODELL</div>
+              <h3>Modell választása</h3>
+              <p>
+                Az <code>init_chat_model()</code> csatlakozik az OpenRouterhez.
+              </p>
+            </div>
+            <div class="flow-item">
+              <div class="number">03 / AGENT</div>
+              <h3>Viselkedés hozzáadása</h3>
+              <p>A <code>create_agent()</code> becsomagolja a modellt.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">04 / FUTTATÁS</div>
+              <h3>Prompt küldése</h3>
+              <p>Az üzenet bemegy, a válasz kijön.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>02</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">1. lépés / beállítás</div>
+            <h2>Töltsük be a konfigurációt.</h2>
+            <p>
+              Az API-kulcs nem prompt, hanem alkalmazás-konfiguráció. Az agent
+              futása előtt töltjük be.
+            </p>
+            <div class="callout">
+              <p>
+                A titkok kerüljenek a <code>.env</code> fájlba, a felhasználói
+                utasítások pedig az üzenetekbe.
+              </p>
+            </div>
+          </div>
+          <pre><span class="kw">from</span> utils.config <span class="kw">import</span> load_config
+
+openrouter_api_key = <span class="fn">load_config</span>()
+
+model = <span class="fn">init_chat_model</span>(
+    model=<span class="str">"poolside/laguna-s-2.1"</span>,
+    model_provider=<span class="str">"openrouter"</span>,
+    api_key=openrouter_api_key,
+)</pre>
+        </div>
+        <div class="step"><strong>03</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">2. lépés / modell</div>
+          <h2>Válasszuk ki az „agyat”.</h2>
+          <p>
+            A <code>get_model()</code> elrejti a szolgáltató részleteit, és egy
+            közös <code>BaseChatModel</code> típust ad vissza.
+          </p>
+          <div class="cards">
+            <div class="panel">
+              <span class="tag">modellnév</span>
+              <h3>Ki válaszol?</h3>
+              <p>
+                A <code>poolside/laguna-s-2.1</code> kezeli a szöveges példákat.
+              </p>
+            </div>
+            <div class="panel">
+              <span class="tag">temperature</span>
+              <h3>Mennyire változatos?</h3>
+              <p>A <code>0.7</code> némi változatosságot enged a szövegben.</p>
+            </div>
+            <div class="panel">
+              <span class="tag">max_tokens</span>
+              <h3>Milyen hosszú?</h3>
+              <p>A <code>150</code> felső korlátot ad a kimenetnek.</p>
+            </div>
+            <div class="panel">
+              <span class="tag">BaseChatModel</span>
+              <h3>Miért absztrakció?</h3>
+              <p>A többi kódnak nem kell ismernie a konkrét szolgáltatót.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>04</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">3. lépés / első futás</div>
+            <h2>Adjunk feladatot az agentnek.</h2>
+            <p>
+              A system prompt szerepet ad, a human message pedig tartalmazza a
+              kérdést.
+            </p>
+          </div>
+          <pre>system_prompt = <span class="str">"Segítőkész asszisztens vagy."</span>
+
+user_prompt = [
+    <span class="fn">HumanMessage</span>(
+        content=<span class="str">"Mikor volt az utolsó
+        tanítási adatvágás?"</span>
+    )
+]
+
+agent = <span class="fn">create_agent</span>(
+    model=model,
+    system_prompt=system_prompt
+)
+
+response = <span class="fn">agent_response</span>(
+    agent, user_prompt
+)</pre>
+        </div>
+        <div class="step"><strong>05</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Mi történik belül?</div>
+          <h2>A kérés üzenetfolyammá válik.</h2>
+          <p>
+            Egy egyszerű kérdésnél rövid a folyamat. Eszközök esetén az agent
+            további lépéseket is tehet a válasz előtt.
+          </p>
+          <div class="flow">
+            <div class="flow-item">
+              <div class="number">A / BEMENET</div>
+              <h3>HumanMessage</h3>
+              <p>A természetes nyelvű kérés strukturált adattá válik.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">B / DÖNTÉS</div>
+              <h3>Modellhívás</h3>
+              <p>A modell elolvassa az utasítást és a beszélgetést.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">C / MŰVELET</div>
+              <h3>Opcionális eszköz</h3>
+              <p>Ha van eszköz, a modell kérheti annak futtatását.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">D / KIMENET</div>
+              <h3>AIMessage</h3>
+              <p>A segédfüggvény kiveszi vagy kiírja a választ.</p>
+            </div>
+          </div>
+          <div class="callout">
+            <p>
+              <strong>Lényeg:</strong> a modell döntést és szöveget generál, a
+              Python és az eszközök végzik a külső munkát.
+            </p>
+          </div>
+        </div>
+        <div class="step"><strong>06</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">4. lépés / streaming</div>
+            <h2>Ne várjuk meg az egész választ.</h2>
+            <p>
+              Az <code>agent.stream()</code> üzenetrészleteket ad vissza. A
+              segédfüggvény azonnal kiírja a nem üres darabokat.
+            </p>
+            <div class="callout">
+              <p>
+                Ugyanaz a modell és ugyanaz a prompttípus, csak gyorsabbnak
+                érződik a válasz.
+              </p>
+            </div>
+          </div>
+          <pre><span class="kw">for</span> token, metadata <span class="kw">in</span> agent.<span class="fn">stream</span>(
+    {<span class="str">"messages"</span>: user_prompt},
+    stream_mode=<span class="str">"messages"</span>
+):
+    <span class="kw">if</span> token.content:
+        <span class="fn">print</span>(token.content,
+              end=<span class="str">""</span>, flush=<span class="kw">True</span>)</pre>
+        </div>
+        <div class="step"><strong>07</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">5. lépés / képesség</div>
+          <h2>
+            Az eszközökön keresztül az agent túlléphet a tanítási adatokon.
+          </h2>
+          <p>
+            A <code>web_search</code> regisztrálása után a modell kérhet
+            keresést, megkaphatja az eredményt, és összefoglalhatja.
+          </p>
+          <div class="flow">
+            <div class="flow-item">
+              <div class="number">01 / KÉRÉS</div>
+              <h3>„Legfrissebb AI-hírek”</h3>
+              <p>A felhasználó változó információt kér.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">02 / HÍVÁS</div>
+              <h3>Keresés a weben</h3>
+              <p>A modell kéri a <code>web_search</code> eszközt.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">03 / EREDMÉNY</div>
+              <h3>ToolMessage</h3>
+              <p>A DuckDuckGo tartalmat ad vissza az agentnek.</p>
+            </div>
+            <div class="flow-item">
+              <div class="number">04 / VÁLASZ</div>
+              <h3>Összefoglalás</h3>
+              <p>A modell hasznos választ készít.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>08</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">6. lépés / állapot és érzékek</div>
+          <h2>A memória megváltoztatja a következő kört.</h2>
+          <p>
+            Az <code>InMemorySaver</code> rövid távú beszélgetési állapotot
+            tárol. Ugyanaz a <code>thread_id</code> köti össze a két promptot.
+          </p>
+          <div class="memory">
+            <div class="panel">
+              <span class="tag">1. kör</span>
+              <div class="bubble you">
+                Jegyezd meg, hogy a kedvenc színem a kék.
+              </div>
+              <div class="bubble agent">Elmentve a beszélgetés állapotába.</div>
+              <div class="thread">thread_id: color_memory_thread</div>
+            </div>
+            <div class="panel">
+              <span class="tag">2. kör</span>
+              <div class="bubble you">Mi a kedvenc színem?</div>
+              <div class="bubble agent">Kék.</div>
+              <div class="thread">
+                ugyanaz a thread_id -> előző üzenetek elérhetők
+              </div>
+            </div>
+          </div>
+          <div class="callout">
+            <p>
+              A script végül Gemmára vált a <strong>képbemenethez</strong>: a
+              szöveg és a base64 kép egy multimodális üzenetben érkezik.
+            </p>
+          </div>
+        </div>
+        <div class="step"><strong>09</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">
+            Második felvonás / corporate_offsite_planner_agent.py
+          </div>
+          <h2>Egy agentből csapat lesz.</h2>
+          <p>
+            Az offsite-tervező ugyanazt az alapmintát használja, majd egy
+            koordinátor több célzott feladatra specialista agenteket bíz meg.
+          </p>
+          <div class="architecture">
+            <div class="panel">
+              <span class="tag">felhasználói kérés</span>
+              <h3>Tervezd meg az offsite-ot</h3>
+              <p>Lisszabon. 40 fő. A termék-roadmap összehangolása.</p>
+            </div>
+            <div class="hub">
+              <h3>koordinátor</h3>
+              <p>
+                <code>openai/gpt-oss-120b</code><br />tervez, delegál,
+                összeállít
+              </p>
+            </div>
+            <div class="specialists">
+              <div class="specialist">
+                <strong>Helyszínkutató</strong><span>vision modell</span>
+              </div>
+              <div class="specialist">
+                <strong>Catering-kutató</strong><span>vision modell</span>
+              </div>
+              <div class="specialist">
+                <strong>Napirendíró</strong><span>szöveges modell</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>10</strong> / 17</div>
+      </section>
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">7. lépés / koordinátor-állapot</div>
+            <h2>Rögzítsük a tényeket delegálás előtt.</h2>
+            <p>
+              Az <code>update_state</code> a helyszínt, a létszámot és a célt az
+              <code>OffsiteState</code>-be írja. Így minden specialista
+              ugyanazokat a tényeket használhatja.
+            </p>
+            <div class="callout">
+              <p>Az állapot megosztott adat. A prompt maga a kérés.</p>
+            </div>
+          </div>
+          <pre><span class="kw">class</span> <span class="fn">OffsiteState</span>(AgentState):
+    destination: str
+    attendee_count: str
+    objective: str
+
+<span class="kw">@tool</span>
+<span class="kw">def</span> <span class="fn">update_state</span>(
+    destination, attendee_count,
+    objective, runtime
+):
+    <span class="kw">return</span> <span class="fn">Command</span>(update={
+        <span class="str">"destination"</span>: destination,
+        <span class="str">"attendee_count"</span>: attendee_count,
+        <span class="str">"objective"</span>: objective,
+    })</pre>
+        </div>
+        <div class="step"><strong>11</strong> / 17</div>
+      </section>
+      <section class="slide compact">
+        <div class="content">
+          <div class="eyebrow">Kommunikáció / Mermaid-diagram</div>
+          <h2>Így beszélnek egymással az agentek.</h2>
+          <p>
+            A koordinátor először rögzíti a közös adatokat, meghívja a
+            specialistákat, majd összeállítja a végső javaslatot.
+          </p>
+          <div class="mermaid-wrap">
+            <pre class="mermaid">
+flowchart LR
+  U["Felhasznalo"] -->|1. agent uzenet| C["Koordinator agent"]
+  C -->|2. tool hivas| S["update_state tool"]
+  S -->|3. allapot iras| ST["OffsiteState"]
+  ST -.->|olvasas| C
+  subgraph P["Parhuzamos delegalas (4-7. lepes)"]
+    direction TB
+    V["choose_venue tool"] -->|5. agent uzenet| VS["Helyszinkutato agent"]
+    M["choose_catering tool"] -->|5. agent uzenet| CS["Catering-kutato agent"]
+    A["plan_agenda tool"] -->|5. agent uzenet| AW["Napirendiro agent"]
+    VS -->|6. agent valasz| V
+    CS -->|6. agent valasz| M
+    AW -->|6. agent valasz| A
+  end
+  C -->|4. tool hivas| V
+  C -->|4. tool hivas| M
+  C -->|4. tool hivas| A
+  V -->|7. tool uzenet| C
+  M -->|7. tool uzenet| C
+  A -->|7. tool uzenet| C
+  C -->|8. agent uzenet| OUT["Vegso javaslat"]
+  classDef agent fill:#c8e85b,stroke:#17212b,color:#17212b
+  classDef tool fill:#fffdf8,stroke:#ff765c,color:#17212b
+  classDef state fill:#e5eef2,stroke:#7bb9d8,color:#17212b
+  classDef result fill:#17212b,stroke:#c8e85b,color:#fffdf8
+  class C,VS,CS,AW agent
+  class S,V,M,A tool
+  class ST state
+  class U,OUT result</pre
+            >
+          </div>
+          <div class="callout">
+            <p>
+              <strong>Jelmagyarazat:</strong> zold = agent, feher = tool, kek =
+              allapot, sotet = ki/bemenet. A szamok a hivasok sorrendjet
+              mutatjak; a keretezett resz a harom <em>parhuzamos</em>
+              delegalas (4-7. lepes egyszerre fut).
+            </p>
+          </div>
+        </div>
+        <div class="step"><strong>12</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">8. lépés / delegálás</div>
+          <h2>Minden eszköznek egy világos felelőssége van.</h2>
+          <p>
+            A koordinátor nem végez el mindent maga: kiválasztja a megfelelő
+            specialistát, célzott kérést küld, majd begyűjti az eredményt.
+          </p>
+          <div class="sequence">
+            <div class="sequence-item">
+              <div class="number">01</div>
+              <p>
+                A <code>choose_venue</code> négy helyszínfotót küld egy vision
+                agentnek.
+              </p>
+            </div>
+            <div class="sequence-item">
+              <div class="number">02</div>
+              <p>
+                A <code>choose_catering</code> négy ételfotót küld egy vision
+                agentnek.
+              </p>
+            </div>
+            <div class="sequence-item">
+              <div class="number">03</div>
+              <p>
+                A <code>plan_agenda</code> a célt és a létszámot egy szöveges
+                agentnek küldi.
+              </p>
+            </div>
+            <div class="sequence-item">
+              <div class="number">04</div>
+              <p>A koordinátor összerakja a három specialista válaszát.</p>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>13</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">9. lépés / multimodális bemenet</div>
+            <h2>A képek is lehetnek üzenettartalmak.</h2>
+            <p>
+              Az <code>_image_block()</code> base64-re kódolja a helyi JPEG-et.
+              A vision agent egyetlen <code>HumanMessage</code>-ben kap szöveges
+              címkéket és képeket.
+            </p>
+          </div>
+          <pre>content = [
+    {<span class="str">"type"</span>: <span class="str">"text"</span>,
+     <span class="str">"text"</span>: <span class="str">"Option A:"</span>},
+    {<span class="str">"type"</span>: <span class="str">"image"</span>,
+     <span class="str">"base64"</span>: <span class="fn">encode_file_to_base64</span>(path),
+     <span class="str">"mime_type"</span>: <span class="str">"image/jpeg"</span>},
+]
+
+response = venue_agent.<span class="fn">invoke</span>(
+    {<span class="str">"messages"</span>: [<span class="fn">HumanMessage</span>(content=content)]}
+)</pre>
+        </div>
+        <div class="step"><strong>14</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">A teljes kép</div>
+          <h2>Prompt be. Összehangolt javaslat ki.</h2>
+          <p>
+            Kezdjünk egyszerű prompttal. Ezután csak azt a képességet adjuk
+            hozzá, amelyre a feladatnak szüksége van: eszközt, állapotot, másik
+            agentet vagy másik modellt.
+          </p>
+          <div class="cards">
+            <div class="panel">
+              <h3>Modell</h3>
+              <p>Nyelvet generál, és eldönti, mi legyen a következő lépés.</p>
+            </div>
+            <div class="panel">
+              <h3>Agent</h3>
+              <p>
+                Összeköti a modellt az üzenetekkel, eszközökkel és állapottal.
+              </p>
+            </div>
+            <div class="panel">
+              <h3>Eszközök</h3>
+              <p>A modellen kívüli munkát végzik, például keresést.</p>
+            </div>
+            <div class="panel">
+              <h3>Orkesztráció</h3>
+              <p>Lehetővé teszi a specialista-válaszok összeállítását.</p>
+            </div>
+          </div>
+          <div class="hero-stamp">
+            KÖVETKEZŐ: NYISD MEG AZ advanced_agent.py FÁJLT
+          </div>
+        </div>
+        <div class="step"><strong>15</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Kódműhely / specialisták</div>
+          <h2>Specialistát célzott prompttal építünk.</h2>
+          <p>
+            Minden specialista egy újabb agent. A system prompt szűkíti a
+            feladatot, így a koordinátor kérése könnyebben teljesíthető.
+          </p>
+          <div class="code-grid">
+            <div class="code-card">
+              <span class="tag">vision specialista</span>
+              <pre>venue_agent = <span class="fn">create_agent</span>(
+    model=vision_model,
+    system_prompt=<span class="str">"Helyszínkutató vagy.
+    Hasonlítsd össze a fényt,
+    rendet és ülőhelyeket."</span>,
+)</pre>
+            </div>
+            <div class="code-card">
+              <span class="tag">szöveges specialista</span>
+              <pre>agenda_agent = <span class="fn">create_agent</span>(
+    model=text_model,
+    system_prompt=<span class="str">"Írj tömör,
+    egynapos napirendet
+    idősávokkal."</span>,
+)</pre>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>16</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content">
+          <div class="eyebrow">Kódműhely / eszközök</div>
+          <h2>Egy eszköz meghívhat egy másik agentet.</h2>
+          <p>
+            A koordinátor eszköze egyszerű Python: állapotot olvas, üzenetet
+            épít, meghívja a specialistát, majd visszaadja a végső üzenetet.
+          </p>
+          <div class="code-grid">
+            <div class="code-card">
+              <span class="tag">delegálás</span>
+              <pre><span class="kw">@tool</span>
+<span class="kw">def</span> <span class="fn">plan_agenda</span>(runtime):
+    objective = runtime.state.<span class="fn">get</span>(
+        <span class="str">"objective"</span>, <span class="str">"csapat-összhang"</span>
+    )
+    people = runtime.state.<span class="fn">get</span>(
+        <span class="str">"attendee_count"</span>, <span class="str">"a csapat"</span>
+    )</pre>
+            </div>
+            <div class="code-card">
+              <span class="tag">specialista hívása</span>
+              <pre>    query = <span class="str">f"Írj napirendet
+    {people} főnek, ezzel a céllal:
+    {objective}."</span>
+
+    response = agenda_agent.<span class="fn">invoke</span>(
+        {<span class="str">"messages"</span>: [<span class="fn">HumanMessage</span>(
+            content=query
+        )]}
+    )
+    <span class="kw">return</span> response[<span class="str">"messages"</span>][-1].content</pre>
+            </div>
+          </div>
+        </div>
+        <div class="step"><strong>17</strong> / 18</div>
+      </section>
+      <section class="slide">
+        <div class="content split">
+          <div>
+            <div class="eyebrow">Kódműhely / a folyamat indítása</div>
+            <h2>Egy prompt elindítja a teljes tervet.</h2>
+            <p>
+              A koordinátor egy human message-t kap. Az utasításai és eszközei
+              meghatározzák a munkamenetet, majd a végső üzenet kiírható.
+            </p>
+            <div class="callout">
+              <p>Kívül egyszerű prompt. Belül strukturált együttműködés.</p>
+            </div>
+          </div>
+          <pre>response = coordinator.<span class="fn">invoke</span>(
+    {<span class="str">"messages"</span>: [<span class="fn">HumanMessage</span>(
+        content=<span class="str">"Tervezz offsite-ot
+        Lisszabonban 40 főnek.
+        Hangoljuk össze a roadmapet."</span>
+    )]},
+    config={
+        <span class="str">"tags"</span>: [<span class="str">"OFFSITE"</span>],
+        <span class="str">"recursion_limit"</span>: 40,
+    },
+)
+
+<span class="fn">print</span>(response[<span class="str">"messages"</span>][-1].content)</pre>
+        </div>
+        <div class="step"><strong>18</strong> / 18</div>
+      </section>
+    </main>
+    <nav class="controls" aria-label="Diavezérlés">
+      <button id="previous" aria-label="Előző dia">&lt;</button
+      ><span class="counter" id="counter">01 / 17</span
+      ><button id="next" aria-label="Következő dia">&gt;</button>
+    </nav>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#fffdf8',
+          primaryTextColor: '#17212b',
+          primaryBorderColor: '#ff765c',
+          lineColor: '#ff765c',
+          secondaryColor: '#c8e85b',
+          tertiaryColor: '#e5eef2',
+          fontFamily: 'Manrope, sans-serif',
+        },
+      });
+
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const counter = document.getElementById('counter');
+      const progress = document.getElementById('progress');
+      let current = 0;
+      function renderMermaid(slide) {
+        const nodes = slide.querySelectorAll('.mermaid:not([data-processed])');
+        if (nodes.length) {
+          mermaid.run({ nodes }).catch(() => {});
+        }
+      }
+      function showSlide(index) {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, slideIndex) =>
+          slide.classList.toggle('active', slideIndex === current),
+        );
+        renderMermaid(slides[current]);
+        const label = String(current + 1).padStart(2, '0');
+        document.querySelectorAll('.step').forEach((step, slideIndex) => {
+          step.innerHTML =
+            '<strong>' +
+            String(slideIndex + 1).padStart(2, '0') +
+            '</strong> / ' +
+            String(slides.length).padStart(2, '0');
+        });
+        counter.textContent =
+          label + ' / ' + String(slides.length).padStart(2, '0');
+        progress.style.width = ((current + 1) / slides.length) * 100 + '%';
+      }
+      document
+        .getElementById('previous')
+        .addEventListener('click', () => showSlide(current - 1));
+      document
+        .getElementById('next')
+        .addEventListener('click', () => showSlide(current + 1));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === ' ')
+          showSlide(current + 1);
+        if (event.key === 'ArrowLeft') showSlide(current - 1);
+        if (event.key === 'Home') showSlide(0);
+        if (event.key === 'End') showSlide(slides.length - 1);
+      });
+      showSlide(0);
+    </script>
+  </body>
+</html>
