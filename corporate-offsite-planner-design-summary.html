@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>
+      Corporate Offsite Planner — LangChain Design &amp; Implementation Summary
+    </title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --border: #30363d;
+        --text: #c9d1d9;
+        --muted: #8b949e;
+        --accent: #58a6ff;
+        --accent2: #7ee787;
+        --warn: #f0883e;
+        --code-bg: #010409;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      header {
+        padding: 2.5rem 2rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+      }
+      header h1 {
+        margin: 0 0 0.3rem;
+        font-size: 1.8rem;
+        color: #fff;
+      }
+      header p.sub {
+        margin: 0;
+        color: var(--muted);
+        font-size: 1rem;
+      }
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        width: 220px;
+        height: 100vh;
+        background: rgba(13, 17, 23, 0.95);
+        border-right: 1px solid var(--border);
+        padding: 1.4rem 1rem;
+        backdrop-filter: blur(6px);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        white-space: normal;
+      }
+      nav a:hover {
+        color: var(--accent);
+      }
+      .lang-switch {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 0.6rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .lang-switch button {
+        flex: 1;
+        background: var(--panel);
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.3rem 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+      }
+      .lang-switch button.active {
+        background: var(--accent);
+        color: #01121f;
+        border-color: var(--accent);
+      }
+      header {
+        margin-left: 220px;
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto 0 220px;
+        padding: 2rem;
+      }
+      footer {
+        margin-left: 220px;
+      }
+      @media (max-width: 800px) {
+        nav {
+          position: sticky;
+          width: auto;
+          height: auto;
+          flex-direction: row;
+          overflow-x: auto;
+          white-space: nowrap;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+        header,
+        main,
+        footer {
+          margin-left: 0;
+        }
+      }
+      section {
+        margin-bottom: 3rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      section:last-child {
+        border-bottom: none;
+      }
+      h2 {
+        color: #fff;
+        font-size: 1.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-left: 4px solid var(--accent);
+        padding-left: 0.7rem;
+      }
+      h2 .step {
+        color: var(--accent);
+        font-family: monospace;
+      }
+      h3 {
+        color: var(--accent2);
+        font-size: 1.05rem;
+        margin-top: 1.6rem;
+      }
+      p {
+        max-width: 78ch;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.3rem;
+        margin: 1rem 0;
+      }
+      .why {
+        background: rgba(240, 136, 62, 0.08);
+        border: 1px solid rgba(240, 136, 62, 0.35);
+        border-radius: 8px;
+        padding: 0.8rem 1.1rem;
+        margin: 1rem 0;
+      }
+      .why strong {
+        color: var(--warn);
+      }
+      .howworks {
+        background: rgba(88, 166, 255, 0.07);
+        border: 1px solid rgba(88, 166, 255, 0.3);
+        border-radius: 8px;
+        padding: 0.8rem 1.1rem;
+        margin: 1rem 0;
+      }
+      .howworks strong {
+        color: var(--accent);
+      }
+      pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        overflow-x: auto;
+        font-size: 0.84rem;
+        margin: 0.8rem 0;
+      }
+      code {
+        font-family:
+          'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      }
+      :not(pre) > code {
+        background: rgba(110, 118, 129, 0.2);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        font-size: 0.88em;
+      }
+      .kw {
+        color: #ff7b72;
+      }
+      .str {
+        color: #a5d6ff;
+      }
+      .cmt {
+        color: #8b949e;
+        font-style: italic;
+      }
+      .fn {
+        color: #d2a8ff;
+      }
+      .cls {
+        color: #ffa657;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+        font-size: 0.9rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.7rem;
+        text-align: left;
+      }
+      th {
+        background: var(--panel);
+        color: #fff;
+      }
+      ul {
+        padding-left: 1.3rem;
+      }
+      .badge {
+        display: inline-block;
+        background: rgba(126, 231, 135, 0.15);
+        color: var(--accent2);
+        border: 1px solid rgba(126, 231, 135, 0.4);
+        border-radius: 999px;
+        padding: 0.1rem 0.6rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-left: 0.4rem;
+      }
+      .diagram {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        font-family: monospace;
+        font-size: 0.8rem;
+        white-space: pre;
+        overflow-x: auto;
+        color: var(--accent2);
+      }
+      .mermaid-wrap {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+        overflow-x: auto;
+      }
+      .mermaid-wrap .mermaid {
+        display: flex;
+        justify-content: center;
+      }
+      .mermaid-wrap svg {
+        max-width: 100%;
+        height: auto;
+      }
+      footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8rem;
+        padding: 2rem;
+      }
+      a.file-ref {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1 data-i18n="app.title">Corporate Offsite Planner</h1>
+      <p class="sub" data-i18n="app.subtitle">
+        Design &amp; implementation summary of
+        <code>src/corporate_offsite_planner_agent.py</code> — a multi-agent
+        LangChain example for Python developers.
+      </p>
+    </header>
+
+    <nav>
+      <div class="lang-switch">
+        <button type="button" data-lang-btn="en" class="active">EN</button>
+        <button type="button" data-lang-btn="hu">HU</button>
+      </div>
+      <a href="#overview" data-i18n="nav.overview">Overview</a>
+      <a href="#step1" data-i18n="nav.step1">1. Config &amp; Models</a>
+      <a href="#step2" data-i18n="nav.step2">2. Prompt Templates</a>
+      <a href="#step3" data-i18n="nav.step3">3. create_agent</a>
+      <a href="#step4" data-i18n="nav.step4">4. State Schema</a>
+      <a href="#step5" data-i18n="nav.step5">5. Tools &amp; ToolRuntime</a>
+      <a href="#step6" data-i18n="nav.step6">6. Command &amp; State Updates</a>
+      <a href="#step7" data-i18n="nav.step7">7. Multi-modal Input</a>
+      <a href="#step8" data-i18n="nav.step8">8. Agents-as-Tools</a>
+      <a href="#step9" data-i18n="nav.step9">9. Coordinator Loop</a>
+      <a href="#step10" data-i18n="nav.step10">10. Persistence</a>
+      <a href="#summary" data-i18n="nav.summary">Summary Table</a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <h2 data-i18n="overview.title">Overview</h2>
+        <p data-i18n="overview.p1">
+          This example implements a
+          <strong>supervisor / multi-agent</strong> pattern using LangChain's
+          <code>create_agent</code>. A <strong>coordinator</strong> agent (the
+          "planner") is given a set of <strong>tools</strong>, three of which
+          are thin wrappers around three independent
+          <strong>specialist sub-agents</strong>: a vision-based venue scout, a
+          vision-based catering scout, and a text-based agenda writer. The
+          coordinator decides when to call each tool, accumulates results, and
+          synthesizes a final proposal.
+        </p>
+        <div class="mermaid-wrap">
+          <pre class="mermaid" data-i18n="overview.diagram">
+flowchart TD
+  C["Coordinator Agent (planner) — create_agent(model, tools, state_schema, prompt)"]
+  C -->|update_state| ST["OffsiteState — destination, attendee_count, objective"]
+  C -->|choose_venue| V["venue_agent (vision LLM)"]
+  C -->|choose_catering| M["catering_agent (vision LLM)"]
+  C -->|plan_agenda| A["agenda_agent (text LLM)"]
+  classDef agent fill:#161b22,stroke:#58a6ff,color:#c9d1d9
+  classDef state fill:#161b22,stroke:#7ee787,color:#c9d1d9
+  class C,V,M,A agent
+  class ST state
+          </pre>
+        </div>
+        <p data-i18n="overview.p2">
+          All four LLMs are created from OpenRouter models via
+          <code>init_chat_model</code>, with per-agent temperature/token/prompt
+          configuration loaded from markdown+YAML prompt templates. This mirrors
+          the simpler patterns shown in <code>simple_agent.py</code> and
+          <code>advanced_agent.py</code>, scaled up to an orchestrated
+          multi-agent workflow.
+        </p>
+      </section>
+
+      <section id="step1">
+        <h2>
+          <span class="step">Step 1</span>
+          <span data-i18n="step1.title">Model Configuration</span>
+          <span class="badge">init_chat_model</span>
+        </h2>
+        <p data-i18n="step1.p1">
+          Each agent's LLM is described by a small
+          <code>ModelConfig</code> dataclass (name, temperature, max_tokens,
+          top_p, penalties, seed), populated from environment variables so
+          behavior can be tuned per-agent without code changes.
+        </p>
+        <pre><span class="kw">from</span> langchain.chat_models <span class="kw">import</span> BaseChatModel, init_chat_model
+
+<span class="kw">def</span> <span class="fn">get_openrouter_model</span>(config: ModelConfigLike, api_key: str) -> BaseChatModel:
+    <span class="str">"""Create an OpenRouter chat model from a model configuration."""</span>
+    params: dict[str, Any] = {
+        <span class="str">"model"</span>: config.name,
+        <span class="str">"model_provider"</span>: <span class="str">"openrouter"</span>,
+        <span class="str">"api_key"</span>: api_key,
+        <span class="str">"temperature"</span>: config.temperature,
+        <span class="str">"max_tokens"</span>: config.max_tokens,
+    }
+    <span class="kw">if</span> config.top_p <span class="kw">is not</span> <span class="kw">None</span>:
+        params[<span class="str">"top_p"</span>] = config.top_p
+    <span class="cmt"># ... frequency_penalty, presence_penalty, seed appended the same way</span>
+    <span class="kw">return</span> init_chat_model(**params)</pre>
+        <div class="howworks" data-i18n="step1.how">
+          <strong>How it works:</strong> <code>init_chat_model</code> is
+          LangChain's provider-agnostic model factory — passing
+          <code>model_provider="openrouter"</code>
+          lets a single call construct a chat model for any of OpenRouter's
+          hosted models (GPT-OSS, Gemma vision, Poolside, etc.) with a uniform
+          interface (<code>BaseChatModel</code>). Optional sampling parameters
+          are only added when set, so provider defaults apply otherwise.
+        </div>
+        <div class="why" data-i18n="step1.why">
+          <strong>Why it matters:</strong> decoupling model
+          <em>selection</em> from model <em>usage</em> means the same
+          agent-building code works across OpenAI, Anthropic, OpenRouter, or
+          local models — you only swap configuration, not logic. Per-agent
+          tuning (e.g. low temperature for the vision scouts, higher for the
+          planner's prose) is essential in multi-agent systems where each role
+          needs different creativity/determinism trade-offs.
+        </div>
+      </section>
+
+      <section id="step2">
+        <h2>
+          <span class="step">Step 2</span>
+          <span data-i18n="step2.title"
+            >Prompt Templates with Config Overrides</span
+          >
+        </h2>
+        <p data-i18n="step2.p1">
+          System prompts live in markdown files
+          (<code>resources/prompts/*.md</code>) that embed a YAML front-matter
+          block for model overrides, followed by a
+          <code>## System prompt</code> section:
+        </p>
+        <pre><span class="cmt">## Model config</span>
+```yaml
+name: openai/gpt-oss-120b
+temperature: 0.7
+max_tokens: 1800
+top_p: 0.9
+presence_penalty: 0.3
+```
+
+<span class="cmt">## System prompt</span>
+You are a corporate offsite planner. First call update_state with the
+destination, attendee_count and objective from the request. Once that
+returns, delegate to your specialists: choose_venue and choose_catering
+(vision scouts) and plan_agenda (agenda writer)...</pre>
+        <pre><span class="kw">def</span> <span class="fn">load_configured_model</span>(
+    prompt_name: str, base_config: ModelConfigLike, api_key: str
+) -> tuple[str, BaseChatModel]:
+    <span class="str">"""Load a prompt and model, applying the prompt's configuration overrides."""</span>
+    system_prompt, overrides = load_prompt_template(prompt_name)
+    model_config = replace(base_config, **overrides)  <span class="cmt"># dataclasses.replace</span>
+    <span class="kw">return</span> system_prompt, get_openrouter_model(model_config, api_key)</pre>
+        <div class="howworks" data-i18n="step2.how">
+          <strong>How it works:</strong> a regex extracts the fenced
+          <code>yaml</code> block, parses it with <code>yaml.safe_load</code>,
+          and applies it on top of a shared base <code>ModelConfig</code> via
+          <code>dataclasses.replace</code>
+          — only the fields present in the YAML are overridden.
+        </div>
+        <div class="why" data-i18n="step2.why">
+          <strong>Why it matters:</strong> keeping prompt text, its rationale,
+          and its model tuning
+          <em>together in one reviewable file</em> (versioned like code) is far
+          more maintainable than scattering prompt strings and hyperparameters
+          across Python source. It lets non-engineers iterate on prompts without
+          touching application code.
+        </div>
+      </section>
+
+      <section id="step3">
+        <h2>
+          <span class="step">Step 3</span>
+          <span data-i18n="step3.title"
+            >Building Agents with <code>create_agent</code></span
+          >
+        </h2>
+        <p data-i18n="step3.p1">
+          Every agent — specialists and coordinator alike — is built with the
+          same primitive:
+        </p>
+        <pre><span class="kw">from</span> langchain.agents <span class="kw">import</span> AgentState, create_agent
+
+venue_prompt, venue_model = load_configured_model(<span class="str">"venue_agent"</span>, VISION_CONFIG, openrouter_api_key)
+venue_agent = create_agent(model=venue_model, system_prompt=venue_prompt)
+
+coordinator_prompt, coordinator_model = load_configured_model(<span class="str">"coordinator"</span>, PLANNER_CONFIG, openrouter_api_key)
+offsite_tools = create_offsite_tools(venue_agent, catering_agent, agenda_agent, IMAGE_PATHS)
+
+coordinator = create_agent(
+    model=coordinator_model,
+    tools=offsite_tools,
+    state_schema=OffsiteState,
+    system_prompt=coordinator_prompt,
+)</pre>
+        <div class="howworks" data-i18n="step3.how">
+          <strong>How it works:</strong> <code>create_agent</code> builds a
+          LangGraph-backed ReAct-style agent runnable: it loops the model over
+          tool calls until the model produces a final text answer (or a
+          recursion limit is hit). Specialist agents have no <code>tools</code>,
+          so they always answer directly after one model call; the coordinator
+          has tools, so it plans, calls tools, and reasons over their outputs.
+        </div>
+        <div class="why" data-i18n="step3.why">
+          <strong>Why it matters:</strong> this single abstraction removes the
+          need to hand-roll a LangGraph state machine for the common "model +
+          tools + system prompt" agent shape, while still returning a composable
+          <code>Runnable</code> that can itself be wrapped as a tool for a
+          parent agent (see Step 8) — enabling agent-of-agents architectures
+          with minimal boilerplate.
+        </div>
+      </section>
+
+      <section id="step4">
+        <h2>
+          <span class="step">Step 4</span>
+          <span data-i18n="step4.title">Extending Agent State</span>
+        </h2>
+        <pre><span class="kw">class</span> <span class="cls">OffsiteState</span>(AgentState):
+    destination: str
+    attendee_count: str
+    objective: str</pre>
+        <div class="howworks" data-i18n="step4.how">
+          <strong>How it works:</strong> <code>AgentState</code> is a
+          TypedDict-like schema that always includes <code>messages</code>;
+          subclassing it adds extra typed fields that persist across the agent's
+          tool-calling loop and are readable/writable by tools via
+          <code>runtime.state</code>. Passing
+          <code>state_schema=OffsiteState</code> to
+          <code>create_agent</code> wires this custom schema into the underlying
+          LangGraph graph.
+        </div>
+        <div class="why" data-i18n="step4.why">
+          <strong>Why it matters:</strong> plain conversational memory
+          (<code>messages</code>) isn't enough once tools need structured data
+          (destination, attendee count, objective) computed earlier in the run.
+          Typed state gives tools a reliable, explicit "scratchpad" instead of
+          re-parsing free text from prior messages.
+        </div>
+      </section>
+
+      <section id="step5">
+        <h2>
+          <span class="step">Step 5</span>
+          <span data-i18n="step5.title"
+            >Tools with <code>ToolRuntime</code></span
+          >
+        </h2>
+        <pre><span class="kw">from</span> langchain.tools <span class="kw">import</span> ToolRuntime, tool
+
+<span class="fn">@tool</span>
+<span class="kw">def</span> <span class="fn">choose_venue</span>(runtime: ToolRuntime) -> str:
+    <span class="str">"""Review venue photos and recommend the best plus an alternative."""</span>
+    destination = runtime.state.get(<span class="str">"destination"</span>, <span class="str">"the destination"</span>)
+    ...</pre>
+        <div class="howworks" data-i18n="step5.how">
+          <strong>How it works:</strong> the <code>@tool</code> decorator turns
+          a plain function into a LangChain <code>BaseTool</code>, inferring its
+          schema from type hints and using the docstring as the tool description
+          the LLM sees. Declaring a <code>ToolRuntime</code>-typed parameter
+          gives the tool implicit access to the current agent
+          <code>state</code>, <code>context</code>, and
+          <code>tool_call_id</code> — without the model ever having to pass
+          these as arguments.
+        </div>
+        <div class="why" data-i18n="step5.why">
+          <strong>Why it matters:</strong> this keeps the tool's <em>public</em>
+          argument surface (what the LLM must supply) minimal and clean, while
+          still letting the tool read privileged, non-hallucinatable data (like
+          state set by an earlier tool call) directly and safely.
+        </div>
+      </section>
+
+      <section id="step6">
+        <h2>
+          <span class="step">Step 6</span>
+          <span data-i18n="step6.title"
+            >Updating State with <code>Command</code></span
+          >
+        </h2>
+        <pre><span class="kw">from</span> langgraph.types <span class="kw">import</span> Command
+
+<span class="fn">@tool</span>
+<span class="kw">def</span> <span class="fn">update_state</span>(
+    destination: str, attendee_count: str, objective: str, runtime: ToolRuntime,
+) -> Command:
+    <span class="str">"""Record the destination, attendee count, and objective in agent state."""</span>
+    <span class="kw">return</span> Command(
+        update={
+            <span class="str">"destination"</span>: destination,
+            <span class="str">"attendee_count"</span>: attendee_count,
+            <span class="str">"objective"</span>: objective,
+            <span class="str">"messages"</span>: [
+                ToolMessage(content=<span class="str">"Successfully recorded offsite details."</span>,
+                            tool_call_id=runtime.tool_call_id)
+            ],
+        }
+    )</pre>
+        <div class="howworks" data-i18n="step6.how">
+          <strong>How it works:</strong> instead of returning a plain string, a
+          tool can return a LangGraph <code>Command</code> whose
+          <code>update</code> dict is merged directly into the graph state —
+          here writing the three <code>OffsiteState</code> fields
+          <em>and</em> appending the required <code>ToolMessage</code> (matched
+          to the call via <code>tool_call_id</code>) in one atomic step.
+        </div>
+        <div class="why" data-i18n="step6.why">
+          <strong>Why it matters:</strong> this is the canonical, race-free way
+          for a tool to both respond to the model and mutate shared agent state
+          in a single graph transition — avoiding ad-hoc side channels or global
+          variables, and keeping state changes auditable in the message/state
+          history.
+        </div>
+      </section>
+
+      <section id="step7">
+        <h2>
+          <span class="step">Step 7</span>
+          <span data-i18n="step7.title">Multi-modal (Vision) Tool Input</span>
+        </h2>
+        <pre>content: list[Any] = [
+    {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">f"Review these candidate offsite venues in {destination}..."</span>},
+    {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"Option A:"</span>},
+    image_content_block(image_paths[<span class="str">"venue_good_1.jpg"</span>]),
+    {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"Option B:"</span>},
+    image_content_block(image_paths[<span class="str">"venue_good_2.jpg"</span>]),
+    ...
+]
+response = venue_agent.invoke({<span class="str">"messages"</span>: [HumanMessage(content=content)]})</pre>
+        <div class="howworks" data-i18n="step7.how">
+          <strong>How it works:</strong> a <code>HumanMessage</code> content can
+          be a list of typed content blocks (text and image parts, e.g. base64
+          data URLs built by <code>image_content_block</code>) instead of a
+          plain string. The vision-capable model (Gemma) receives interleaved
+          text/image parts and reasons over them like any multi-modal chat
+          completion.
+        </div>
+        <div class="why" data-i18n="step7.why">
+          <strong>Why it matters:</strong> LangChain's unified message
+          content-block format lets the <em>same</em>
+          <code>create_agent</code>/<code>invoke</code>
+          call sites handle text-only and multi-modal models interchangeably —
+          critical when composing agents with different modalities (vision
+          scouts vs. text agenda writer) into one system.
+        </div>
+      </section>
+
+      <section id="step8">
+        <h2>
+          <span class="step">Step 8</span>
+          <span data-i18n="step8.title"
+            >Agents-as-Tools (Supervisor Pattern)</span
+          >
+        </h2>
+        <pre><span class="kw">def</span> <span class="fn">create_offsite_tools</span>(venue_agent, catering_agent, agenda_agent, image_paths) -> list[Any]:
+    <span class="fn">@tool</span>
+    <span class="kw">def</span> <span class="fn">choose_venue</span>(runtime: ToolRuntime) -> str:
+        ...
+        response = venue_agent.invoke({<span class="str">"messages"</span>: [HumanMessage(content=content)]})
+        <span class="kw">return</span> f<span class="str">"{response['messages'][-1].content}\n\n{legend}"</span>
+
+    <span class="fn">@tool</span>
+    <span class="kw">def</span> <span class="fn">plan_agenda</span>(runtime: ToolRuntime) -> str:
+        response = agenda_agent.invoke({<span class="str">"messages"</span>: [HumanMessage(content=query)]})
+        <span class="kw">return</span> response[<span class="str">"messages"</span>][-1].content
+
+    <span class="kw">return</span> [update_state, choose_venue, choose_catering, plan_agenda]</pre>
+        <div class="howworks" data-i18n="step8.how">
+          <strong>How it works:</strong> each specialist
+          <code>create_agent(...)</code> result is itself a runnable graph;
+          wrapping an <code>.invoke(...)</code> call inside a
+          <code>@tool</code> function exposes that whole sub-agent to the
+          coordinator as a single callable tool. The coordinator LLM never sees
+          the specialists' internals — only a tool name, description, and a
+          string result.
+        </div>
+        <div class="why" data-i18n="step8.why">
+          <strong>Why it matters:</strong> this is the core "agents calling
+          agents" composition technique in LangChain/LangGraph. It lets you
+          decompose a complex task (plan an offsite) into independently
+          testable, independently prompted/tuned sub-agents, while giving the
+          top-level model a simple flat tool-calling interface — the same
+          pattern scales to many specialists without growing the coordinator's
+          prompt complexity.
+        </div>
+      </section>
+
+      <section id="step9">
+        <h2>
+          <span class="step">Step 9</span>
+          <span data-i18n="step9.title"
+            >Bounded Completion Loop &amp; Recursion Limit</span
+          >
+        </h2>
+        <pre>config: RunnableConfig = {<span class="str">"tags"</span>: [<span class="str">"OFFSITE"</span>], <span class="str">"recursion_limit"</span>: 40}
+
+<span class="kw">for</span> attempt <span class="kw">in</span> range(1, MAX_COORDINATOR_ATTEMPTS + 1):
+    response = coordinator.invoke(state, config=config)
+    missing_tools, has_final_answer = _conversation_status(response[<span class="str">"messages"</span>])
+    <span class="kw">if not</span> missing_tools <span class="kw">and</span> has_final_answer:
+        <span class="kw">return</span> response
+    <span class="kw">if</span> attempt == MAX_COORDINATOR_ATTEMPTS:
+        <span class="kw">raise</span> RuntimeError(<span class="str">f"Coordinator did not complete after {attempt} attempts..."</span>)
+    recovery_message = HumanMessage(content=<span class="str">"Continue and complete the offsite plan. ..."</span>)
+    state = {**response, <span class="str">"messages"</span>: [*response[<span class="str">"messages"</span>], recovery_message]}</pre>
+        <div class="howworks" data-i18n="step9.how">
+          <strong>How it works:</strong> <code>recursion_limit</code> caps how
+          many graph steps a single <code>invoke</code> can take (guarding
+          against infinite tool-calling loops).
+          <code>_conversation_status</code> inspects the returned messages for
+          the four <code>REQUIRED_TOOL_NAMES</code> and a non-truncated final AI
+          message; if the run stopped early, a synthetic recovery
+          <code>HumanMessage</code> is appended and the coordinator is
+          re-invoked with the accumulated state — up to
+          <code>MAX_COORDINATOR_ATTEMPTS</code> times.
+        </div>
+        <div class="why" data-i18n="step9.why">
+          <strong>Why it matters:</strong> LLM agents can stop prematurely (hit
+          a token/step limit, forget a step) especially when orchestrating
+          several tool calls. This resumable-completion pattern turns an
+          unreliable single-shot invocation into a robust, self-correcting run
+          without re-doing already-completed (and costly) specialist calls,
+          since state and prior messages are preserved between attempts.
+        </div>
+      </section>
+
+      <section id="step10">
+        <h2>
+          <span class="step">Step 10</span>
+          <span data-i18n="step10.title"
+            >Conversation Persistence &amp; Logging</span
+          >
+        </h2>
+        <pre>response = _run_coordinator_to_completion(user_prompt)
+conversation_path = save_conversation(user_prompt, response[<span class="str">"messages"</span>], CONVERSATIONS_DIR, IMAGE_PATHS)
+logger.info(<span class="str">"Conversation saved to %s"</span>, conversation_path)</pre>
+        <div class="howworks" data-i18n="step10.how">
+          <strong>How it works:</strong> the full message trace (human prompt,
+          tool calls/results, final proposal) is serialized to a markdown file
+          per run, while structured <code>logging</code> calls trace each
+          coordinator attempt, missing tools, and completion status to both
+          console and a log file.
+        </div>
+        <div class="why" data-i18n="step10.why">
+          <strong>Why it matters:</strong> multi-agent runs are hard to debug
+          from stdout alone. Persisting the full conversation (including image
+          legends) plus structured logs gives a reproducible audit trail for
+          prompt iteration, regression comparison, and demoing the system's
+          behavior.
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2 data-i18n="summary.title">
+          Summary Table — LangChain Features Used
+        </h2>
+        <table data-i18n="summary.table">
+          <tr>
+            <th>Feature</th>
+            <th>Import</th>
+            <th>Role in this example</th>
+          </tr>
+          <tr>
+            <td>Provider-agnostic model factory</td>
+            <td><code>langchain.chat_models.init_chat_model</code></td>
+            <td>Build 4 OpenRouter-backed chat models from config</td>
+          </tr>
+          <tr>
+            <td>ReAct-style agent builder</td>
+            <td><code>langchain.agents.create_agent</code></td>
+            <td>Builds every specialist and the coordinator</td>
+          </tr>
+          <tr>
+            <td>Custom state schema</td>
+            <td><code>langchain.agents.AgentState</code></td>
+            <td>
+              <code>OffsiteState</code> adds destination/attendees/objective
+            </td>
+          </tr>
+          <tr>
+            <td>Tool decorator</td>
+            <td><code>langchain.tools.tool</code></td>
+            <td>Turns Python functions into LLM-callable tools</td>
+          </tr>
+          <tr>
+            <td>Tool runtime context</td>
+            <td><code>langchain.tools.ToolRuntime</code></td>
+            <td>Read state, get <code>tool_call_id</code> inside tools</td>
+          </tr>
+          <tr>
+            <td>Graph state mutation</td>
+            <td><code>langgraph.types.Command</code></td>
+            <td><code>update_state</code> tool writes state + a ToolMessage</td>
+          </tr>
+          <tr>
+            <td>Message types</td>
+            <td><code>langchain.messages.HumanMessage/ToolMessage</code></td>
+            <td>Drive both top-level and sub-agent invocations</td>
+          </tr>
+          <tr>
+            <td>Multi-modal content blocks</td>
+            <td>content list w/ <code>type: text/image</code></td>
+            <td>Vision scouts compare venue/meal photos</td>
+          </tr>
+          <tr>
+            <td>Run configuration</td>
+            <td><code>langchain_core.runnables.RunnableConfig</code></td>
+            <td><code>recursion_limit</code>, tags for tracing</td>
+          </tr>
+          <tr>
+            <td>Agents-as-tools composition</td>
+            <td>N/A (pattern)</td>
+            <td>
+              Coordinator tools wrap specialist <code>.invoke()</code> calls
+            </td>
+          </tr>
+        </table>
+      </section>
+    </main>
+
+    <footer data-i18n="footer.text">
+      Generated from <code>src/corporate_offsite_planner_agent.py</code>,
+      <code>src/utils/config.py</code>, <code>src/utils/model_util.py</code>,
+      <code>src/utils/tools.py</code>, and
+      <code>src/resources/prompts/coordinator.md</code>.
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          background: '#0d1117',
+          primaryColor: '#161b22',
+          primaryTextColor: '#c9d1d9',
+          primaryBorderColor: '#58a6ff',
+          lineColor: '#58a6ff',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif',
+        },
+      });
+
+      const translations = {
+        hu: {
+          'app.title': 'Vállalati csapatépítő tervező',
+          'app.subtitle':
+            'A <code>src/corporate_offsite_planner_agent.py</code> tervezési és megvalósítási összefoglalója — egy többágenses LangChain példa Python fejlesztőknek.',
+          'nav.overview': 'Áttekintés',
+          'nav.step1': '1. Konfiguráció és modellek',
+          'nav.step2': '2. Prompt sablonok',
+          'nav.step3': '3. create_agent',
+          'nav.step4': '4. Állapotséma',
+          'nav.step5': '5. Eszközök és ToolRuntime',
+          'nav.step6': '6. Command és állapotfrissítés',
+          'nav.step7': '7. Multimodális bemenet',
+          'nav.step8': '8. Ágensek eszközként',
+          'nav.step9': '9. Koordinátor ciklus',
+          'nav.step10': '10. Perzisztencia',
+          'nav.summary': 'Összefoglaló táblázat',
+          'overview.title': 'Áttekintés',
+          'overview.diagram':
+            'flowchart TD\n' +
+            '  C["Koordinátor ágens (tervező) — create_agent(model, tools, state_schema, prompt)"]\n' +
+            '  C -->|update_state| ST["OffsiteState — célállomás, létszám, cél"]\n' +
+            '  C -->|choose_venue| V["venue_agent (látás LLM)"]\n' +
+            '  C -->|choose_catering| M["catering_agent (látás LLM)"]\n' +
+            '  C -->|plan_agenda| A["agenda_agent (szöveges LLM)"]\n' +
+            '  classDef agent fill:#161b22,stroke:#58a6ff,color:#c9d1d9\n' +
+            '  classDef state fill:#161b22,stroke:#7ee787,color:#c9d1d9\n' +
+            '  class C,V,M,A agent\n' +
+            '  class ST state',
+          'overview.p1':
+            'Ez a példa egy <strong>felügyelő (supervisor) / többágenses</strong> mintát valósít meg a LangChain <code>create_agent</code> függvényével. A <strong>koordinátor</strong> ágens (a "tervező") kap egy sor <strong>eszközt</strong>, amelyek közül három vékony wrapper három egymástól független <strong>szakértő al-ágens</strong> köré: egy látás alapú helyszínkereső, egy látás alapú cateringkereső, és egy szöveg alapú napirend-író. A koordinátor dönti el, mikor melyik eszközt hívja, összegyűjti az eredményeket, és összeállítja a végső javaslatot.',
+          'overview.p2':
+            'Mind a négy nyelvi modell OpenRouter modellekből jön létre az <code>init_chat_model</code> segítségével, ágensenkénti hőmérséklet/token/prompt konfigurációval, amelyet markdown+YAML prompt sablonokból tölt be. Ez ugyanazt az egyszerűbb mintát tükrözi, amit a <code>simple_agent.py</code> és <code>advanced_agent.py</code> mutat, kibővítve egy orkesztrált többágenses munkafolyamattá.',
+          'step1.title': 'Modell konfiguráció',
+          'step1.p1':
+            'Minden ágens LLM-jét egy kis <code>ModelConfig</code> dataclass írja le (name, temperature, max_tokens, top_p, penalties, seed), amelyet környezeti változókból töltünk fel, így a viselkedés ágensenként hangolható kód módosítása nélkül.',
+          'step1.how':
+            '<strong>Hogyan működik:</strong> az <code>init_chat_model</code> a LangChain szolgáltatófüggetlen modellgyára — a <code>model_provider="openrouter"</code> átadásával egyetlen hívással bármely OpenRouter által hosztolt modellhez (GPT-OSS, Gemma vision, Poolside stb.) egységes felületű (<code>BaseChatModel</code>) chat modellt hozhatunk létre. Az opcionális mintavételi paraméterek csak akkor kerülnek hozzáadásra, ha be vannak állítva, egyébként a szolgáltató alapértékei érvényesülnek.',
+          'step1.why':
+            '<strong>Miért fontos:</strong> a modell <em>kiválasztásának</em> leválasztása a <em>használatáról</em> azt jelenti, hogy ugyanaz az ágensépítő kód működik OpenAI, Anthropic, OpenRouter vagy helyi modellekkel — csak a konfigurációt kell cserélni, a logikát nem. Az ágensenkénti hangolás (pl. alacsony hőmérséklet a látás alapú felderítőknél, magasabb a tervező prózájánál) elengedhetetlen olyan többágenses rendszerekben, ahol minden szerepnek más kreativitás/determinizmus arányra van szüksége.',
+          'step2.title': 'Prompt sablonok konfigurációs felülírásokkal',
+          'step2.p1':
+            'A rendszerpromptok markdown fájlokban élnek (<code>resources/prompts/*.md</code>), amelyek egy YAML front-matter blokkot tartalmaznak a modell felülírásaihoz, majd egy <code>## System prompt</code> szakaszt:',
+          'step2.how':
+            '<strong>Hogyan működik:</strong> egy reguláris kifejezés kinyeri a köré kerített <code>yaml</code> blokkot, a <code>yaml.safe_load</code> segítségével elemzi, majd egy közös alap <code>ModelConfig</code>-ra alkalmazza a <code>dataclasses.replace</code> révén — csak a YAML-ban jelen lévő mezők íródnak felül.',
+          'step2.why':
+            '<strong>Miért fontos:</strong> a prompt szövegének, indoklásának és modellhangolásának <em>egy áttekinthető fájlban való együtt tartása</em> (kódként verziózva) sokkal karbantarthatóbb, mint a promptszövegek és hiperparaméterek szétszórása a Python forráskódban. Ez lehetővé teszi, hogy nem fejlesztők is iterálhassanak a promptokon az alkalmazáskód érintése nélkül.',
+          'step3.title':
+            'Ágensek építése a <code>create_agent</code> segítségével',
+          'step3.p1':
+            'Minden ágens — a szakértők és a koordinátor egyaránt — ugyanazzal az alapelemmel épül fel:',
+          'step3.how':
+            '<strong>Hogyan működik:</strong> a <code>create_agent</code> egy LangGraph-alapú, ReAct-stílusú futtatható ágenst épít: addig ismétli a modellt az eszközhívásokon, amíg az egy végleges szöveges választ nem ad (vagy el nem éri a rekurziós limitet). A szakértő ágenseknek nincs <code>tools</code> paraméterük, így mindig egyetlen modellhívás után válaszolnak; a koordinátornak vannak eszközei, így tervez, eszközöket hív, és az eredményeik alapján következtet.',
+          'step3.why':
+            '<strong>Miért fontos:</strong> ez az egyetlen absztrakció megszünteti annak szükségességét, hogy kézzel építsünk LangGraph állapotgépet a gyakori "modell + eszközök + rendszerprompt" ágens formához, miközben egy komponálható <code>Runnable</code>-t ad vissza, amely maga is becsomagolható eszközként egy szülő ágens számára (lásd 8. lépés) — minimális sablonkóddal téve lehetővé az ágens-az-ágensben architektúrákat.',
+          'step4.title': 'Ágensállapot bővítése',
+          'step4.how':
+            '<strong>Hogyan működik:</strong> az <code>AgentState</code> egy TypedDict-szerű séma, amely mindig tartalmazza a <code>messages</code> mezőt; ennek leszármaztatása extra, típusos mezőket ad hozzá, amelyek fennmaradnak az ágens eszközhívási ciklusán át, és az eszközök a <code>runtime.state</code>-en keresztül olvashatják/írhatják őket. Az <code>state_schema=OffsiteState</code> átadása a <code>create_agent</code>-nek bekapcsolja ezt az egyedi sémát az alatta lévő LangGraph gráfba.',
+          'step4.why':
+            '<strong>Miért fontos:</strong> a puszta beszélgetési memória (<code>messages</code>) nem elég, ha az eszközöknek strukturált adatra van szükségük (célállomás, létszám, cél), amelyet korábban a futás során számítottak ki. A típusos állapot megbízható, explicit "jegyzetlapot" ad az eszközöknek, ahelyett hogy szabad szöveget kellene visszafejteniük a korábbi üzenetekből.',
+          'step5.title': 'Eszközök <code>ToolRuntime</code>-mal',
+          'step5.how':
+            '<strong>Hogyan működik:</strong> a <code>@tool</code> dekorátor egy sima függvényt LangChain <code>BaseTool</code>-lá alakít, a sémáját a típusjelölésekből, leírását pedig a docstringből vezeti le, amelyet az LLM lát. Egy <code>ToolRuntime</code> típusú paraméter deklarálása implicit hozzáférést ad az eszköznek az aktuális ágens <code>state</code>, <code>context</code> és <code>tool_call_id</code> adataihoz — anélkül, hogy a modellnek ezeket argumentumként kellene átadnia.',
+          'step5.why':
+            '<strong>Miért fontos:</strong> ez minimálisan és tisztán tartja az eszköz <em>nyilvános</em> argumentumfelületét (amit az LLM-nek meg kell adnia), miközben az eszköz továbbra is biztonságosan, közvetlenül olvashat privilegizált, nem hallucinálható adatokat (mint egy korábbi eszközhívás által beállított állapotot).',
+          'step6.title': 'Állapot frissítése <code>Command</code>-dal',
+          'step6.how':
+            '<strong>Hogyan működik:</strong> egyszerű string visszaadása helyett egy eszköz egy LangGraph <code>Command</code>-ot adhat vissza, amelynek <code>update</code> szótára közvetlenül beolvad a gráf állapotába — itt egyetlen atomi lépésben írja be a három <code>OffsiteState</code> mezőt, <em>és</em> hozzáfűzi a kötelező <code>ToolMessage</code>-t (a <code>tool_call_id</code> révén párosítva a hívással).',
+          'step6.why':
+            '<strong>Miért fontos:</strong> ez a kanonikus, versenyhelyzet-mentes módja annak, hogy egy eszköz egyszerre válaszoljon a modellnek és módosítsa a megosztott ágensállapotot egyetlen gráf-átmenetben — elkerülve az ad-hoc mellékcsatornákat vagy globális változókat, és auditálhatóvá téve az állapotváltozásokat az üzenet-/állapottörténetben.',
+          'step7.title': 'Multimodális (látás) eszközbemenet',
+          'step7.how':
+            '<strong>Hogyan működik:</strong> egy <code>HumanMessage</code> tartalma lehet tipizált tartalomblokkok listája (szöveg és kép részek, pl. az <code>image_content_block</code> által épített base64 data URL-ek) egyszerű string helyett. A látásra képes modell (Gemma) egymásba fűzött szöveg/kép részeket kap, és úgy okoskodik felettük, mint bármely más multimodális chat-kiegészítésen.',
+          'step7.why':
+            '<strong>Miért fontos:</strong> a LangChain egységes üzenet-tartalomblokk formátuma lehetővé teszi, hogy <em>ugyanazok</em> a <code>create_agent</code>/<code>invoke</code> hívási pontok kezeljék felcserélhetően a csak-szöveges és a multimodális modelleket — ez kritikus, amikor különböző modalitású ágenseket (látás alapú felderítők vs. szöveges napirend-író) komponálunk egy rendszerbe.',
+          'step8.title': 'Ágensek eszközként (felügyelő minta)',
+          'step8.how':
+            '<strong>Hogyan működik:</strong> minden szakértő <code>create_agent(...)</code> eredménye maga is egy futtatható gráf; egy <code>.invoke(...)</code> hívás becsomagolása egy <code>@tool</code> függvénybe a teljes al-ágenst egyetlen hívható eszközként teszi elérhetővé a koordinátor számára. A koordinátor LLM sosem látja a szakértők belsejét — csak egy eszköznevet, leírást és egy string eredményt.',
+          'step8.why':
+            '<strong>Miért fontos:</strong> ez az "ágensek hívnak ágenseket" kompozíciós alaptechnika a LangChain/LangGraph-ban. Lehetővé teszi, hogy egy összetett feladatot (offsite tervezés) önállóan tesztelhető, önállóan promptolt/hangolt al-ágensekre bontsunk, miközben a felső szintű modellnek egyszerű, lapos eszközhívási felületet adunk — ugyanez a minta sok szakértőre skálázható a koordinátor promptjának bonyolultsága nélkül.',
+          'step9.title': 'Korlátozott befejezési ciklus és rekurziós limit',
+          'step9.how':
+            '<strong>Hogyan működik:</strong> a <code>recursion_limit</code> korlátozza, hány gráflépést tehet meg egyetlen <code>invoke</code> (védve a végtelen eszközhívási ciklusoktól). A <code>_conversation_status</code> megvizsgálja a visszakapott üzeneteket a négy <code>REQUIRED_TOOL_NAMES</code> és egy nem csonkolt végleges AI üzenet szempontjából; ha a futás korán leállt, egy szintetikus helyreállító <code>HumanMessage</code> kerül hozzáfűzésre, és a koordinátor újra meghívásra kerül a felhalmozott állapottal — legfeljebb <code>MAX_COORDINATOR_ATTEMPTS</code> alkalommal.',
+          'step9.why':
+            '<strong>Miért fontos:</strong> az LLM ágensek idő előtt leállhatnak (token/lépés limit elérése, egy lépés kihagyása), különösen több eszközhívás orkesztrálásakor. Ez az újraindítható befejezési minta egy megbízhatatlan, egylépéses hívást robusztus, önjavító futássá alakít anélkül, hogy meg kellene ismételni a már elvégzett (és költséges) szakértői hívásokat, mivel az állapot és a korábbi üzenetek megmaradnak a próbálkozások között.',
+          'step10.title': 'Beszélgetés perzisztencia és naplózás',
+          'step10.how':
+            '<strong>Hogyan működik:</strong> a teljes üzenetnyomvonal (felhasználói kérés, eszközhívások/eredmények, végleges javaslat) minden futáskor markdown fájlba szerializálódik, miközben strukturált <code>logging</code> hívások naplózzák minden koordinátor-próbálkozást, a hiányzó eszközöket és a befejezési állapotot a konzolra és egy naplófájlba egyaránt.',
+          'step10.why':
+            '<strong>Miért fontos:</strong> a többágenses futásokat nehéz hibakeresni pusztán a stdout alapján. A teljes beszélgetés (a képlegendákkal együtt) mentése, valamint a strukturált naplók reprodukálható audit nyomvonalat adnak a prompt iterációhoz, regressziós összehasonlításhoz és a rendszer viselkedésének bemutatásához.',
+          'summary.title':
+            'Összefoglaló táblázat — használt LangChain funkciók',
+          'summary.table':
+            '<tr><th>Funkció</th><th>Import</th><th>Szerepe ebben a példában</th></tr>' +
+            '<tr><td>Szolgáltatófüggetlen modellgyár</td><td><code>langchain.chat_models.init_chat_model</code></td><td>4 OpenRouter-alapú chat modell építése konfigurációból</td></tr>' +
+            '<tr><td>ReAct-stílusú ágensépítő</td><td><code>langchain.agents.create_agent</code></td><td>Minden szakértőt és a koordinátort is ez építi</td></tr>' +
+            '<tr><td>Egyedi állapotséma</td><td><code>langchain.agents.AgentState</code></td><td><code>OffsiteState</code> hozzáadja a célállomást/létszámot/célt</td></tr>' +
+            '<tr><td>Eszköz dekorátor</td><td><code>langchain.tools.tool</code></td><td>Python függvényeket LLM-hívható eszközökké alakít</td></tr>' +
+            '<tr><td>Eszköz futásidejű kontextus</td><td><code>langchain.tools.ToolRuntime</code></td><td>Állapot olvasása, <code>tool_call_id</code> lekérése az eszközökön belül</td></tr>' +
+            '<tr><td>Gráfállapot módosítás</td><td><code>langgraph.types.Command</code></td><td>Az <code>update_state</code> eszköz állapotot és ToolMessage-t ír</td></tr>' +
+            '<tr><td>Üzenettípusok</td><td><code>langchain.messages.HumanMessage/ToolMessage</code></td><td>A felső szintű és az al-ágens hívásokat is vezérlik</td></tr>' +
+            '<tr><td>Multimodális tartalomblokkok</td><td>tartalomlista <code>type: text/image</code>-dzsel</td><td>A látás alapú felderítők venue/étel fotókat hasonlítanak össze</td></tr>' +
+            '<tr><td>Futási konfiguráció</td><td><code>langchain_core.runnables.RunnableConfig</code></td><td><code>recursion_limit</code>, címkék a nyomkövetéshez</td></tr>' +
+            '<tr><td>Ágensek-mint-eszközök kompozíció</td><td>N/A (minta)</td><td>A koordinátor eszközei becsomagolják a szakértők <code>.invoke()</code> hívásait</td></tr>',
+          'footer.text':
+            'Forrás: <code>src/corporate_offsite_planner_agent.py</code>, <code>src/utils/config.py</code>, <code>src/utils/model_util.py</code>, <code>src/utils/tools.py</code>, és <code>src/resources/prompts/coordinator.md</code>.',
+        },
+      };
+
+      const STORAGE_KEY = 'offsite-doc-lang';
+      const i18nNodes = document.querySelectorAll('[data-i18n]');
+      const mermaidNodes = Array.from(
+        document.querySelectorAll('pre.mermaid[data-i18n]'),
+      );
+
+      function renderMermaidNodes() {
+        mermaidNodes.forEach((node) => node.removeAttribute('data-processed'));
+        mermaid.run({ nodes: mermaidNodes }).catch(() => {});
+      }
+
+      function setLanguage(lang) {
+        document.documentElement.lang = lang;
+        i18nNodes.forEach((node) => {
+          if (node.dataset.en === undefined) {
+            node.dataset.en = node.innerHTML;
+          }
+          const key = node.dataset.i18n;
+          node.innerHTML =
+            lang === 'hu' && translations.hu[key]
+              ? translations.hu[key]
+              : node.dataset.en;
+        });
+        document.querySelectorAll('[data-lang-btn]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.langBtn === lang);
+        });
+        localStorage.setItem(STORAGE_KEY, lang);
+        renderMermaidNodes();
+      }
+
+      document.querySelectorAll('[data-lang-btn]').forEach((btn) => {
+        btn.addEventListener('click', () => setLanguage(btn.dataset.langBtn));
+      });
+
+      setLanguage(localStorage.getItem(STORAGE_KEY) || 'en');
+    </script>
+  </body>
+</html>
