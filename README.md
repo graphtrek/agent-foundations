@@ -38,6 +38,9 @@ example asks for it interactively without displaying the key on screen.
 `LANGCHAIN_DEBUG=true` enables extra debug output from the configuration
 helper and LangChain components.
 
+The scripts load `.env` from the project root even when they are launched from
+`src/`. Do not commit `.env`; the key is used only by the current process.
+
 ## Run the examples
 
 Run the main tutorial with:
@@ -104,6 +107,18 @@ process and communicate through standard input and output. The configured
 host and port are displayed for visibility, but the selected transport is
 `stdio`.
 
+## Validation
+
+There is no automated test suite yet. Check the Python sources and imports with:
+
+```bash
+uv run python -m compileall src
+```
+
+For a behavior check, run the example that you changed. The agent examples
+make model requests; the search and image examples also need their external
+service or local image input.
+
 ## Project structure
 
 ```text
@@ -118,7 +133,9 @@ src/
 └── utils/
       ├── agent_response.py    # Helpers for invoke and stream response formats
       ├── config.py            # Loads environment variables and the API key
+      ├── conversation_util.py  # Formats and saves planner conversations
       ├── file_util.py         # Encodes local files for multimodal messages
+      ├── model_util.py         # Loads prompt templates and configured models
       ├── offsite_images.py    # Downloads and caches planner images
       └── tools.py             # LangChain web-search and planner tools
 ```
