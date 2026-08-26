@@ -60,6 +60,39 @@ uv run python src/advanced_agent.py
 This example shows how tools read a typed runtime context and read/write
 conversation state across turns.
 
+Run the multi-agent corporate offsite planner with:
+
+```bash
+uv run python src/corporate_offsite_planner_agent.py
+```
+
+The planner coordinates three specialist agents: vision models select a venue
+and catering option from generated example images, while a text model drafts
+the agenda. The coordinator combines their results into a final proposal and
+prints the complete conversation. Images are cached under
+`src/resources/offsite/`; the conversation is saved under `conversations/`,
+and runtime logs are written to `logs/corporate_offsite_planner.log`.
+
+The planner has defaults for all three models, but each can be overridden in
+`.env`:
+
+```dotenv
+PLANNER_MODEL=openai/gpt-oss-120b
+VISION_MODEL=google/gemma-4-26b-a4b-it
+TEXT_MODEL=poolside/laguna-s-2.1
+PLANNER_TEMPERATURE=0.7
+PLANNER_MAX_TOKENS=900
+VISION_TEMPERATURE=0.3
+VISION_MAX_TOKENS=500
+TEXT_TEMPERATURE=0.7
+TEXT_MAX_TOKENS=500
+LOG_LEVEL=INFO
+```
+
+Each model also accepts optional `TOP_P`, `FREQUENCY_PENALTY`,
+`PRESENCE_PENALTY`, and `SEED` settings using the same prefix. The planner
+requires a model with vision support for the venue and catering specialists.
+
 To run the MCP server example:
 
 ```bash
@@ -77,12 +110,17 @@ host and port are displayed for visibility, but the selected transport is
 src/
 ├── simple_agent.py          # Main LangChain agent demonstrations
 ├── advanced_agent.py        # Runtime context and state-aware tools
+├── corporate_offsite_planner_agent.py  # Multi-agent offsite planner
 ├── mcp_server.py            # MCP server with a search tool and GitHub resource
+├── resources/
+│     ├── prompts/            # Specialist and coordinator system prompts
+│     └── offsite/             # Cached venue and catering images
 └── utils/
       ├── agent_response.py    # Helpers for invoke and stream response formats
       ├── config.py            # Loads environment variables and the API key
       ├── file_util.py         # Encodes local files for multimodal messages
-      └── tools.py             # LangChain web-search tool
+      ├── offsite_images.py    # Downloads and caches planner images
+      └── tools.py             # LangChain web-search and planner tools
 ```
 
 ## Python files explained
@@ -283,4 +321,20 @@ search capability is similar, but the integration boundary is different.
 5. Add an image and trace the multimodal message in the image example.
 6. Run `advanced_agent.py` and trace how context stays fixed while state changes
     across the two turns.
-7. Run the MCP server and connect it to an MCP-compatible client.
+7. Run `corporate_offsite_planner_agent.py` and inspect the specialist tool
+   calls, image links, saved conversation, and log.
+8. Run the MCP server and connect it to an MCP-compatible client.
+
+### `src/corporate_offsite_planner_agent.py`
+
+This example demonstrates a coordinator agent that delegates a business task
+to focused specialists. The coordinator first records the request in typed
+state, then calls venue, catering, and agenda tools. Those tools invoke
+specialist agents with separate prompts and models. The coordinator validates
+that the required tools ran and retries an incomplete response up to three
+times before saving the conversation.
+
+The example is intentionally self-contained: `utils/offsite_images.py`
+downloads a small set of source images on first use and reuses the local files
+afterward. The specialist prompts live in `src/resources/prompts/`, where their
+model settings and system instructions can be reviewed or changed.
