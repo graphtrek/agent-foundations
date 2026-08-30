@@ -33,6 +33,7 @@ def run_customer_support_demo(model: BaseChatModel) -> None:
         context_schema=SupportContext,
         state_schema=CustomerState,
         checkpointer=InMemorySaver(),
+        middleware=[],
     )
 
     thread_config: RunnableConfig = {"configurable": {"thread_id": "customer-123"}}
