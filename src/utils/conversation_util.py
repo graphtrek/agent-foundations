@@ -56,12 +56,16 @@ def save_conversation(
     user_prompt: str,
     messages: list[Any],
     output_dir: Path,
-    image_paths: dict[str, Path],
+    image_paths: dict[str, Path] | None = None,
+    *,
+    title: str = "Corporate Offsite Planner Conversation",
+    assistant_heading: str = "Assistant Recommendation",
 ) -> Path:
     """Save a complete agent conversation as a timestamped Markdown file."""
+    image_paths = image_paths or {}
     timestamp = datetime.now(UTC)
     sections = [
-        "# Corporate Offsite Planner Conversation",
+        f"# {title}",
         "",
         f"**Timestamp:** {timestamp.isoformat(timespec='seconds')}",
         "",
@@ -82,7 +86,7 @@ def save_conversation(
             role = _message_role(message)
             if role == "Assistant":
                 sections.extend(
-                    ["", "---", "", "## Assistant Recommendation", "", content]
+                    ["", "---", "", f"## {assistant_heading}", "", content]
                 )
             else:
                 sections.extend(["", f"### {role}", "", content])

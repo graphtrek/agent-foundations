@@ -10,7 +10,7 @@
 | Domain | Topic                                  | Weight  | Questions |
 | ------ | -------------------------------------- | ------- | --------- |
 | 1.     | Agentic Architecture & Orchrestation   | 27%     | ~16       |
-| 2.     | Tool Design & MCP Integration.         | 18%     | ~11       |
+| 2.     | Tool Design & MCP Integration          | 18%     | ~11       |
 | 3.     | Claude Code Configuration & Workloads  | 20%     | ~12       |
 | 4.     | Prompt Engineering & Structured Output | 20%     | ~12       |
 | 5.     | Context Management & Reliability       | 15%     | ~9        |
@@ -89,3 +89,28 @@
         Plan -> chaining Result -> adaptive
 
 [Antropic SDK Context Windows](https://platform.claude.com/docs/en/build-with-claude/context-windows)
+
+## 2. Tool Design & MCP Integration
+
+### 2.1 Tool_Description_Best_Practices
+
+    Why does a vague tool description cause your code to fail?
+        The reason it is the descripion to the LLM how to use the tool.
+    What is the perfect description?
+        - Clear purpose in one simple sentence.
+        - Exact types formats and rules for the input data.
+        - Give it some examples.
+        - Define egdge cases such as empty or weird data.
+        - Tell when not use the tool.
+        - Define the return value not just sucess but not found situations too.
+    EXAM tip:
+        The most detailed answer most specific exact is to good one
+        Search, stuff ... are bad
+
+## 2.2 Structured error responses
+
+## Research
+
+    - [Claude Certified Architect Exam Guide - Releases](https://github.com/daronyondem/claude-architect-exam-guide/releases)
+    - [Claude Certified Architect Foundations - YouTube playlist](https://www.youtube.com/watch?v=VvKDoV39jAk&list=PLmiDJB5zE0KGwFtDCSqHfQG7SV6VeQ_31)
+    - [Claude Certified Architect Foundations Certification Exam notes](https://github.com/OlivierAlter/Claude-Certified-Architect-Foundations-Certification-Exam/blob/main/Claude%20Certification%20Exam.md)

@@ -1,13 +1,17 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
-from langchain.agents import AgentState
+from langchain.agents import AgentState, create_agent
+from langchain.chat_models import BaseChatModel
 from langchain.messages import HumanMessage, ToolMessage
 from langchain.tools import ToolRuntime, tool
 from langchain_community.tools import DuckDuckGoSearchResults
 from langgraph.types import Command
 
+from utils import bank_data, endpoint_catalog
+from utils.guardrails import build_guardrail_middleware
 from utils.offsite_images import image_content_block, image_legend
 
 duckduckgo_client = DuckDuckGoSearchResults(output_format="string")
@@ -192,3 +196,236 @@ def create_offsite_tools(
         )
 
     return [update_state, choose_venue, choose_catering, plan_agenda]
+
+
+@dataclass
+class BranchContext:
+    officer_id: str
+    branch_id: str
+
+
+class BranchState(AgentState):
+    current_customer_id: str | None
+    matched_endpoint: dict[str, Any] | None
+
+
+def create_endpoint_router_tools() -> list[Any]:
+    """Create the endpoint-router agent's single tool.
+
+    Unlike the account/product specialist tool belts, this isn't scoped to a
+    customer id — the catalog is the same for everyone, and the
+    customer-specific entitlement check happens later, in
+    ``EndpointAccessMiddleware``.
+    """
+
+    @tool
+    def search_endpoint_catalog(
+        query: str, runtime: ToolRuntime[BranchContext, BranchState]
+    ) -> Command:
+        """Search the web banking app's REST endpoint catalog for the single
+        best match to the officer's question."""
+        matches = endpoint_catalog.search_endpoints(query)
+        if not matches:
+            return Command(
+                update={
+                    "matched_endpoint": None,
+                    "messages": [
+                        ToolMessage(
+                            content="No matching endpoint found in the catalog.",
+                            tool_call_id=runtime.tool_call_id,
+                        )
+                    ],
+                }
+            )
+        best = matches[0]
+        return Command(
+            update={
+                "matched_endpoint": asdict(best),
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            f"Best match: {best.method} {best.path} — "
+                            f"{best.description} (menu: {best.menu_path}, "
+                            f"requires {best.required_entitlement} tier)."
+                        ),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
+
+    return [search_endpoint_catalog]
+
+
+def create_account_specialist_tools(customer_id: str) -> list[Any]:
+    """Create a tool belt scoped to one customer's accounts and transactions."""
+
+    @tool
+    def list_accounts() -> str:
+        """List the current customer's accounts with type, product and balance."""
+        accounts = bank_data.get_accounts(customer_id)
+        if not accounts:
+            return "No accounts found for this customer."
+        return "\n".join(
+            f"- {a.account_id} ({a.account_type}, {a.product_name}): "
+            f"{a.balance:,.0f} {a.currency}"
+            for a in accounts
+        )
+
+    @tool
+    def get_transaction_history(
+        account_id: str,
+        min_amount: float | None = None,
+        since_iso_date: str | None = None,
+    ) -> str:
+        """Return recent transactions for one of this customer's accounts.
+
+        account_id must be one of this customer's own account ids (from
+        list_accounts). min_amount filters to transactions whose absolute
+        amount is at least that value. since_iso_date (YYYY-MM-DD) filters to
+        transactions booked on or after that date.
+        """
+        owned_account_ids = {a.account_id for a in bank_data.get_accounts(customer_id)}
+        if account_id not in owned_account_ids:
+            return f"Account {account_id} does not belong to this customer."
+        since = date.fromisoformat(since_iso_date) if since_iso_date else None
+        transactions = bank_data.get_transactions(
+            account_id, min_amount=min_amount, since=since
+        )
+        if not transactions:
+            return "No matching transactions."
+        return "\n".join(
+            f"- {t.booking_date.isoformat()} {t.amount:+,.0f} {t.currency} "
+            f"— {t.description} ({t.category})"
+            for t in transactions
+        )
+
+    return [list_accounts, get_transaction_history]
+
+
+def create_product_specialist_tools(customer_id: str) -> list[Any]:
+    """Create a tool belt scoped to the catalog and one customer's offers."""
+
+    @tool
+    def list_catalog() -> str:
+        """List every product in the bank's shared catalog with headline rates."""
+        return "\n".join(
+            f"- {p.product_id} {p.name} ({p.category}): "
+            f"{p.rate_label} {p.headline_rate}% — {p.description}"
+            for p in bank_data.list_products()
+        )
+
+    @tool
+    def list_personalized_offers() -> str:
+        """List personalized discounts/offers currently available to this customer."""
+        offers = bank_data.get_offers(customer_id)
+        if not offers:
+            return "No personalized offers for this customer right now."
+        lines = []
+        for offer in offers:
+            product = bank_data.get_product(offer.product_id)
+            product_name = product.name if product else offer.product_id
+            lines.append(
+                f"- {product_name}: {offer.description} ({offer.discount_detail}), "
+                f"valid until {offer.valid_until.isoformat()}. Reason: {offer.reason}"
+            )
+        return "\n".join(lines)
+
+    return [list_catalog, list_personalized_offers]
+
+
+def create_branch_tools(
+    account_model: BaseChatModel,
+    account_prompt: str,
+    product_model: BaseChatModel,
+    product_prompt: str,
+) -> list[Any]:
+    """Create the coordinator's own tools: customer lookup plus two specialist
+    wrappers. Unlike ``create_offsite_tools`` (whose specialists have static
+    tools because the data - the candidate images - is fixed ahead of time),
+    the account/product specialists here must be scoped to whichever customer
+    is currently selected, so each wrapper tool builds a fresh specialist
+    agent with customer-scoped tools on every call, from the model+prompt
+    pair loaded once at startup.
+    """
+
+    @tool
+    def list_customers() -> str:
+        """List every customer available to select in this demo branch session."""
+        return "\n".join(
+            f"- {c.customer_id}: {c.full_name} (born {c.date_of_birth.isoformat()})"
+            for c in bank_data.list_customers()
+        )
+
+    @tool
+    def select_customer(
+        name_or_id: str, runtime: ToolRuntime[BranchContext, BranchState]
+    ) -> Command:
+        """Select the customer currently at the branch desk, by name or id."""
+        customer = bank_data.find_customer(name_or_id)
+        if customer is None:
+            return Command(
+                update={
+                    "messages": [
+                        ToolMessage(
+                            content=(
+                                f"No customer matches '{name_or_id}'. "
+                                "Use list_customers to see available customers."
+                            ),
+                            tool_call_id=runtime.tool_call_id,
+                        )
+                    ]
+                }
+            )
+        return Command(
+            update={
+                "current_customer_id": customer.customer_id,
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            f"Selected customer {customer.full_name} "
+                            f"({customer.customer_id})."
+                        ),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
+
+    @tool
+    def ask_account_specialist(
+        question: str, runtime: ToolRuntime[BranchContext, BranchState]
+    ) -> str:
+        """Ask the account/transactions specialist about the selected customer's
+        balances or transaction history."""
+        customer_id = runtime.state.get("current_customer_id")
+        if not customer_id:
+            return "No customer is currently selected. Call select_customer first."
+        account_agent = create_agent(
+            model=account_model,
+            tools=create_account_specialist_tools(customer_id),
+            system_prompt=account_prompt,
+            middleware=build_guardrail_middleware(),
+        )
+        response = account_agent.invoke({"messages": [HumanMessage(content=question)]})
+        return response["messages"][-1].content
+
+    @tool
+    def ask_product_specialist(
+        question: str, runtime: ToolRuntime[BranchContext, BranchState]
+    ) -> str:
+        """Ask the product/offers specialist about the catalog or the selected
+        customer's personalized discounts."""
+        customer_id = runtime.state.get("current_customer_id")
+        if not customer_id:
+            return "No customer is currently selected. Call select_customer first."
+        product_agent = create_agent(
+            model=product_model,
+            tools=create_product_specialist_tools(customer_id),
+            system_prompt=product_prompt,
+            middleware=build_guardrail_middleware(),
+        )
+        response = product_agent.invoke({"messages": [HumanMessage(content=question)]})
+        return response["messages"][-1].content
+
+    return [list_customers, select_customer, ask_account_specialist, ask_product_specialist]

@@ -1,0 +1,345 @@
+<!doctype html>
+<!--
+  Static visual mock-up of the web banking app's menu, mirroring the REST
+  endpoint catalog in src/utils/endpoint_catalog.py. Hand-written, not
+  generated - keep the two in sync by hand when the catalog changes.
+  Open directly in a browser (file://); no build step, no JS required.
+  Named catalog.html, not index.html, because .gitignore has a repo-wide
+  bare "index.html" rule for an unrelated generated file.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Banking App — Menu &amp; Endpoint Catalog</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --text: #1b1f24;
+    --muted: #5b6472;
+    --border: #e1e4e9;
+    --get: #1b7f3a;
+    --post: #1a56db;
+    --patch: #b4580d;
+    --delete: #b42318;
+    --retail: #e1e4e9;
+    --retail-text: #333;
+    --premium: #fde8cf;
+    --premium-text: #8a4b00;
+    --business: #e3d8fb;
+    --business-text: #4c2a9c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a;
+      --panel: #1e2125;
+      --text: #e7e9ec;
+      --muted: #9aa3ad;
+      --border: #30343a;
+      --retail: #30343a;
+      --retail-text: #d8dadd;
+      --premium: #4a3414;
+      --premium-text: #f0b056;
+      --business: #352a57;
+      --business-text: #c9b6f5;
+    }
+  }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
+  details {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 10px 14px;
+  }
+  summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    text-transform: capitalize;
+  }
+  ul { list-style: none; margin: 10px 0 0; padding: 0; }
+  li {
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+  }
+  li:first-child { border-top: none; }
+  .row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  .method {
+    font: 700 0.72rem/1 ui-monospace, monospace;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #fff;
+  }
+  .method.get { background: var(--get); }
+  .method.post { background: var(--post); }
+  .method.patch { background: var(--patch); }
+  .method.delete { background: var(--delete); }
+  .path { font: 600 0.88rem ui-monospace, monospace; }
+  .tier {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 100px;
+    margin-left: auto;
+  }
+  .tier.retail { background: var(--retail); color: var(--retail-text); }
+  .tier.premium { background: var(--premium); color: var(--premium-text); }
+  .tier.business { background: var(--business); color: var(--business-text); }
+  .description { margin: 4px 0 2px; font-size: 0.88rem; }
+  .menu { margin: 0; font-size: 0.78rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Web Banking App — Menu &amp; Endpoint Catalog</h1>
+  <p class="subtitle">
+    Visual reference for <code>src/utils/endpoint_catalog.py</code>, used by
+    the endpoint-router specialist in the bank branch officer demo. Each
+    menu item below is backed by the REST endpoint shown.
+  </p>
+
+  <details open>
+    <summary>Accounts</summary>
+    <ul>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/accounts</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List the current customer's accounts with type and balance.</p>
+        <p class="menu">Accounts &gt; Overview</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/accounts/{id}</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Get the details of a single account.</p>
+        <p class="menu">Accounts &gt; Overview &gt; Account details</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/accounts/{id}/transactions</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List recent transactions for one account, with amount/date filters.</p>
+        <p class="menu">Accounts &gt; Transactions &gt; Search</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/accounts/{id}/transactions/{txn_id}/dispute</span>
+        <span class="tier retail">retail</span>
+        <p class="description">File a dispute on a single transaction.</p>
+        <p class="menu">Accounts &gt; Transactions &gt; Dispute a charge</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/accounts/{id}/statements/{period}</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Download a monthly account statement.</p>
+        <p class="menu">Accounts &gt; Statements</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/accounts/business/overview</span>
+        <span class="tier business">business</span>
+        <p class="description">View a consolidated overview of all business accounts and sub-accounts.</p>
+        <p class="menu">Accounts &gt; Business &gt; Consolidated overview</p>
+      </li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Payments</summary>
+    <ul>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/payments/transfer</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Make a domestic transfer between the customer's own or saved accounts.</p>
+        <p class="menu">Payments &gt; Transfer money</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/payments/utility-bill</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Pay a utility bill by biller code and reference number.</p>
+        <p class="menu">Payments &gt; Pay a bill</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/payments/external-transfer</span>
+        <span class="tier premium">premium</span>
+        <p class="description">Send an international or external-bank wire transfer.</p>
+        <p class="menu">Payments &gt; International transfer</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/payments/batch</span>
+        <span class="tier business">business</span>
+        <p class="description">Upload a batch payment file, e.g. monthly payroll.</p>
+        <p class="menu">Payments &gt; Batch / payroll upload</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/payments/scheduled</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List scheduled and recurring payments.</p>
+        <p class="menu">Payments &gt; Scheduled payments</p>
+      </li>
+      <li class="row">
+        <span class="method delete">DELETE</span>
+        <span class="path">/payments/scheduled/{id}</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Cancel a scheduled or recurring payment.</p>
+        <p class="menu">Payments &gt; Scheduled payments &gt; Cancel</p>
+      </li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Cards</summary>
+    <ul>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/cards</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List the customer's debit and credit cards.</p>
+        <p class="menu">Cards &gt; Overview</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/cards/{id}/block</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Block a lost or stolen card.</p>
+        <p class="menu">Cards &gt; Overview &gt; Block card</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/cards/{id}/unblock</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Unblock a previously blocked card.</p>
+        <p class="menu">Cards &gt; Overview &gt; Unblock card</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/cards/{id}/limits</span>
+        <span class="tier premium">premium</span>
+        <p class="description">View a card's current daily spending and withdrawal limit.</p>
+        <p class="menu">Cards &gt; Overview &gt; View limits</p>
+      </li>
+      <li class="row">
+        <span class="method patch">PATCH</span>
+        <span class="path">/cards/{id}/limits</span>
+        <span class="tier premium">premium</span>
+        <p class="description">Raise or lower a card's daily spending/withdrawal limit.</p>
+        <p class="menu">Cards &gt; Overview &gt; Change limits</p>
+      </li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Loans</summary>
+    <ul>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/loans/offers</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List the loan products and headline rates available to the customer.</p>
+        <p class="menu">Loans &gt; Offers</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/loans/applications/{id}/status</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Check the status of a submitted loan application.</p>
+        <p class="menu">Loans &gt; My applications &gt; Status</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/loans/applications</span>
+        <span class="tier premium">premium</span>
+        <p class="description">Submit a new personal loan or mortgage application.</p>
+        <p class="menu">Loans &gt; Apply</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/loans/business/credit-line</span>
+        <span class="tier business">business</span>
+        <p class="description">Apply for a revolving business credit line.</p>
+        <p class="menu">Loans &gt; Business &gt; Credit line</p>
+      </li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>Profile &amp; support</summary>
+    <ul>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/profile</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Get the customer's profile and contact information.</p>
+        <p class="menu">Profile &gt; My details</p>
+      </li>
+      <li class="row">
+        <span class="method patch">PATCH</span>
+        <span class="path">/profile/contact-info</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Update the customer's phone number or email address.</p>
+        <p class="menu">Profile &gt; My details &gt; Edit contact info</p>
+      </li>
+      <li class="row">
+        <span class="method post">POST</span>
+        <span class="path">/support/tickets</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Open a new customer support ticket.</p>
+        <p class="menu">Support &gt; New request</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/support/tickets/{id}</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Check the status of an existing support ticket.</p>
+        <p class="menu">Support &gt; My requests</p>
+      </li>
+    </ul>
+  </details>
+
+  <details>
+    <summary>General</summary>
+    <ul>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/general/conditions</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List standard account and product terms, fees, and interest conditions.</p>
+        <p class="menu">General &gt; Terms &amp; conditions</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/general/branches</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List branch locations with address and map coordinates, optionally filtered by city or postal code.</p>
+        <p class="menu">General &gt; Branch locator</p>
+      </li>
+      <li class="row">
+        <span class="method get">GET</span>
+        <span class="path">/general/branches/{id}/hours</span>
+        <span class="tier retail">retail</span>
+        <p class="description">Get a branch's opening hours for the week, including holiday exceptions.</p>
+        <p class="menu">General &gt; Branch locator &gt; Opening hours</p>
+      </li>
+    </ul>
+  </details>
+</main>
+</body>
+</html>

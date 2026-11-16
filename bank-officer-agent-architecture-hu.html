@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A kérdés útja — bank-tisztviselői asszisztens architektúra | agent-foundations</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+      :root {
+        --ink: #17212b;
+        --muted: #64717b;
+        --paper: #f5f2ea;
+        --white: #fffdf8;
+        --lime: #c8e85b;
+        --coral: #ff765c;
+        --blue: #7bb9d8;
+        --red: #d7263d;
+        --redbg: #ffe3e0;
+        --line: #d9d6cc;
+        --shadow: 0 18px 50px rgba(23, 33, 43, 0.13);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Manrope, sans-serif;
+        background-image:
+          linear-gradient(rgba(23, 33, 43, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(23, 33, 43, 0.04) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+      .progress {
+        position: fixed;
+        z-index: 10;
+        top: 0;
+        left: 0;
+        height: 5px;
+        background: var(--coral);
+        width: 0%;
+      }
+      main {
+        width: 100%;
+        margin: 0;
+        padding: clamp(32px, 7vw, 72px) 0 120px;
+      }
+      .narrow {
+        width: min(880px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+      code,
+      pre,
+      .eyebrow,
+      .step-tag,
+      .num,
+      .chip {
+        font-family: 'DM Mono', monospace;
+      }
+      .eyebrow {
+        color: var(--coral);
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-weight: 800;
+        letter-spacing: -2px;
+        line-height: 1;
+        margin: 0;
+        font-size: clamp(36px, 6vw, 62px);
+      }
+      h2 {
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin: 0;
+        font-size: clamp(24px, 3.4vw, 34px);
+      }
+      h3 {
+        margin: 0 0 6px;
+        font-size: 19px;
+        letter-spacing: -0.2px;
+      }
+      p {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0;
+      }
+      .lede {
+        margin-top: 20px;
+        max-width: 640px;
+        font-size: 18px;
+      }
+      code {
+        background: rgba(23, 33, 43, 0.07);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.86em;
+      }
+      .hero {
+        padding-bottom: 8px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 28px;
+        font-family: 'DM Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .legend-line {
+        display: inline-block;
+        width: 22px;
+        height: 0;
+        border-top: 3px solid;
+      }
+      .ll-auth {
+        border-color: #2f6fb3;
+      }
+      .ll-noauth {
+        border-color: #3f9142;
+      }
+      .swatch {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        display: inline-block;
+        border: 1px solid var(--ink);
+      }
+      .sw-agent {
+        background: var(--lime);
+        border-width: 2px;
+        border-radius: 20px;
+        width: 20px;
+        height: 12px;
+      }
+      .sw-tool {
+        background: var(--white);
+        border-color: var(--coral);
+      }
+      .sw-state {
+        background: #e5eef2;
+        border-color: var(--blue);
+        border-radius: 50%;
+      }
+      .sw-human {
+        background: var(--ink);
+        border-color: var(--coral);
+      }
+      .sw-guard {
+        background: var(--redbg);
+        border-color: var(--red);
+        border-width: 2px;
+        clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      }
+      .intro-proposal {
+        padding-bottom: 32px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 40px;
+      }
+      .principles {
+        display: grid;
+        gap: 14px;
+        margin-top: 24px;
+      }
+      .principle {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 16px;
+        align-items: start;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        padding: 16px 20px;
+      }
+      .principle .pnum {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: var(--lime);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'DM Mono', monospace;
+        font-weight: 500;
+        font-size: 15px;
+      }
+      .principle p {
+        margin: 0;
+        font-size: 15.5px;
+      }
+      .principle strong {
+        color: var(--ink);
+      }
+      .diagram-card {
+        background: var(--white);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        margin-top: 36px;
+        margin-bottom: 8px;
+        padding: clamp(32px, 5vw, 56px) clamp(20px, 6vw, 64px) clamp(40px, 6vw, 64px);
+        overflow-x: auto;
+      }
+      .diagram-inner {
+        width: max-content;
+        min-width: 100%;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      .diagram-card .mermaid {
+        width: 100%;
+      }
+      .diagram-card .mermaid svg {
+        display: block;
+        margin: 0 auto;
+        width: 100% !important;
+        height: auto !important;
+      }
+      .phase {
+        margin-top: 64px;
+      }
+      .phase-head {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+      .phase-badge {
+        background: var(--ink);
+        color: var(--lime);
+        font-family: 'DM Mono', monospace;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 3px;
+        white-space: nowrap;
+        transform: rotate(-1deg);
+      }
+      .timeline {
+        position: relative;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        column-gap: 20px;
+        position: relative;
+        padding-bottom: 28px;
+      }
+      .step::before {
+        content: '';
+        position: absolute;
+        left: 27px;
+        top: 56px;
+        bottom: -2px;
+        width: 2px;
+        background: var(--line);
+      }
+      .step:last-child::before {
+        display: none;
+      }
+      .num {
+        position: relative;
+        z-index: 2;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--white);
+        border: 2px solid var(--ink);
+        box-shadow: var(--shadow);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        font-weight: 500;
+        color: var(--ink);
+      }
+      .step.kind-human .num {
+        background: var(--ink);
+        color: var(--lime);
+        border-color: var(--ink);
+      }
+      .step.kind-agent .num {
+        background: var(--lime);
+        border-color: var(--ink);
+        color: var(--ink);
+      }
+      .step.kind-tool .num {
+        background: var(--white);
+        border-color: var(--coral);
+        color: var(--coral);
+      }
+      .step.kind-state .num {
+        background: #e5eef2;
+        border-color: var(--blue);
+        color: #2d5873;
+      }
+      .card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        padding: 20px 24px;
+      }
+      .step-tag {
+        display: inline-block;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .card p + p {
+        margin-top: 10px;
+      }
+      .card p {
+        font-size: 15.5px;
+      }
+      .guard-note {
+        margin-top: 14px;
+        border-left: 4px solid var(--red);
+        background: var(--redbg);
+        padding: 10px 14px;
+        border-radius: 0 3px 3px 0;
+      }
+      .guard-note p {
+        color: #7a0c1c;
+        font-size: 14px;
+        margin: 0;
+      }
+      .guard-note strong {
+        color: #7a0c1c;
+      }
+      .card pre {
+        margin-top: 14px;
+        background: var(--ink);
+        color: #ecf2e4;
+        border-radius: 4px;
+        padding: 16px 18px;
+        overflow: auto;
+        font-size: 13px;
+        line-height: 1.55;
+        box-shadow: none;
+      }
+      .kw {
+        color: var(--lime);
+      }
+      .str {
+        color: #ffaf88;
+      }
+      .fn {
+        color: var(--blue);
+      }
+      .outro {
+        margin-top: 72px;
+        padding: 28px 26px;
+        background: var(--ink);
+        color: var(--white);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .outro p {
+        color: #d7e0d5;
+      }
+      .outro code {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--lime);
+      }
+      @media (max-width: 640px) {
+        .step {
+          grid-template-columns: 44px 1fr;
+          column-gap: 14px;
+        }
+        .num {
+          width: 44px;
+          height: 44px;
+          font-size: 14px;
+        }
+        .step::before {
+          left: 21px;
+        }
+      }
+      .proposal-phase {
+        border-left: 4px solid var(--coral);
+        padding-left: 20px;
+      }
+      .phase-badge.proposal {
+        background: var(--coral);
+        color: var(--ink);
+      }
+      .proposal-intro {
+        margin-bottom: 20px;
+      }
+      .proposal-intro p {
+        font-size: 15.5px;
+      }
+      .step .num.proposal {
+        background: var(--coral);
+        border-color: var(--coral);
+        color: var(--white);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="progress" id="progress"></div>
+    <main>
+      <section class="narrow intro-proposal">
+        <div class="eyebrow">Javaslat</div>
+        <h2>Az Anthropic alapelveire épül</h2>
+        <p class="lede">
+          Ez a megoldás nem csak egy konkrét példa, hanem azt is
+          bemutatja, milyen alapelvek mentén érdemes bármilyen
+          LLM-alapú rendszert felépíteni:
+        </p>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>Az LLM-nek nincs memóriája — teljesen "stateless".</strong>
+              Minden egyes hívás önmagában áll: a modell semmire nem
+              emlékszik a korábbi kérdésekből, amit nem adunk át neki
+              újra.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Az LLM kétféleképpen kaphat információt:</strong>
+              vagy a kérés részeként, az SDK-nak elküldött JSON
+              adatban, vagy egy funkció (tool) meghívásával, amit a
+              modell maga kér le, amikor szüksége van rá.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Minél több információt adunk át az LLM-nek,
+              annál nagyobb a tokenhasználat és a bizonytalanság.</strong>
+              Ezért csak azt az információt kapja meg, amire az adott
+              lépésben valóban szükség van.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">4</span>
+            <p>
+              <strong>Minden LLM-hívás előtt és után guardrailt kell
+              használni.</strong>
+              A modell válasza önmagában nem garancia — ezért minden
+              hívás előtt és után egy megbízható, kódban megírt
+              ellenőrzés fut, amire a rendszer biztonsága épül.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="hero narrow">
+        <div class="eyebrow">Teljes áttekintés</div>
+        <h1>Így jut el egy kérdés a válaszig.</h1>
+        <p class="lede">
+          Lent a teljes folyamat egy ábrán: a kérdés egy témafelismerő
+          segítőtől a koordinátorig, onnan egy szakértőig jut, majd
+          ugyanezen az úton tér vissza a válasz — közben folyamatos
+          biztonsági ellenőrzés mellett. Alatta, lefelé görgetve,
+          minden egyes lépés külön, egyszerűen el van magyarázva.
+        </p>
+        <div class="legend">
+          <span><span class="swatch sw-human"></span>ügyfél / tisztviselő</span>
+          <span><span class="swatch sw-agent"></span><strong>segítő</strong> (lekerekített, zöld, vastag kerettel)</span>
+          <span><span class="swatch sw-tool"></span>funkció — amit egy segítő hív</span>
+          <span><span class="swatch sw-state"></span>amit megjegyez</span>
+          <span><span class="swatch sw-guard"></span>biztonsági ellenőrzés</span>
+          <span><span class="legend-line ll-auth"></span>ügyfél-azonosítás szükséges</span>
+          <span><span class="legend-line ll-noauth"></span>nincs szükség ügyfél-azonosításra</span>
+        </div>
+      </section>
+
+      <div class="diagram-card">
+       <div class="diagram-inner">
+        <pre class="mermaid">
+flowchart TD
+  CU["Ugyfel a pultnal"] -->|0. elmondja a kerdest| O["Tisztviselo"]
+  O -->|1. beirja a kerdest| ER(["Temafelismero segito"])
+  ER -->|2. megnezi, mirol van szo| SEC["Banki funkciok listaja"]
+  SEC -->|3. megallapitja| ME("Mirol szol a kerdes - konkret vagy altalanos - + ki ferhet hozza")
+  ER -.->|biztonsagi ellenorzes| GRR{{"Biztonsagi szuro"}}
+  O -->|4. tovabbitja| C(["Koordinator segito"])
+  ME -.->|5. atadja az eredmenyt| C
+  C -->|6. ha konkret ugyfelkerdes: kivalasztja az ugyfelet| SC["Ugyfel azonositasa"]
+  SC -->|7. megjegyzi| ST("Ki az aktualis ugyfel")
+  ST -.->|emlekszik ra| C
+  C -->|8. szakertot ker| AA["Szakerto megkerese"]
+  AA -->|9. uj szakerto indul| AS(["Szamla- vagy termekszakerto"])
+  AS -->|10. lekeri az adatokat| LT["Egyenleg / tranzakciok / termekek"]
+  LT -->|11. visszaadja az adatot| AS
+  AS -->|12. megfogalmazza a valaszt| AA
+  AA -->|13. visszaadja a koordinatornak| C
+  C -->|"alt.: altalanos / small talk kerdes, ugyfel-azonositas nelkul"| PUB(["Nyilvanos info szakerto"])
+  PUB -->|lekeri| PUBD["Altalanos kondiciok, nyilvanosan elerheto adatok"]
+  PUBD --> PUB
+  PUB -->|valasz| C
+  PUB -.->|biztonsagi ellenorzes| GRA
+  C -->|14. osszefoglalja| O
+  O -->|15. elmondja az ugyfelnek| CU
+  C -.->|biztonsagi ellenorzes| GRC{{"Biztonsagi szuro"}}
+  AS -.->|biztonsagi ellenorzes| GRA{{"Biztonsagi szuro"}}
+  linkStyle 7,8,9,10,11,12,13,14,15 stroke:#2f6fb3,stroke-width:3px
+  linkStyle 16,17,18,19 stroke:#3f9142,stroke-width:3px
+  classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
+  classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
+  classDef state fill:#e5eef2,stroke:#7bb9d8,stroke-width:1px,color:#17212b
+  classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
+  classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
+  class C,AS,ER,PUB agent
+  class SC,AA,LT,SEC,PUBD tool
+  class ST,ME state
+  class CU,O result
+  class GRC,GRA,GRR guardrail</pre
+        >
+       </div>
+      </div>
+
+      <!-- Phase A -->
+      <div class="phase narrow">
+        <div class="phase-head">
+          <span class="phase-badge">0 – 3</span>
+          <h2>Mielőtt a koordinátor egyáltalán látná a kérdést</h2>
+        </div>
+        <div class="timeline">
+          <div class="step kind-human">
+            <div class="num">0</div>
+            <div class="card">
+              <span class="step-tag">ügyfél → tisztviselő</span>
+              <h3>Kérdés szóban a pultnál</h3>
+              <p>
+                Az ügyfél elmondja a kérdését a tisztviselőnek a
+                pultnál. A tisztviselő beírja ugyanezt a kérdést az
+                asszisztensnek.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-agent">
+            <div class="num">1</div>
+            <div class="card">
+              <span class="step-tag">tisztviselő → témafelismerő segítő</span>
+              <h3>A kérdés először egy "témafelismerő" segítőhöz kerül</h3>
+              <p>
+                Mielőtt bárki mást bevonnánk, egy kis segítő megnézi,
+                miről szól a kérdés. Ennek nincs memóriája a korábbi
+                beszélgetésről — csak az éppen feltett kérdést és azt
+                kapja meg, ki az aktuálisan kiszolgált ügyfél.
+              </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Biztonsági ellenőrzés:</strong> mielőtt ez a
+                  segítő egyáltalán válaszolna, egy szűrő megnézi,
+                  nem próbálja-e valaki a kérdésen keresztül átvenni
+                  az irányítást. A válaszát is átnézik, nincs-e benne
+                  véletlenül érzékeny adat, például e-mail cím.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="step kind-tool">
+            <div class="num">2</div>
+            <div class="card">
+              <span class="step-tag">funkció</span>
+              <h3>Megkeresi, melyik banki funkcióról van szó</h3>
+              <p>
+                A segítő végignézi a bank mobilalkalmazásának
+                funkcióit — például egyenleg-lekérdezés, átutalás,
+                kártya letiltása — és megkeresi, melyik illik
+                legjobban a feltett kérdéshez.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-state">
+            <div class="num">3</div>
+            <div class="card">
+              <span class="step-tag">amit megjegyez</span>
+              <h3>Megállapítja: miről szól a kérdés, és ki férhet hozzá</h3>
+              <p>
+                Az eredmény tartalmazza, melyik funkcióról van szó, és
+                hogy milyen ügyfélszint szükséges hozzá: alap,
+                prémium vagy üzleti.
+              </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Itt dönt a jogosultságról:</strong> egy
+                  biztonsági szűrő összehasonlítja az ügyfél szintjét
+                  azzal, amit a funkció megkövetel, és eldönti:
+                  hozzáférhet-e vagy nem. Ez egy megbízható, automatikus
+                  ellenőrzés — már itt megtörténik, nem a koordinátor
+                  segítőnél.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase B -->
+      <div class="phase narrow">
+        <div class="phase-head">
+          <span class="phase-badge">4 – 7</span>
+          <h2>A koordinátor átveszi, és kiválasztja az ügyfelet</h2>
+        </div>
+        <div class="timeline">
+          <div class="step kind-agent">
+            <div class="num">4</div>
+            <div class="card">
+              <span class="step-tag">tisztviselő → koordinátor segítő</span>
+              <h3>A kérdés a koordinátorhoz kerül</h3>
+              <p>
+                Most lép be a fő segítő, a koordinátor. Megkapja a
+                kérdést, és a témafelismerő segítő már elkészült
+                eredményét is.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-state">
+            <div class="num">5</div>
+            <div class="card">
+              <span class="step-tag">amit megjegyez</span>
+              <h3>Megkapja az előző lépés eredményét</h3>
+              <p>
+                A koordinátor magától nem látná, mit talált a
+                témafelismerő segítő — ezért ezt az eredményt minden
+                alkalommal külön, mintegy emlékeztetőként, odaírjuk
+                neki.
+              </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Csak elolvassa, nem ő dönt:</strong> a
+                  koordinátor itt már csak elolvassa, hozzáférhet-e az
+                  ügyfél a funkcióhoz vagy nem. Magát az elutasítást a
+                  koordinátor saját szövegbe írt szabálya mondja ki —
+                  ez nem egy szigorú, kikényszerített ellenőrzés, csak
+                  egy utasítás, amit a koordinátor követ.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="step kind-tool">
+            <div class="num">6</div>
+            <div class="card">
+              <span class="step-tag">funkció (ha szükséges)</span>
+              <h3>Kiválasztja, melyik ügyféllel beszélünk</h3>
+              <p>
+                Ha még nem tudjuk, ki az ügyfél, a koordinátor
+                megmutatja a tisztviselőnek, kik közül választhat,
+                majd megjegyzi, kit szolgálunk ki éppen — névvel vagy
+                azonosítóval is kereshető.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-state">
+            <div class="num">7</div>
+            <div class="card">
+              <span class="step-tag">amit megjegyez</span>
+              <h3>Megjegyzi az ügyfelet a következő kérdésekre is</h3>
+              <p>
+                Ez a kiválasztás megmarad a beszélgetés további
+                részére — a következő kérdéseknél már nem kell újra
+                megadni, ki az ügyfél.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Proposed extension: general / small-talk branch -->
+      <div class="phase narrow proposal-phase">
+        <div class="phase-head">
+          <span class="phase-badge proposal">Javaslat</span>
+          <h2>Általános kérdéseknél nincs szükség ügyfél-azonosításra</h2>
+        </div>
+        <div class="card proposal-intro">
+          <p>
+            Nem minden kérdés szól egy konkrét ügyfélről. Ha a
+            tisztviselő csak egy általános dologra kérdez rá — például
+            kötetlen beszélgetés, vagy olyan kérdés, amire a válasz
+            mindenkire egyformán vonatkozik, mint egy nyilvánosan
+            elérhető általános feltétel vagy kondíció — akkor nincs
+            szükség arra, hogy bármelyik ügyfelet azonosítsuk.
+          </p>
+        </div>
+        <div class="timeline">
+          <div class="step kind-agent">
+            <div class="num proposal">+</div>
+            <div class="card">
+              <span class="step-tag">témafelismerő segítő — kiterjesztve</span>
+              <h3>Felismeri: konkrét pénzügyi kérdés, vagy általános kérdés</h3>
+              <p>
+                A témafelismerő segítő nem csak azt dönti el, melyik
+                banki funkcióról van szó, hanem azt is, hogy a kérdés
+                egy konkrét ügyfél adataihoz kötődik-e (ez a már
+                megismert folyamat), vagy egy általános, nyilvánosan
+                elérhető témát érint, ahol nincs szükség arra, hogy
+                tudjuk, ki az ügyfél.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-agent">
+            <div class="num proposal">+</div>
+            <div class="card">
+              <span class="step-tag">a koordinátor után, egy új segítő</span>
+              <h3>Nyilvános infó szakértő</h3>
+              <p>
+                Ha a kérdés általános, a koordinátor ehhez az új
+                segítőhöz fordul, aki csak a bank nyilvánosan elérhető
+                adataiból válaszol — például általános kondíciókból,
+                nyitvatartásból vagy általános tájékoztatókból.
+                Ehhez nincs szükség ügyfél-azonosításra: ez a segítő
+                ugyanúgy válaszol, bárki kérdezi is.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase C -->
+      <div class="phase narrow">
+        <div class="phase-head">
+          <span class="phase-badge">8 – 13</span>
+          <h2>Delegálás a specialistának</h2>
+        </div>
+        <div class="timeline">
+          <div class="step kind-tool">
+            <div class="num">8</div>
+            <div class="card">
+              <span class="step-tag">funkció</span>
+              <h3>Szakértőt kér</h3>
+              <p>
+                A koordinátor a kérdés témája alapján eldönti, hogy a
+                számlákkal foglalkozó vagy a termékekkel és
+                ajánlatokkal foglalkozó szakértőt kéri fel — feltéve,
+                hogy az ügyfél hozzáférhet a kérdéses funkcióhoz.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-agent">
+            <div class="num">9</div>
+            <div class="card">
+              <span class="step-tag">új segítő indul minden hívásnál</span>
+              <h3>Friss szakértő, csak ehhez az ügyfélhez</h3>
+              <p>
+                Minden kérdésnél egy teljesen új szakértő "ébred fel",
+                aki csak az éppen kiválasztott ügyfél adataihoz fér
+                hozzá. Nincs saját memóriája — mindig csak az aktuális
+                kérdésre válaszol.
+              </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Biztonsági ellenőrzés itt is:</strong> ez a
+                  friss szakértő is ugyanazokat a szűrőket kapja, mint
+                  a többi segítő.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="step kind-tool">
+            <div class="num">10</div>
+            <div class="card">
+              <span class="step-tag">funkció</span>
+              <h3>Lekéri az adatokat</h3>
+              <p>
+                A szakértő lekéri a kért információt — az egyenleget,
+                a tranzakciókat, a termékkínálatot vagy a személyre
+                szabott ajánlatokat. Mielőtt bármit visszaadna,
+                ellenőrzi, hogy a kért számla valóban az aktuális
+                ügyfélhez tartozik.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-state">
+            <div class="num">11</div>
+            <div class="card">
+              <span class="step-tag">amit megjegyez</span>
+              <h3>Megkapja a választ</h3>
+              <p>
+                Az adat egyszerű szövegként érkezik vissza — ez egy
+                kitalált, demó célú adatból jön, nem egy valódi banki
+                rendszerből.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-agent">
+            <div class="num">12</div>
+            <div class="card">
+              <span class="step-tag">válasz</span>
+              <h3>A szakértő megfogalmazza a választ</h3>
+              <p>
+                Mielőtt ez elkészül, a biztonsági szűrők itt is
+                átnézik a választ, ugyanúgy, mint a koordinátornál.
+              </p>
+            </div>
+          </div>
+          <div class="step kind-tool">
+            <div class="num">13</div>
+            <div class="card">
+              <span class="step-tag">visszajelzés a koordinátornak</span>
+              <h3>Visszaadja a választ a koordinátornak</h3>
+              <p>
+                A szakértő válasza visszajut a koordinátorhoz, aki
+                innen folytatja a beszélgetést a tisztviselővel.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase D -->
+      <div class="phase narrow">
+        <div class="phase-head">
+          <span class="phase-badge">14 – 15</span>
+          <h2>A válasz visszajut a pulthoz</h2>
+        </div>
+        <div class="timeline">
+          <div class="step kind-agent">
+            <div class="num">14</div>
+            <div class="card">
+              <span class="step-tag">végső válasz</span>
+              <h3>A koordinátor összefoglalja a választ</h3>
+              <p>
+                A koordinátor a szakértőtől kapott információra
+                alapozva fogalmazza meg a végső választ — sosem
+                fejből találja ki.
+              </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Utolsó biztonsági ellenőrzés:</strong> egy
+                  szűrő megnézi, nem állítja-e a válasz, hogy valamit
+                  megváltoztatott vagy jóváhagyott — az asszisztens
+                  ugyanis csak kérdésekre válaszol, semmit nem
+                  módosít. Egy másik szűrő pedig eltakarja az esetleg
+                  belekerült érzékeny adatokat, például e-mail címeket
+                  vagy kártyaszámokat.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="step kind-human">
+            <div class="num">15</div>
+            <div class="card">
+              <span class="step-tag">koordinátor → tisztviselő → ügyfél</span>
+              <h3>Válasz szóban a pultnál</h3>
+              <p>
+                A válasz megjelenik a képernyőn. A tisztviselő
+                elolvassa, és a saját szavaival továbbadja az
+                ügyfélnek — az emberi jóváhagyás már eddig a pontig
+                megtörténik, nincs szükség semmilyen külön
+                megerősítésre.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="outro narrow">
+        <h2 style="color: var(--lime)">16 lépés, egy fontos különbség.</h2>
+        <p style="margin-top: 10px">
+          Vannak dolgok, amiket a rendszer automatikusan, megbízhatóan
+          kikényszerít — például hogy kinek a számlájáról van szó,
+          vagy hogy milyen ügyfélszint szükséges egy funkcióhoz. És
+          vannak dolgok, amik csak egy leírt szabályon alapulnak —
+          például a koordinátor elutasítása —, és ezek a segítő
+          jóindulatán is múlnak, nem egy szigorú ellenőrzésen.
+        </p>
+      </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#fffdf8',
+          primaryTextColor: '#17212b',
+          primaryBorderColor: '#ff765c',
+          lineColor: '#ff765c',
+          secondaryColor: '#c8e85b',
+          tertiaryColor: '#e5eef2',
+          fontFamily: 'Manrope, sans-serif',
+          fontSize: '19px',
+        },
+        flowchart: {
+          nodeSpacing: 70,
+          rankSpacing: 95,
+          padding: 16,
+        },
+      });
+
+      const progress = document.getElementById('progress');
+      function updateProgress() {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        const pct = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+        progress.style.width = pct + '%';
+      }
+      document.addEventListener('scroll', updateProgress, { passive: true });
+      window.addEventListener('resize', updateProgress);
+      updateProgress();
+    </script>
+  </body>
+</html>
