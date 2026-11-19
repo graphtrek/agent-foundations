@@ -25,6 +25,7 @@ guardrails later redact or rewrite. Tool-result previews are passed through
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 RECURSION_LIMIT = 80
 PREVIEW_CHARS = 600
+REASON_CHARS = 500
 FAILURE_REPLY = (
     "Erre a kérdésre most nem tudok megbízható választ adni. "
     "Kérem, próbálja újra, vagy nézze meg közvetlenül a banki rendszerben."
@@ -62,6 +64,26 @@ def _update_messages(update: Any) -> list[Any]:
         if isinstance(item, dict):
             messages.extend(item.get("messages") or [])
     return messages
+
+
+def _reasoning(message: Any) -> str:
+    """The model's stated reason for a step: provider reasoning text when the
+    response carries any, else the plain text it wrote next to its tool calls."""
+    extra = getattr(message, "additional_kwargs", None) or {}
+    for key in ("reasoning_content", "reasoning"):
+        if isinstance(extra.get(key), str) and extra[key].strip():
+            return extra[key].strip()
+    content = message.content
+    if isinstance(content, list):
+        parts = [
+            block.get("reasoning") or block.get("thinking") or ""
+            for block in content
+            if isinstance(block, dict) and block.get("type") in ("reasoning", "thinking")
+        ]
+        text = "\n".join(p for p in parts if isinstance(p, str) and p.strip())
+        if text:
+            return text.strip()
+    return message_text(content).strip() if getattr(message, "tool_calls", None) else ""
 
 
 def customer_info(customer_id: str | None) -> dict[str, Any] | None:
@@ -98,14 +120,16 @@ class BranchSession:
 
     # -- helpers ---------------------------------------------------------
 
-    def _deliver(self, reply: str, user_input: str | None = None) -> Event:
+    def _deliver(
+        self, reply: str, user_input: str | None = None, **extra: Any
+    ) -> Event:
         """Deterministic response gateway: the only path a reply takes to the
         officer. ``user_input`` is passed only for turns the coordinator never
         saw, so the saved transcript still shows the officer's question."""
         if user_input is not None:
             self.transcript.append(HumanMessage(content=user_input))
             self.transcript.append(AIMessage(content=reply))
-        return "reply", {"text": reply}
+        return "reply", {"text": reply, **extra}
 
     def reset_thread(self) -> None:
         """Start a fresh coordinator thread (customer switch, cancelled turn)."""
@@ -121,6 +145,11 @@ class BranchSession:
         if self.first_prompt is None:
             self.first_prompt = user_input
         logger.info("Officer turn: %s", user_input)
+        t0 = time.perf_counter()
+        mark = t0  # end of the previous pipeline step
+
+        def now_ms() -> int:
+            return round((time.perf_counter() - t0) * 1000)
 
         try:
             matched = self.endpoint_router.route(user_input, self.current_customer_id)
@@ -131,13 +160,20 @@ class BranchSession:
             yield self._deliver(FAILURE_REPLY, user_input)
             return
         logger.info("Matched endpoint: %s", matched)
-        yield "route", {"endpoint": matched}
+        yield "route", {
+            "endpoint": matched,
+            "at_ms": now_ms(),
+            "elapsed_ms": now_ms(),
+        }
+        mark = time.perf_counter()
 
         # Code-level short-circuit: a denied endpoint never reaches the
         # coordinator, so the refusal can't depend on a prompt being followed.
         if matched and matched.get("access_denied") is True:
             logger.info("Access denied by code for customer %s", self.current_customer_id)
-            yield self._deliver(access_denied_reply(matched), user_input)
+            yield self._deliver(
+                access_denied_reply(matched), user_input, at_ms=now_ms(), total_ms=now_ms()
+            )
             return
 
         thread_config: RunnableConfig = {
@@ -163,15 +199,23 @@ class BranchSession:
                 for node, update in chunk.items():
                     for message in _update_messages(update):
                         if node == "model" and isinstance(message, AIMessage):
-                            for call in message.tool_calls:
+                            llm_ms = round((time.perf_counter() - mark) * 1000)
+                            mark = time.perf_counter()
+                            reason = redact_pii(_reasoning(message))[:REASON_CHARS]
+                            for i, call in enumerate(message.tool_calls):
                                 yield "tool_call", {
                                     "id": call["id"],
                                     "name": call["name"],
                                     "args": call["args"],
+                                    "at_ms": now_ms(),
+                                    "llm_ms": llm_ms if i == 0 else 0,
+                                    "reason": reason,
                                 }
                         elif isinstance(message, ToolMessage):
                             text = redact_pii(message_text(message.content))
+                            mark = time.perf_counter()
                             yield "tool_result", {
+                                "at_ms": now_ms(),
                                 "id": message.tool_call_id,
                                 "name": message.name,
                                 "ok": message.status != "error",
@@ -205,7 +249,14 @@ class BranchSession:
             self.current_customer_id = new_customer_id
             yield "customer", {"customer": customer_info(new_customer_id)}
 
-        yield self._deliver(message_text(messages[-1].content))
+        last = messages[-1]
+        yield self._deliver(
+            message_text(last.content),
+            llm_ms=round((time.perf_counter() - mark) * 1000),
+            reason=redact_pii(_reasoning(last))[:REASON_CHARS] if isinstance(last, AIMessage) else "",
+            at_ms=now_ms(),
+            total_ms=now_ms(),
+        )
 
     def run_turn(self, user_input: str) -> str:
         """Run one turn without following its progress; return the reply."""

@@ -232,15 +232,70 @@
     font-size: 0.9rem;
   }
   .banner code { font-size: 0.85rem; }
+
+  /* ---- architecture flow side panel ---- */
+  .shell { display: flex; max-width: 1240px; height: 100%; margin: 0 auto; }
+  .shell .app { flex: 1; min-width: 0; max-width: 860px; margin: 0; }
+  aside.flow {
+    width: 320px;
+    flex: none;
+    height: 100%;
+    overflow-y: auto;
+    padding: 16px 16px 16px 8px;
+    border-left: 1px solid var(--border);
+    margin-left: 8px;
+  }
+  aside.flow h2 { font-size: 0.95rem; margin: 0 0 2px; }
+  aside.flow .hint { font-size: 0.74rem; color: var(--muted); margin: 0 0 12px; }
+  .fnodes { display: flex; flex-direction: column; align-items: stretch; }
+  .fnode {
+    position: relative;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    opacity: 0.55;
+    transition: opacity .2s, border-color .2s, background .2s;
+  }
+  .fnode .t { font-weight: 600; display: flex; gap: 6px; align-items: baseline; }
+  .fnode .k { font: 600 0.6rem/1 ui-monospace, monospace; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+  .fnode .d { color: var(--muted); font-size: 0.74rem; margin-top: 2px; overflow-wrap: anywhere; }
+  .fnode.agent { border-radius: 18px; }
+  .fnode.guard { border-color: #d7263d55; background: var(--denied-bg); color: var(--denied-text); }
+  .fnode.guard .d, .fnode.guard .k { color: inherit; opacity: .8; }
+  .fnode.active { opacity: 1; border-color: var(--accent); animation: pulse 1.1s infinite; }
+  .fnode.done { opacity: 1; border-color: var(--ok); }
+  .fnode.denied { opacity: 1; border-color: var(--error); background: var(--denied-bg); color: var(--denied-text); }
+  .fnode.denied .d { color: inherit; }
+  .fnode.skipped { opacity: 0.3; border-style: dashed; }
+  .fnode.error { opacity: 1; border-color: var(--error); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); } }
+  .fnode .ms { margin-left: auto; font: 600 0.68rem/1 ui-monospace, monospace; color: var(--muted); }
+  .fnode .why { margin-top: 4px; padding-left: 7px; border-left: 2px solid var(--border); color: var(--muted); font-size: 0.72rem; font-style: italic; white-space: pre-wrap; max-height: 90px; overflow-y: auto; }
+  .ftotal { align-self: flex-end; margin-top: 8px; font: 600 0.72rem ui-monospace, monospace; color: var(--muted); }
+  .farrow { align-self: center; width: 2px; height: 14px; background: var(--border); position: relative; }
+  .farrow.on { background: var(--ok); }
+  .farrow.deny { background: var(--error); }
+  .fgroup { display: flex; flex-direction: column; gap: 6px; padding-left: 14px; border-left: 2px solid var(--border); margin: 0 0 0 10px; }
+  .fgroup:empty { display: none; }
+  #flow-toggle { display: none; }
+  @media (max-width: 1000px) {
+    #flow-toggle { display: inline-block; }
+    aside.flow { display: none; position: fixed; right: 0; top: 0; z-index: 5; background: var(--bg); box-shadow: -8px 0 24px rgba(0,0,0,.2); }
+    aside.flow.open { display: block; }
+  }
 </style>
 </head>
 <body>
+<div class="shell">
 <div class="app">
   <header>
     <h1>Branch Officer Assistant</h1>
     <nav><a href="catalog.html">Endpoint catalog →</a></nav>
     <span class="spacer"></span>
     <span class="customer" id="customer">No customer selected</span>
+    <button type="button" id="flow-toggle">Flow</button>
     <button type="button" id="new-chat" title="End this session (saves it to conversations/) and start a new one">New chat</button>
   </header>
 
@@ -250,6 +305,12 @@
     <textarea id="input" rows="1" maxlength="2000" placeholder="Ask about a customer's accounts, transactions, products or offers…" required></textarea>
     <button type="submit" id="send">Send</button>
   </form>
+</div>
+<aside class="flow" id="flow" aria-label="Architecture flow of the current question">
+  <h2>Architecture flow</h2>
+  <p class="hint">Rebuilt for every question; nodes light up as the pipeline runs.</p>
+  <div class="fnodes" id="fnodes"></div>
+</aside>
 </div>
 
 <script>
@@ -283,6 +344,7 @@
     messagesEl.appendChild(banner);
     form.hidden = true;
     newChatBtn.hidden = true;
+    document.getElementById("flow").hidden = true;
     return;
   }
 
@@ -322,6 +384,165 @@
     target.innerHTML = DOMPurify.sanitize(marked.parse(text, { gfm: true, breaks: true }));
     target.querySelectorAll("a").forEach(function (a) { a.target = "_blank"; a.rel = "noopener noreferrer"; });
   }
+
+  /* ---- Architecture flow panel: one run of the pipeline, rebuilt per question ---- */
+  var flowEl = document.getElementById("fnodes");
+  var TOOL_LABELS = {
+    list_customers: "Customer list",
+    select_customer: "Customer selection",
+    ask_account_specialist: "Account specialist",
+    ask_product_specialist: "Product specialist"
+  };
+
+  function Flow() { this.reset(); }
+
+  Flow.prototype.node = function (kind, title, tag, desc) {
+    var n = el("div", "fnode " + kind);
+    var t = el("div", "t");
+    t.appendChild(document.createTextNode(title));
+    t.appendChild(el("span", "k", tag));
+    n.appendChild(t);
+    var d = el("div", "d", desc || "");
+    n.appendChild(d);
+    n.d = d;
+    return n;
+  };
+
+  function fmtMs(ms) { return ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms"; }
+
+  Flow.prototype.time = function (n, ms) {
+    if (ms === undefined || ms === null) return;
+    var t = n.querySelector(".t"), m = n.querySelector(".ms");
+    if (!m) { m = el("span", "ms"); t.appendChild(m); }
+    m.textContent = fmtMs(ms);
+  };
+
+  Flow.prototype.why = function (n, text) {
+    if (!text) return;
+    var w = n.querySelector(".why");
+    if (!w) { w = el("div", "why"); n.appendChild(w); }
+    w.textContent = text;
+  };
+
+  Flow.prototype.state = function (n, cls, desc) {
+    ["active", "done", "denied", "skipped", "error"].forEach(function (c) { n.classList.remove(c); });
+    if (cls) n.classList.add(cls);
+    if (desc !== undefined) n.d.textContent = desc;
+  };
+
+  Flow.prototype.arrow = function () {
+    var a = el("div", "farrow");
+    flowEl.appendChild(a);
+    return a;
+  };
+
+  Flow.prototype.reset = function () {
+    flowEl.textContent = "";
+    this.tools = {};
+    var n = this.n = {};
+    n.q = this.node("human", "Officer question", "input", "");
+    n.gin = this.node("guard", "Input guardrail", "code", "injection check + PII redaction");
+    n.router = this.node("agent", "Endpoint router", "Jev", "matching the catalog");
+    n.access = this.node("guard", "Access check", "code", "entitlement tier vs. endpoint");
+    n.coord = this.node("agent", "Coordinator", "LLM", "");
+    this.group = el("div", "fgroup");
+    n.gout = this.node("guard", "Output guardrail", "code", "PII redaction + query-only check");
+    n.gw = this.node("tool", "Reply gateway", "code", "");
+    var self = this;
+    this.arrows = [];
+    [n.q, n.gin, n.router, n.access, n.coord, this.group, n.gout, n.gw].forEach(function (node, i) {
+      if (i) self.arrows.push(self.arrow());
+      flowEl.appendChild(node);
+    });
+    [n.gin, n.router, n.access, n.coord, n.gout, n.gw].forEach(function (node) { node.classList.add("idle"); });
+    this.state(n.q, null);
+  };
+
+  Flow.prototype.start = function (text) {
+    this.reset();
+    this.state(this.n.q, "done", text.length > 70 ? text.slice(0, 70) + "…" : text);
+    this.state(this.n.gin, "done");
+    this.state(this.n.router, "active");
+    this.arrows[0].classList.add("on");
+    this.arrows[1].classList.add("on");
+  };
+
+  Flow.prototype.handle = function (event, data) {
+    var n = this.n, self = this;
+    if (event === "route") {
+      var ep = data.endpoint;
+      this.time(n.router, data.elapsed_ms);
+      this.lastAt = data.at_ms || 0;
+      this.llmTotal = 0;
+      this.state(n.router, "done", ep ? ep.method + " " + ep.path + " · p=" + Number(ep.probability).toFixed(2) : "no confident match");
+      this.arrows[2].classList.add("on");
+      if (ep && ep.access_denied === true) {
+        this.state(n.access, "denied", "denied - " + ep.required_entitlement + " tier required");
+        this.arrows[3].classList.add("deny");
+        this.state(n.coord, "skipped", "never called");
+        this.state(n.gout, "skipped");
+        this.group.hidden = true;
+        this.arrows[4].hidden = this.arrows[5].hidden = true;
+        this.state(n.gw, "active", "fixed refusal");
+      } else {
+        this.state(n.access, "done", ep ? "allowed (" + ep.required_entitlement + ")" : "no endpoint, allowed");
+        this.arrows[3].classList.add("on");
+        this.state(n.coord, "active", "choosing a specialist");
+      }
+    } else if (event === "tool_call") {
+      var node = this.node("agent", TOOL_LABELS[data.name] || data.name, data.name.indexOf("ask_") === 0 ? "sub-agent" : "tool", "");
+      var args = JSON.stringify(data.args || {});
+      node.d.textContent = args === "{}" ? "running" : args.slice(0, 90);
+      this.state(node, "active");
+      node.callAt = data.at_ms;
+      this.llmTotal = (this.llmTotal || 0) + (data.llm_ms || 0);
+      this.time(n.coord, this.llmTotal);
+      if (data.reason) this.why(n.coord, data.reason);
+      this.group.appendChild(node);
+      this.tools[data.id] = node;
+      this.arrows[4].classList.add("on");
+    } else if (event === "tool_result") {
+      var tn = this.tools[data.id];
+      if (tn) {
+        this.state(tn, data.ok ? "done" : "error");
+        if (tn.callAt !== undefined && data.at_ms !== undefined) this.time(tn, data.at_ms - tn.callAt);
+      }
+      if (n.coord.classList.contains("active")) n.coord.d.textContent = "writing the answer";
+    } else if (event === "customer") {
+      n.coord.d.textContent = "customer: " + (data.customer ? data.customer.name : "-");
+    } else if (event === "reply") {
+      Object.keys(this.tools).forEach(function (id) {
+        if (self.tools[id].classList.contains("active")) self.state(self.tools[id], "done");
+      });
+      if (!n.coord.classList.contains("skipped")) {
+        this.llmTotal = (this.llmTotal || 0) + (data.llm_ms || 0);
+        this.time(n.coord, this.llmTotal);
+        if (data.reason) this.why(n.coord, data.reason);
+        this.state(n.coord, "done");
+        this.state(n.gout, "done");
+        this.arrows[5].classList.add("on");
+        this.state(n.gw, "done", "reply delivered");
+      } else {
+        this.state(n.gw, "done", "fixed refusal delivered");
+      }
+      this.arrows[6].classList.add("on");
+      if (data.total_ms !== undefined) {
+        this.time(n.gw, data.total_ms);
+        flowEl.appendChild(el("div", "ftotal", "total " + fmtMs(data.total_ms)));
+      }
+    } else if (event === "app_error" || event === "stopped") {
+      ["router", "access", "coord", "gout", "gw"].forEach(function (k) {
+        if (n[k].classList.contains("active")) self.state(n[k], "error", event === "stopped" ? "stopped" : "failed");
+      });
+      Object.keys(this.tools).forEach(function (id) {
+        if (self.tools[id].classList.contains("active")) self.state(self.tools[id], "error");
+      });
+    }
+  };
+
+  var flow = new Flow();
+  var flowPanel = document.getElementById("flow");
+  document.getElementById("flow-toggle").addEventListener("click", function () { flowPanel.classList.toggle("open"); });
 
   function setCustomer(c) {
     customerEl.textContent = "";
@@ -373,6 +594,7 @@
 
   AssistantBubble.prototype.handle = function (event, data) {
     var self = this;
+    flow.handle(event, data);
     if (event === "route") {
       var ep = data.endpoint;
       var row = el("div", "route");
@@ -471,6 +693,7 @@
     input.value = "";
     autosize();
     addOfficer(text);
+    flow.start(text);
     var bubble = new AssistantBubble();
     scrollDown();
     sendBtn.disabled = true;
@@ -493,6 +716,7 @@
       chatId = body.chat_id;
       storageSet(chatId);
       messagesEl.textContent = "";
+      flow.reset();
       setCustomer(null);
       showEmpty();
     });
@@ -503,14 +727,17 @@
       chatId = id;
       messagesEl.textContent = "";
       setCustomer(body.customer);
-      body.turns.forEach(function (turn) {
+      flow.reset();
+      body.turns.forEach(function (turn, i) {
         addOfficer(turn.prompt);
+        flow.start(turn.prompt);  /* each turn rebuilds the flow; the last one stays */
         var bubble = new AssistantBubble();
         turn.events.forEach(function (pair) { bubble.handle(pair[0], pair[1]); });
         bubble.finish();
       });
       if (body.live) {
         addOfficer(body.live.prompt);
+        flow.start(body.live.prompt);
         follow(new AssistantBubble());
       } else if (!body.turns.length) {
         showEmpty();
