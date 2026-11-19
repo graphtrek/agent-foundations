@@ -7,4 +7,6 @@ __pycache__/
 conversations/
 logs/
 *.html
+!index.html
+!bank-officer-agent-architecture-hu.html
 test.jpg

@@ -6,6 +6,8 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY src ./src
+# Landing page and architecture page served by src/bank_officer/main.py
+COPY index.html bank-officer-agent-architecture-hu.html ./
 
 EXPOSE 8050
 
