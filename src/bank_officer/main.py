@@ -19,11 +19,11 @@ API modelled on the dev-vault chat service:
 - ``DELETE /api/chats/{id}`` ends the session and saves its transcript to
   ``conversations/``.
 
-The page itself is ``src/resources/webapp_mockup/chat.html``, served together
+The page itself is ``src/bank_officer/webapp_mockup/chat.html``, served together
 with ``catalog.html`` from that directory. Sessions live in process memory:
 run a single worker, and a restart ends every session.
 
-Run with: uv run python src/bank_officer_web.py   (then open http://127.0.0.1:8010/)
+Run with: uv run python src/main.py   (then open http://127.0.0.1:8010/)
 """
 
 from __future__ import annotations
@@ -40,16 +40,17 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from bank_officer_agent import CONVERSATIONS_DIR, LOGS_DIR, build_agents
-from utils import live_run
-from utils.branch_session import FAILURE_REPLY, BranchSession, customer_info
-from utils.tools import BranchContext
+from terminal import CONVERSATIONS_DIR, LOGS_DIR, build_agents
+import live_run
+from branch_session import FAILURE_REPLY, BranchSession, customer_info
+from tools import BranchContext
 
-MOCKUP_DIR = Path(__file__).resolve().parent / "resources" / "webapp_mockup"
+MOCKUP_DIR = Path(__file__).resolve().parent / "webapp_mockup"
+ARCHITECTURE_PAGE = Path(__file__).resolve().parent.parent.parent / "bank-officer-agent-architecture-hu.html"
 LOG_FILE = LOGS_DIR / "bank_officer_web.log"
 HOST = os.environ.get("BANK_WEB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BANK_WEB_PORT", "8010"))
@@ -212,6 +213,12 @@ async def stream_live(chat_id: str) -> StreamingResponse:
 
     headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     return StreamingResponse(events(), media_type="text/event-stream", headers=headers)
+
+
+@app.get("/architecture.html", include_in_schema=False)
+def architecture_page() -> FileResponse:
+    """The architecture explainer page that lives in the repository root."""
+    return FileResponse(ARCHITECTURE_PAGE, media_type="text/html")
 
 
 # Last, so the API routes above take precedence: catalog.html and chat.html.

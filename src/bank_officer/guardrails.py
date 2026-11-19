@@ -23,7 +23,7 @@ from langchain.agents.middleware.types import ModelRequest, ModelResponse
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.runtime import Runtime
 
-from utils import bank_data
+import bank_data
 
 # --- Before-model guardrail: prompt-injection / instruction-override -------
 

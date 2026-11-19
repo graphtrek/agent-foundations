@@ -5,8 +5,8 @@ from langchain.chat_models import BaseChatModel, init_chat_model
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 
-from utils.config import load_config
-from utils.tools import CustomerState, SupportContext, create_customer_support_tools
+from config import load_config
+from tools import CustomerState, SupportContext, create_customer_support_tools
 
 openrouter_api_key = load_config().openrouter_api_key
 

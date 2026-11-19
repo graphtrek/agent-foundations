@@ -21,7 +21,7 @@ mid-turn. Otherwise the coordinator reads the router's result
 
 Every reply reaches the officer through ``BranchSession._deliver()``
 (``utils.branch_session``, shared with the web chat in
-``bank_officer_web.py``), a deterministic response gateway (no LLM), and
+``main.py``), a deterministic response gateway (no LLM), and
 the coordinator's conversation thread is reset whenever the officer switches to a different customer, so one
 customer's data never stays in context while serving the next one.
 
@@ -41,19 +41,19 @@ from typing import Any
 
 from langgraph.checkpoint.memory import InMemorySaver
 
-from utils.config import load_config
-from utils.agent_spec import load_agent_factories, load_agent_specs
-from utils.branch_session import BranchSession
-from utils.decision_router import EndpointRouter
-from utils.tools import (
+from config import load_config
+from agent_spec import load_agent_factories, load_agent_specs
+from branch_session import BranchSession
+from decision_router import EndpointRouter
+from tools import (
     BranchContext,
     BranchState,
     create_branch_tools,
 )
 
 SEPARATOR = "-" * 80
-CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent / "conversations"
-LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
+CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "conversations"
+LOGS_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
 LOG_FILE = LOGS_DIR / "bank_officer_agent.log"
 EXIT_WORDS = {"exit", "quit", "kilépés"}
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ config = load_config()
 openrouter_api_key = config.openrouter_api_key
 
 # Every agent of this example is defined by its own Markdown file in
-# src/resources/agents/bank_officer/ (model settings, tool list, guardrail
+# src/bank_officer/agents/ (model settings, tool list, guardrail
 # stack and system prompt). None need vision, so the TEXT_* config is the
 # shared base that each file's model directives override.
 BASE_CONFIG = config.text

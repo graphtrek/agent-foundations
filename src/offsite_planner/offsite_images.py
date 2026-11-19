@@ -20,7 +20,7 @@ from pathlib import Path
 
 from PIL import Image  # type: ignore
 
-IMAGE_DIR = Path(__file__).resolve().parent.parent / "resources" / "offsite"
+IMAGE_DIR = Path(__file__).resolve().parent / "images"
 
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 USER_AGENT = "agent-foundations-offsite-demo/1.0 (educational example)"

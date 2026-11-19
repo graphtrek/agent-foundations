@@ -10,14 +10,15 @@ LangGraph, using OpenRouter as the model provider.
 - Create a root `.env` file with `OPENROUTER_API_KEY`. If the key is absent,
   `load_config()` prompts for it with `getpass`.
 - `LANGCHAIN_DEBUG=true` enables additional configuration and LangChain output.
-- Run the introductory tutorial: `uv run python src/simple_agent.py`.
-- Run the state-aware example: `uv run python src/advanced_agent.py`.
-- Run the multi-agent planner: `uv run python src/corporate_offsite_planner_agent.py`.
-- Run the MCP server: `uv run python src/mcp_server.py`.
-- Run the bank branch officer chat assistant: `uv run python src/bank_officer_agent.py`.
-- Run the bank branch officer web chat: `uv run python src/bank_officer_web.py`,
+- Run the introductory tutorial: `uv run python src/simple_agent/main.py`.
+- Run the state-aware example: `uv run python src/advanced_agent/main.py`.
+- Run the multi-agent planner: `uv run python src/offsite_planner/main.py`.
+- Run the MCP server: `uv run python src/mcp_server/main.py`.
+- Run the bank branch officer web chat: `uv run python src/bank_officer/main.py`,
   then open http://127.0.0.1:8010/ (`BANK_WEB_HOST`/`BANK_WEB_PORT` override
   the address).
+- Run the bank branch officer terminal chat assistant:
+  `uv run python src/bank_officer/terminal.py`.
 
 The first three commands make OpenRouter requests. The search example also
 uses DuckDuckGo, and the image example in `simple_agent.py` expects `test.jpg`
@@ -27,30 +28,30 @@ launch it and communicate over standard input and output.
 The planner supports `PLANNER_*`, `VISION_*`, and `TEXT_*` settings for
 `MODEL`, `TEMPERATURE`, `MAX_TOKENS`, `TOP_P`, `FREQUENCY_PENALTY`,
 `PRESENCE_PENALTY`, and `SEED`. Venue and catering require a vision-capable
-model. Planner images are cached in `src/resources/offsite/`, conversations
+model. Planner images are cached in `src/offsite_planner/images/`, conversations
 are saved in `conversations/`, and logs are written to `logs/`.
 
 The bank branch officer assistant builds every agent (endpoint router,
 coordinator, account, product and service specialists) from its own Markdown file in
-`src/resources/agents/bank_officer/` (`00_endpoint_router.md`,
+`src/bank_officer/agents/` (`00_endpoint_router.md`,
 `01_branch_coordinator.md`, `02_account_specialist.md`,
 `03_product_specialist.md`, `04_service_specialist.md`), following the `dev-vault/data/agents` persona
 convention: a `# Label` heading, `<!-- key: value -->` directives for model
 settings, the `tools` list and the `middleware` stack, then the system prompt
-body. `src/utils/agent_spec.py` loads them; see that directory's `README.md`
+body. `src/bank_officer/agent_spec.py` loads them; see that directory's `README.md`
 for the format. The `TEXT_*` defaults (`config.text`) are the base model
 config the files' directives override, since none of the agents need vision. It is an interactive, query-only demo (type `exit`, `quit`,
 or `kilépés` to end the session) with three mock customers defined in
-`src/utils/bank_data.py`, each with an `entitlement_tier`
+`src/bank_officer/bank_data.py`, each with an `entitlement_tier`
 (`retail`/`premium`/`business`); conversations are saved in `conversations/`
 and logs are written to `logs/bank_officer_agent.log`. On every officer turn,
 an endpoint router runs before the coordinator, matching the question to the
-best REST endpoint in the mock catalog in `src/utils/endpoint_catalog.py` and
+best REST endpoint in the mock catalog in `src/bank_officer/endpoint_catalog.py` and
 recording the result as `matched_endpoint` in `BranchState`. The router is
 not a chat agent: it is the TypeSafe Jev decision model
 (`~typesafe/jev-latest`), which OpenRouter serves only through the alpha
 Decisions API (`POST /api/alpha/decisions`, not `/chat/completions`), called
-by `EndpointRouter` in `src/utils/decision_router.py` with one `choice`
+by `EndpointRouter` in `src/bank_officer/decision_router.py` with one `choice`
 question over the catalog (plus `none`). Below its file's `min_probability`
 the answer counts as no match; a refusal, malformed answer or request error
 fails closed with a fixed reply. The coordinator's prompt uses the result the coordinator's prompt uses
@@ -64,7 +65,7 @@ a fixed reply, and the coordinator thread is reset when the officer switches
 to a different customer so the previous customer's data leaves the context. Every chat-model
 call this example makes (coordinator and all three specialists) runs through the
 guardrail middleware stack from
-`src/utils/guardrails.py`: a `before_model` check blocks prompt-injection/
+`src/bank_officer/guardrails.py`: a `before_model` check blocks prompt-injection/
 instruction-override attempts, `PIIMiddleware` redacts emails and masks
 credit card numbers on both input and output, and an `after_model` check
 rewrites any reply that claims to have performed a mutating action, since
@@ -89,15 +90,21 @@ requires them.
 
 ## Architecture
 
-- Each `src/*.py` file is a standalone runnable example, with shared helpers in
-  `src/utils/` and prompts in `src/resources/prompts/`.
-- Common configuration is loaded through `src/utils/config.py`. Simple
-  examples create models with `init_chat_model()`; the planner uses
-  `src/utils/model_util.py` to load prompt templates and model settings before
-  wrapping models with `create_agent()` from `langchain.agents`.
-- `src/utils/agent_response.py` centralizes invoke, streaming, and full-message
-  response handling. `src/utils/tools.py` contains the search and specialist
-  tool factories. Every GET endpoint in the catalog has a backing tool:
+- Each folder under `src/` is a fully self-contained example (`simple_agent/`,
+  `advanced_agent/`, `offsite_planner/`, `mcp_server/`, `bank_officer/`) run as
+  `uv run python src/<app>/main.py` (bank officer: `main.py` web chat, `terminal.py` terminal chat). There is
+  no shared code: no `utils/` or `common/` package, and an app must never import
+  from another app. If two apps need the same helper (e.g. `config.py`), each keeps
+  its own copy. Imports inside an app are plain sibling imports (`from config import ...`).
+- Each app loads configuration through its own `config.py`. Simple examples
+  create models with `init_chat_model()`; the planner uses
+  `src/offsite_planner/model_util.py` to load prompt templates and model settings
+  before wrapping models with `create_agent()` from `langchain.agents`; the bank
+  officer uses `get_openrouter_model()` from its own `model_util.py`.
+- `src/simple_agent/agent_response.py` centralizes invoke, streaming, and full-message
+  response handling. Tools live per app: `search.py` (simple_agent,
+  mcp_server), `advanced_agent/tools.py`, `offsite_planner/tools.py` and
+  `bank_officer/tools.py` with the specialist tool factories. Every GET endpoint in the catalog has a backing tool:
   account specialist (details, statements, business overview, scheduled
   payments), product specialist (catalog, offers, existing loans), service
   specialist (cards, card limits, loan applications, profile, support tickets)
@@ -109,21 +116,21 @@ requires them.
   outgoing debits deterministically (excluding transfers/deposit placements);
   specialist/coordinator recursion limits are 60/80 because guardrail
   middleware nodes count as graph steps.
-- Keep prompts in `src/resources/prompts/` (agent definition files for the
-  bank officer example in `src/resources/agents/<example>/`, loaded by
-  `src/utils/agent_spec.py`) and planner image handling in
-  `src/utils/offsite_images.py`; avoid embedding those assets in the runnable
+- Keep prompts in `src/offsite_planner/prompts/` (agent definition files for the
+  bank officer example in `src/bank_officer/agents/`, loaded by
+  `src/bank_officer/agent_spec.py`) and planner image handling in
+  `src/offsite_planner/offsite_images.py`; avoid embedding those assets in the runnable
   scripts.
-- `src/utils/bank_data.py` holds static, dependency-free mock bank data
+- `src/bank_officer/bank_data.py` holds static, dependency-free mock bank data
   (customers, accounts, transactions, products, offers) for the branch
   officer example, following the same "no business logic in the runnable
-  script" split as `offsite_images.py`.
-- `src/utils/endpoint_catalog.py` holds the branch officer example's static
+  script" split as `offsite_planner/offsite_images.py`.
+- `src/bank_officer/endpoint_catalog.py` holds the branch officer example's static
   mock REST endpoint catalog (method, path, description, category,
   menu location, required entitlement tier) for the endpoint-router
   specialist, following the same split as `bank_data.py`. A static HTML
   mock-up of the catalog as a navigable menu lives at
-  `src/resources/webapp_mockup/catalog.html` (not `index.html`, since
+  `src/bank_officer/webapp_mockup/catalog.html` (not `index.html`, since
   `.gitignore` has an unrelated repo-wide rule for that name); it mirrors
   the catalog by hand and must be updated alongside it. Each GET item has
   a "Show test data" toggle that renders its mock response in a DataTables
@@ -133,24 +140,24 @@ requires them.
   exist only in the page.
 - The branch officer turn pipeline (endpoint router, code-level access
   short-circuit, coordinator, `_deliver()` reply gateway, customer-switch
-  thread reset) lives in `BranchSession` in `src/utils/branch_session.py`,
-  shared by the terminal loop in `bank_officer_agent.py` and the web chat in
-  `bank_officer_web.py`. `stream_turn()` yields `route`, `tool_call`,
+  thread reset) lives in `BranchSession` in `src/bank_officer/branch_session.py`,
+  shared by the terminal loop in `bank_officer/terminal.py` and the web chat in
+  `bank_officer/main.py`. `stream_turn()` yields `route`, `tool_call`,
   `tool_result`, `customer` and `reply` events. The web chat is a FastAPI
   JSON/SSE API modelled on the dev-vault chat service: `POST
   /api/chats/{id}/messages` starts the turn in a worker thread, `GET
-  /api/chats/{id}/live` replays then streams its events (`src/utils/live_run.py`),
+  /api/chats/{id}/live` replays then streams its events (`src/bank_officer/live_run.py`),
   `POST .../cancel` stops it after the current step and resets the
   coordinator thread, and `DELETE /api/chats/{id}` saves the transcript to
-  `conversations/`. It also serves `src/resources/webapp_mockup/`, whose
+  `conversations/`. It also serves `src/bank_officer/webapp_mockup/`, whose
   `chat.html` is the chat page (linked from `catalog.html` and back). The
   reply is sent whole, never as raw model tokens, because the PII and
   query-only guardrails act on the finished model message; tool-result
   previews go through `redact_pii()`. Sessions are in-process: one worker.
-- `src/utils/guardrails.py` holds the before/after LLM-call guardrail
+- `src/bank_officer/guardrails.py` holds the before/after LLM-call guardrail
   middleware (`build_guardrail_middleware()`) used by the branch officer
   example; attach it via `create_agent(..., middleware=...)` on every agent
-  a new example adds, the same way `bank_officer_agent.py` and
+  a new example adds, the same way `bank_officer/terminal.py` and
   `create_branch_tools()` do. `check_endpoint_access()` is the single
   entitlement-tier rule used by the endpoint router, the chat loop's
   short-circuit and the specialist tools. `build_coordinator_middleware()`

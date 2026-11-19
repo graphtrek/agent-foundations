@@ -22,7 +22,7 @@ class ModelConfigLike(Protocol):
 def load_prompt_template(name: str) -> tuple[str, dict[str, Any]]:
     """Read a prompt template and return its system prompt and model overrides."""
     prompt_path = (
-        Path(__file__).resolve().parent.parent / "resources" / "prompts" / f"{name}.md"
+        Path(__file__).resolve().parent / "prompts" / f"{name}.md"
     )
     text = prompt_path.read_text(encoding="utf-8").strip()
 

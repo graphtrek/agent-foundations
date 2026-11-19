@@ -2,13 +2,13 @@
 
 Same "no business logic outside this module" split as ``bank_data.py``: just
 in-memory fixtures and pure lookup/search functions. Mirrored for visual
-reference in ``src/resources/webapp_mockup/catalog.html`` — keep that file's
+reference in ``src/bank_officer/webapp_mockup/catalog.html`` — keep that file's
 menu listing in sync by hand when this catalog changes.
 """
 
 from dataclasses import dataclass
 
-from utils.bank_data import EntitlementTier
+from bank_data import EntitlementTier
 
 
 @dataclass

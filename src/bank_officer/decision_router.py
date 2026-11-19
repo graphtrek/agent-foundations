@@ -6,7 +6,7 @@ serves it only through the alpha Decisions API
 calibrated probabilities instead of generated text. So the endpoint router is
 not a LangChain agent: it asks one ``choice`` question whose options are the
 mock catalog's endpoints (plus ``none``), built from its agent definition
-file (``kind: decision`` in ``src/resources/agents/bank_officer/``).
+file (``kind: decision`` in ``src/bank_officer/agents/``).
 
 Guardrails run in code around the call, mirroring what the LangChain
 middleware does for the chat agents: the prompt-injection check and PII
@@ -21,9 +21,9 @@ from typing import Any
 
 import httpx
 
-from utils import endpoint_catalog
-from utils.agent_spec import AgentSpec
-from utils.guardrails import check_endpoint_access, is_prompt_injection, redact_pii
+import endpoint_catalog
+from agent_spec import AgentSpec
+from guardrails import check_endpoint_access, is_prompt_injection, redact_pii
 
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 NO_MATCH_KEY = "none"

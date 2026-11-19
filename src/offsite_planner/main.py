@@ -25,19 +25,19 @@ from langchain.agents import AgentState, create_agent
 from langchain.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
-from utils.config import load_config
-from utils.conversation_util import (
+from config import load_config
+from conversation_util import (
     message_text,
     message_was_truncated,
     save_conversation,
 )
-from utils.model_util import load_configured_model
-from utils.offsite_images import generate_images
-from utils.tools import create_offsite_tools
+from model_util import load_configured_model
+from offsite_images import generate_images
+from tools import create_offsite_tools
 
 SEPARATOR = "-" * 80
-CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent / "conversations"
-LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
+CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "conversations"
+LOGS_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
 LOG_FILE = LOGS_DIR / "corporate_offsite_planner.log"
 REQUIRED_TOOL_NAMES = {"update_state", "choose_venue", "choose_catering", "plan_agenda"}
 MAX_COORDINATOR_ATTEMPTS = 3

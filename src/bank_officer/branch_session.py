@@ -2,7 +2,7 @@
 
 ``BranchSession.stream_turn()`` runs a single officer turn and yields
 progress events as they happen, so ``bank_officer_agent.py`` (terminal) and
-``bank_officer_web.py`` (browser, over SSE) run the exact same pipeline:
+``main.py`` (browser, over SSE) run the exact same pipeline:
 
 1. The endpoint router (Jev decision model) matches the question to a
    catalog endpoint - ``route`` event. A router failure fails closed.
@@ -34,11 +34,11 @@ from langchain.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from utils import bank_data
-from utils.conversation_util import message_text, save_conversation
-from utils.decision_router import EndpointRouter, EndpointRouterError
-from utils.guardrails import access_denied_reply, redact_pii
-from utils.tools import BranchContext
+import bank_data
+from conversation_util import message_text, save_conversation
+from decision_router import EndpointRouter, EndpointRouterError
+from guardrails import access_denied_reply, redact_pii
+from tools import BranchContext
 
 logger = logging.getLogger(__name__)
 

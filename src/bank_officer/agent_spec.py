@@ -1,7 +1,7 @@
 """Build agents from one Markdown definition file per agent.
 
 Each agent of an example lives in its own ``NN_<id>.md`` file in a
-directory (e.g. ``src/resources/agents/bank_officer/``), following the same
+directory (e.g. ``src/bank_officer/agents/``), following the same
 persona-file convention as ``dev-vault/data/agents``:
 
     # <Label>
@@ -42,13 +42,13 @@ import yaml
 from langchain.agents import create_agent
 from langchain.chat_models import BaseChatModel
 
-from utils.guardrails import (
+from guardrails import (
     build_coordinator_middleware,
     build_guardrail_middleware,
 )
-from utils.model_util import ModelConfigLike, get_openrouter_model
+from model_util import ModelConfigLike, get_openrouter_model
 
-AGENTS_DIR = Path(__file__).resolve().parent.parent / "resources" / "agents"
+AGENTS_DIR = Path(__file__).resolve().parent / "agents"
 
 MIDDLEWARE_STACKS: dict[str, Callable[[], list[Any]]] = {
     "guardrails": build_guardrail_middleware,
@@ -129,7 +129,7 @@ def parse_agent_file(path: Path) -> AgentSpec:
 
 def load_agent_specs(example: str) -> dict[str, AgentSpec]:
     """Load every ``*.md`` agent file (except README.md) of one example, by id."""
-    directory = AGENTS_DIR / example
+    directory = AGENTS_DIR
     specs: dict[str, AgentSpec] = {}
     for path in sorted(directory.glob("*.md")):
         if path.name == "README.md":

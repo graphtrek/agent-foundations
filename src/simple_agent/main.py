@@ -6,10 +6,10 @@ from langchain.chat_models import BaseChatModel, init_chat_model
 from langchain.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from utils.agent_response import agent_messages, agent_response, agent_stream_response
-from utils.config import load_config
-from utils.file_util import encode_file_to_base64
-from utils.tools import web_search
+from agent_response import agent_messages, agent_response, agent_stream_response
+from config import load_config
+from file_util import encode_file_to_base64
+from search import web_search
 
 SEPARATOR = "-" * 80
 
@@ -115,7 +115,7 @@ def image_analysis_agent_response(model: BaseChatModel) -> None:
     )
     agent = create_agent(model=model, system_prompt=system_prompt)
 
-    image_path = Path(__file__).resolve().parent.parent / "test.jpg"
+    image_path = Path(__file__).resolve().parent.parent.parent / "test.jpg"
     image_base64 = encode_file_to_base64(str(image_path))
 
     user_prompt = [

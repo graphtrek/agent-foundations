@@ -1,7 +1,7 @@
 import requests
 from mcp.server.fastmcp import FastMCP
 
-from utils.tools import search_web
+from search import search_web
 
 mcp = FastMCP(name="LangChain Agent Server", host="0.0.0.0", port=8000)
 
