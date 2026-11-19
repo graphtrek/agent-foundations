@@ -114,3 +114,17 @@
     - [Claude Certified Architect Exam Guide - Releases](https://github.com/daronyondem/claude-architect-exam-guide/releases)
     - [Claude Certified Architect Foundations - YouTube playlist](https://www.youtube.com/watch?v=VvKDoV39jAk&list=PLmiDJB5zE0KGwFtDCSqHfQG7SV6VeQ_31)
     - [Claude Certified Architect Foundations Certification Exam notes](https://github.com/OlivierAlter/Claude-Certified-Architect-Foundations-Certification-Exam/blob/main/Claude%20Certification%20Exam.md)
+
+### Bank officer agent architecture (`bank-officer-agent-architecture-hu.html`) – used sources
+
+Principles and chapters 1.1–1.4 of the page (agentic loop, `stop_reason`, hub-and-spoke, hooks, session management) come from the notes above. The sources below were used for the architecture, the proposals and the mapping to the LangChain/OpenAI implementation:
+
+    - [Anthropic SDK stop_reason](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons#end-turn) – loop control, stop_reason table
+    - [Anthropic SDK Build an orchestration mode](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-effort-example) – orchestrator / subagent pattern
+    - [Antropic SDK Context Windows](https://platform.claude.com/docs/en/build-with-claude/context-windows) – stale context, `model_context_window_exceeded`
+    - [Anthropic – Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) – start simple, prompt chaining vs. routing vs. adaptive agents ("Simplification, error handling and measurement" proposal)
+    - [OpenAI – A practical guide to building agents](https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf) – single-agent first, guardrails, model choice by measurement
+    - [OpenAI Agents SDK – Guardrails](https://openai.github.io/openai-agents-python/guardrails/) – tripwire behaviour
+    - [LangChain – Middleware overview and hooks](https://docs.langchain.com/oss/python/langchain/middleware/overview) – `before_model` / `after_model`, `PIIMiddleware` (hook equivalent)
+    - [LangChain – Subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents) – subagent wrapped as a tool (Task/Agent tool equivalent)
+    - [LangGraph – Recursion limit](https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit) – loop iteration limit

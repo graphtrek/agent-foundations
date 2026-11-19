@@ -1169,6 +1169,29 @@ flowchart TD
         </div>
       </section>
 
+      <section class="narrow cca-section">
+        <div class="eyebrow">Irodalom</div>
+        <h2>Felhasznált források</h2>
+        <p class="lede">
+          Az 1.1–1.4 fejezetek az Anthropic dokumentációjára és a CCA-F
+          jegyzetekre épülnek; a javaslatok és a LangChain/OpenAI
+          megfeleltetés az alábbi forrásokból származnak.
+        </p>
+        <table class="stop-table">
+          <tr><th>Forrás</th><th>Mire használtuk</th></tr>
+          <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons#end-turn">Anthropic SDK – stop_reason</a></td><td>ciklusvezérlés, <code>stop_reason</code> táblázat</td></tr>
+          <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/mid-conversation-effort-example">Anthropic SDK – orchestration mode</a></td><td>orchestrator / subagent minta</td></tr>
+          <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Anthropic SDK – Context Windows</a></td><td>elavult kontextus, <code>model_context_window_exceeded</code></td></tr>
+          <tr><td><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic – Building effective agents</a></td><td>egyszerűen indulni; chaining, routing, adaptív agent</td></tr>
+          <tr><td><a href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf">OpenAI – A practical guide to building agents</a></td><td>guardrailek, mérésalapú modellválasztás</td></tr>
+          <tr><td><a href="https://openai.github.io/openai-agents-python/guardrails/">OpenAI Agents SDK – Guardrails</a></td><td>tripwire működés</td></tr>
+          <tr><td><a href="https://docs.langchain.com/oss/python/langchain/middleware/overview">LangChain – Middleware</a></td><td><code>before_model</code> / <code>after_model</code>, PII (hook megfelelő)</td></tr>
+          <tr><td><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents">LangChain – Subagents</a></td><td>tool-ként becsomagolt subagent (Task/Agent tool megfelelő)</td></tr>
+          <tr><td><a href="https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit">LangGraph – Recursion limit</a></td><td>ciklus-iterációs korlát</td></tr>
+          <tr><td><a href="https://github.com/daronyondem/claude-architect-exam-guide/releases">Claude Certified Architect Exam Guide</a>, <a href="https://github.com/OlivierAlter/Claude-Certified-Architect-Foundations-Certification-Exam/blob/main/Claude%20Certification%20Exam.md">exam notes</a></td><td>CCA-F alapelvek (lásd <code>CCA-F.md</code>)</td></tr>
+        </table>
+      </section>
+
       <div class="outro narrow">
         <h2 style="color: var(--lime)">16 lépés, egy fontos szabály.</h2>
         <p style="margin-top: 10px">
