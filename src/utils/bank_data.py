@@ -44,6 +44,8 @@ class Transaction:
     description: str
     category: str
     currency: str = "HUF"
+    counterparty: str | None = None  # remitter (credit) / payee (debit)
+    reference: str | None = None  # "közlemény" (payment message)
 
 
 @dataclass
@@ -188,6 +190,20 @@ _TXN_ROWS: dict[str, list[tuple[str, float, str, str]]] = {
     ],
 }
 
+# Counterparty and reference ("közlemény") for selected transactions, keyed by
+# (account_id, booking_date, amount).
+_TXN_DETAILS: dict[tuple[str, str, float], tuple[str, str]] = {
+    ("acc-001-chk", "2026-09-18", 450_000.0): ("ACME Zrt.", "Szeptemberi munkabér"),
+    ("acc-001-chk", "2026-10-18", 450_000.0): ("ACME Zrt.", "Októberi munkabér"),
+    ("acc-001-sav", "2026-11-15", 50_000.0): ("Kovács János", "Saját számlák közötti átvezetés"),
+    ("acc-002-chk", "2026-09-15", 780_000.0): ("DeltaTech Kft.", "Szeptemberi munkabér"),
+    ("acc-002-chk", "2026-10-15", 780_000.0): ("DeltaTech Kft.", "Októberi munkabér"),
+    ("acc-002-sav", "2026-11-15", 15_000.0): ("Alfa Befektetési Alap", "2026. évi osztalék"),
+    ("acc-003-chk", "2026-09-10", 310_000.0): ("StartUpHub Kft.", "Szeptemberi munkabér"),
+    ("acc-003-chk", "2026-10-10", 310_000.0): ("StartUpHub Kft.", "Októberi munkabér"),
+    ("acc-003-sav", "2026-11-10", 288_600.0): ("Béta Vagyonkezelő Zrt.", "Hozamkifizetés Q3"),
+}
+
 _TRANSACTIONS: list[Transaction] = [
     Transaction(
         f"txn-{account_id[4:]}-{index:02d}",
@@ -196,6 +212,8 @@ _TRANSACTIONS: list[Transaction] = [
         amount,
         description,
         category,
+        counterparty=_TXN_DETAILS.get((account_id, booking_date, amount), (None, None))[0],
+        reference=_TXN_DETAILS.get((account_id, booking_date, amount), (None, None))[1],
     )
     for account_id, rows in _TXN_ROWS.items()
     for index, (booking_date, amount, description, category) in enumerate(rows, start=1)

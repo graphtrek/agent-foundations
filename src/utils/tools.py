@@ -283,6 +283,8 @@ def create_account_specialist_tools(customer_id: str) -> list[Any]:
         return "\n".join(
             f"- {t.booking_date.isoformat()} {t.amount:+,.0f} {t.currency} "
             f"— {t.description} ({t.category})"
+            + (f" | partner: {t.counterparty}" if t.counterparty else "")
+            + (f" | közlemény: {t.reference}" if t.reference else "")
             for t in transactions
         )
 
