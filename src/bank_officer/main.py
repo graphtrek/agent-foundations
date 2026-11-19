@@ -23,7 +23,7 @@ The page itself is ``src/bank_officer/webapp_mockup/chat.html``, served together
 with ``catalog.html`` from that directory. Sessions live in process memory:
 run a single worker, and a restart ends every session.
 
-Run with: uv run python src/main.py   (then open http://127.0.0.1:8010/)
+Run with: uv run python src/main.py   (then open http://127.0.0.1:8050/)
 """
 
 from __future__ import annotations
@@ -38,22 +38,29 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import live_run
 import uvicorn
+from branch_session import FAILURE_REPLY, BranchSession, customer_info
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-
 from terminal import CONVERSATIONS_DIR, LOGS_DIR, build_agents
-import live_run
-from branch_session import FAILURE_REPLY, BranchSession, customer_info
 from tools import BranchContext
 
 MOCKUP_DIR = Path(__file__).resolve().parent / "webapp_mockup"
-ARCHITECTURE_PAGE = Path(__file__).resolve().parent.parent.parent / "bank-officer-agent-architecture-hu.html"
+ARCHITECTURE_PAGE = (
+    Path(__file__).resolve().parent.parent.parent
+    / "bank-officer-agent-architecture-hu.html"
+)
 LOG_FILE = LOGS_DIR / "bank_officer_web.log"
 HOST = os.environ.get("BANK_WEB_HOST", "127.0.0.1")
-PORT = int(os.environ.get("BANK_WEB_PORT", "8010"))
+PORT = int(os.environ.get("BANK_WEB_PORT", "8050"))
 MAX_MESSAGE_CHARS = 2000
 logger = logging.getLogger(__name__)
 
@@ -63,7 +70,9 @@ endpoint_router, coordinator = build_agents()
 @dataclass
 class WebChat:
     session: BranchSession
-    turns: list[dict[str, Any]] = field(default_factory=list)  # finished: {prompt, events}
+    turns: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # finished: {prompt, events}
     cancel: threading.Event = field(default_factory=threading.Event)
     task: asyncio.Task[None] | None = None
 
@@ -131,7 +140,9 @@ def end_chat(chat_id: str) -> dict[str, str | None]:
     return {"saved": str(path) if path else None}
 
 
-def _run_turn(chat: WebChat, prompt: str, run: live_run.LiveRun, loop: asyncio.AbstractEventLoop) -> list:
+def _run_turn(
+    chat: WebChat, prompt: str, run: live_run.LiveRun, loop: asyncio.AbstractEventLoop
+) -> list:
     """Worker thread: run the synchronous pipeline, forwarding each event to
     the LiveRun on the event loop. Returns the events for the chat history."""
     events: list[tuple[str, dict[str, Any]]] = []
@@ -167,7 +178,9 @@ async def post_message(chat_id: str, req: PostMessageRequest) -> dict[str, bool]
     if not content:
         raise HTTPException(status_code=400, detail="Empty message.")
     if _is_running(chat_id):
-        raise HTTPException(status_code=409, detail="The previous message is still being answered.")
+        raise HTTPException(
+            status_code=409, detail="The previous message is still being answered."
+        )
 
     run = live_run.start(chat_id, content)
     chat.cancel.clear()
