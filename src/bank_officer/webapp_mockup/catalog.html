@@ -73,9 +73,9 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   main { max-width: 960px; margin: 0 auto; }
-  .top-nav { display: flex; justify-content: flex-end; font-size: 0.88rem; }
-  .top-nav a { color: var(--post); text-decoration: none; font-weight: 600; }
-  .top-nav a:hover { text-decoration: underline; }
+  .top-nav { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; font-size: 0.82rem; }
+  .top-nav a { font-weight: 600; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 99px; padding: 6px 14px; text-decoration: none; }
+  .top-nav a:hover { border-color: var(--post); }
   h1 { font-size: 1.4rem; margin-bottom: 4px; }
   p.subtitle { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
   details {
@@ -190,7 +190,7 @@
 <body>
 <main>
   <nav class="top-nav">
-    <a href="chat.html">Branch officer chat →</a>
+    <a data-home href="index.html">← Home</a> <a href="chat.html">Branch officer chat →</a>
   </nav>
   <h1>Web Banking App — Menu &amp; Endpoint Catalog</h1>
   <p class="subtitle">
@@ -207,7 +207,7 @@
     <span id="customer-tier" class="tier"></span>
   </div>
 
-  <details open>
+  <details>
     <summary>Accounts</summary>
     <ul>
       <li class="row" data-endpoint="ep-accounts-list">
@@ -1066,5 +1066,6 @@ darkQuery.addEventListener("change", syncDark);
 
 selectCustomer(customer.id);
 </script>
+<script>if (location.protocol === 'file:') document.querySelectorAll('a[data-home]').forEach(a => a.href = '../../../index.html');</script>
 </body>
 </html>

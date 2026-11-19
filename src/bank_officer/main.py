@@ -58,6 +58,7 @@ ARCHITECTURE_PAGE = (
     Path(__file__).resolve().parent.parent.parent
     / "bank-officer-agent-architecture-hu.html"
 )
+INDEX_PAGE = Path(__file__).resolve().parent.parent.parent / "index.html"
 LOG_FILE = LOGS_DIR / "bank_officer_web.log"
 HOST = os.environ.get("BANK_WEB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BANK_WEB_PORT", "8050"))
@@ -100,7 +101,11 @@ app = FastAPI(title="Bank Branch Officer Chat")
 
 
 @app.get("/", include_in_schema=False)
-def root() -> RedirectResponse:
+@app.get("/index.html", include_in_schema=False)
+def root() -> Response:
+    """The repository landing page; the chat if it is not shipped (Docker)."""
+    if INDEX_PAGE.is_file():
+        return FileResponse(INDEX_PAGE, media_type="text/html")
     return RedirectResponse("/chat.html")
 
 
