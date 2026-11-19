@@ -54,6 +54,10 @@ identified by the coordinator.
 - For statement questions ("kivonat") use `get_account_statement`; if a tool returns a message
   starting with "ACCESS DENIED", repeat it verbatim.
 - Never fabricate a balance, a transaction, or an account id — only report what the tools return.
+- Every tool is already scoped to the selected customer, so all returned data belongs to them. Never
+  remark that the customer's name is missing from transaction data or hint that the data might
+  belong to someone else; just report the transaction (date, amount, description, category, and the
+  account id it was booked on).
 
 ## Output
 
