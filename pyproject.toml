@@ -16,6 +16,9 @@ dependencies = [
     "mcp_server_time<=2026.7.10",
     "pillow>=12.3.0",
     "pyyaml>=6.0.3",
+    "httpx>=0.28.1",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
 ]
 
 [dependency-groups]

@@ -1,7 +1,8 @@
 """Guardrail middleware for the bank branch officer assistant.
 
 Deterministic "before model" and "after model" checks that run around every
-LLM call the example makes - the coordinator's and both specialists' - on
+LLM call the example makes - the coordinator's and both specialists' (the Jev endpoint router is not a
+chat model; it reuses ``is_prompt_injection()`` and ``redact_pii()``) - on
 top of whatever the prompt itself says. These stay in code rather than in a
 prompt on purpose: a banking assistant's hard rules (refuse prompt-injection
 attempts, never claim to have changed anything) should hold even if a prompt
@@ -17,6 +18,7 @@ import re
 from typing import Any, Callable
 
 from langchain.agents.middleware import AgentMiddleware, AgentState, PIIMiddleware, hook_config
+from langchain.agents.middleware.pii import apply_strategy, detect_credit_card, detect_email
 from langchain.agents.middleware.types import ModelRequest, ModelResponse
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.runtime import Runtime
@@ -47,6 +49,20 @@ _INJECTION_REFUSAL = (
 )
 
 
+def is_prompt_injection(text: str) -> bool:
+    """Deterministic instruction-override / prompt-extraction check, shared by
+    the middleware below and the non-LLM endpoint router."""
+    return any(pattern.search(text) for pattern in _INJECTION_PATTERNS)
+
+
+def redact_pii(text: str) -> str:
+    """Redact emails and mask credit card numbers, the same strategies
+    ``PIIMiddleware`` applies around every LLM call, for code paths that call
+    a model without LangChain middleware (the Jev decisions router)."""
+    text = apply_strategy(text, detect_email(text), "redact")
+    return apply_strategy(text, detect_credit_card(text), "mask")
+
+
 class PromptInjectionGuardMiddleware(AgentMiddleware):
     """Block messages that try to override instructions or extract the prompt."""
 
@@ -58,8 +74,7 @@ class PromptInjectionGuardMiddleware(AgentMiddleware):
         )
         if last_human is None:
             return None
-        text = str(last_human.content)
-        if any(pattern.search(text) for pattern in _INJECTION_PATTERNS):
+        if is_prompt_injection(str(last_human.content)):
             return {
                 "messages": [AIMessage(content=_INJECTION_REFUSAL)],
                 "jump_to": "end",
@@ -113,39 +128,32 @@ class QueryOnlyEnforcementMiddleware(AgentMiddleware):
 _TIER_RANK = {"retail": 0, "premium": 1, "business": 2}
 
 
-class EndpointAccessMiddleware(AgentMiddleware):
-    """Flag whether the selected customer is entitled to the endpoint the
-    router just matched.
+def check_endpoint_access(
+    customer_id: str | None, matched: dict[str, Any] | None
+) -> bool | None:
+    """Return whether ``customer_id`` is denied the ``matched`` endpoint.
 
-    Runs after the model (not before, like ``PromptInjectionGuardMiddleware``)
-    because ``matched_endpoint`` only exists once the router's own
-    ``search_endpoint_catalog`` tool call has resolved it within this turn.
-    It does not itself refuse the officer - it only annotates
-    ``matched_endpoint`` with an ``access_denied`` verdict in state. The
-    branch coordinator's prompt is the one place responsible for phrasing
-    and delivering that refusal to the officer, so the wording and language
-    matching stay in a single spot instead of being duplicated here.
+    ``True`` = denied, ``False`` = allowed, ``None`` = undecidable yet (no
+    endpoint matched, or no customer selected, so the tier is unknown). This
+    is the single, deterministic source of truth for the entitlement rule;
+    the endpoint router, the officer chat loop's short-circuit, and the
+    specialist tools all call it, so the refusal never depends on a prompt.
     """
-
-    @hook_config(can_jump_to=["end"])
-    def after_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
-        matched = state.get("matched_endpoint")
-        if not matched or "access_denied" in matched:
-            return None
-        customer = bank_data.find_customer(state.get("current_customer_id") or "")
-        tier = customer.entitlement_tier if customer else "retail"
-        denied = _TIER_RANK[tier] < _TIER_RANK[matched["required_entitlement"]]
-        return {"matched_endpoint": {**matched, "access_denied": denied}}
+    if not matched:
+        return None
+    customer = bank_data.find_customer(customer_id or "") if customer_id else None
+    if customer is None:
+        return None
+    return _TIER_RANK[customer.entitlement_tier] < _TIER_RANK[matched["required_entitlement"]]
 
 
-def build_endpoint_router_middleware() -> list[Any]:
-    """Build the middleware stack for the endpoint-router agent.
-
-    Extends ``build_guardrail_middleware()`` with ``EndpointAccessMiddleware``
-    so the router gets the same base checks as every other agent in this
-    example, plus its own entitlement check.
-    """
-    return build_guardrail_middleware() + [EndpointAccessMiddleware()]
+def access_denied_reply(matched: dict[str, Any]) -> str:
+    """Fixed, code-written refusal for an endpoint the customer isn't entitled to."""
+    return (
+        "A kiválasztott ügyfél csomagja nem tartalmazza ezt a funkciót "
+        f"({matched['menu_path']}); ehhez legalább "
+        f"'{matched['required_entitlement']}' jogosultsági szint szükséges."
+    )
 
 
 # --- Coordinator-only: surface the router's result to the model ------------
@@ -176,7 +184,7 @@ class MatchedEndpointContextMiddleware(AgentMiddleware):
                 "\n\nEndpoint-router result for this turn: "
                 f"category={matched['category']}, menu_path={matched['menu_path']}, "
                 f"required_entitlement={matched['required_entitlement']}, "
-                f"access_denied={matched['access_denied']}."
+                f"access_denied={matched.get('access_denied')}."
             )
         base = request.system_message.content if request.system_message else ""
         request.system_message = SystemMessage(content=f"{base}{note}")

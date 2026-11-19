@@ -1,17 +1,21 @@
-from dataclasses import asdict, dataclass
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
+import logging
 from typing import Any
 
-from langchain.agents import AgentState, create_agent
-from langchain.chat_models import BaseChatModel
+from langchain.agents import AgentState
 from langchain.messages import HumanMessage, ToolMessage
 from langchain.tools import ToolRuntime, tool
 from langchain_community.tools import DuckDuckGoSearchResults
 from langgraph.types import Command
 
-from utils import bank_data, endpoint_catalog
-from utils.guardrails import build_guardrail_middleware
+from utils import bank_data
+from utils.agent_spec import AgentFactory
+from utils.guardrails import (
+    access_denied_reply,
+    check_endpoint_access,
+)
 from utils.offsite_images import image_content_block, image_legend
 
 duckduckgo_client = DuckDuckGoSearchResults(output_format="string")
@@ -209,52 +213,31 @@ class BranchState(AgentState):
     matched_endpoint: dict[str, Any] | None
 
 
-def create_endpoint_router_tools() -> list[Any]:
-    """Create the endpoint-router agent's single tool.
+_NON_SPENDING_CATEGORIES = {"transfer_out", "deposit_placement"}
+SPENDING_PERIODS = (
+    "today", "yesterday", "this_week", "last_week", "this_month", "last_month",
+    "last_7_days", "last_30_days", "this_year", "all",
+)
 
-    Unlike the account/product specialist tool belts, this isn't scoped to a
-    customer id — the catalog is the same for everyone, and the
-    customer-specific entitlement check happens later, in
-    ``EndpointAccessMiddleware``.
-    """
 
-    @tool
-    def search_endpoint_catalog(
-        query: str, runtime: ToolRuntime[BranchContext, BranchState]
-    ) -> Command:
-        """Search the web banking app's REST endpoint catalog for the single
-        best match to the officer's question."""
-        matches = endpoint_catalog.search_endpoints(query)
-        if not matches:
-            return Command(
-                update={
-                    "matched_endpoint": None,
-                    "messages": [
-                        ToolMessage(
-                            content="No matching endpoint found in the catalog.",
-                            tool_call_id=runtime.tool_call_id,
-                        )
-                    ],
-                }
-            )
-        best = matches[0]
-        return Command(
-            update={
-                "matched_endpoint": asdict(best),
-                "messages": [
-                    ToolMessage(
-                        content=(
-                            f"Best match: {best.method} {best.path} — "
-                            f"{best.description} (menu: {best.menu_path}, "
-                            f"requires {best.required_entitlement} tier)."
-                        ),
-                        tool_call_id=runtime.tool_call_id,
-                    )
-                ],
-            }
-        )
-
-    return [search_endpoint_catalog]
+def resolve_period(period: str, today: date | None = None) -> tuple[date | None, date | None]:
+    """Map a named period to inclusive (since, until) dates; weeks start Monday."""
+    today = today or date.today()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+    last_month_end = month_start - timedelta(days=1)
+    return {
+        "today": (today, today),
+        "yesterday": (today - timedelta(days=1),) * 2,
+        "this_week": (week_start, today),
+        "last_week": (week_start - timedelta(days=7), week_start - timedelta(days=1)),
+        "this_month": (month_start, today),
+        "last_month": (last_month_end.replace(day=1), last_month_end),
+        "last_7_days": (today - timedelta(days=6), today),
+        "last_30_days": (today - timedelta(days=29), today),
+        "this_year": (today.replace(month=1, day=1), today),
+        "all": (None, None),
+    }[period]
 
 
 def create_account_specialist_tools(customer_id: str) -> list[Any]:
@@ -288,7 +271,10 @@ def create_account_specialist_tools(customer_id: str) -> list[Any]:
         owned_account_ids = {a.account_id for a in bank_data.get_accounts(customer_id)}
         if account_id not in owned_account_ids:
             return f"Account {account_id} does not belong to this customer."
-        since = date.fromisoformat(since_iso_date) if since_iso_date else None
+        try:
+            since = date.fromisoformat(since_iso_date) if since_iso_date else None
+        except ValueError:
+            return "Invalid since_iso_date; use the YYYY-MM-DD format."
         transactions = bank_data.get_transactions(
             account_id, min_amount=min_amount, since=since
         )
@@ -300,7 +286,57 @@ def create_account_specialist_tools(customer_id: str) -> list[Any]:
             for t in transactions
         )
 
-    return [list_accounts, get_transaction_history]
+    @tool
+    def summarize_spending(
+        period: str | None = None,
+        since_iso_date: str | None = None,
+        until_iso_date: str | None = None,
+    ) -> str:
+        """Total spending (outgoing debits) across all of this customer's accounts.
+
+        Sums negative transaction amounts per currency and category, excluding
+        internal money movements (transfer_out, deposit_placement).
+
+        period is one of: today, yesterday, this_week (from Monday), last_week,
+        this_month, last_month, last_7_days, last_30_days, this_year, all.
+        Prefer it for relative expressions (ma, ezen a héten, ebben a hónapban);
+        it is resolved against the real current date. For an explicit range use
+        since_iso_date / until_iso_date (YYYY-MM-DD, inclusive) instead. With
+        nothing given, all available history is used.
+        """
+        if period:
+            if period not in SPENDING_PERIODS:
+                return f"Unknown period. Use one of: {', '.join(SPENDING_PERIODS)}."
+            since, until = resolve_period(period)
+        else:
+            try:
+                since = date.fromisoformat(since_iso_date) if since_iso_date else None
+                until = date.fromisoformat(until_iso_date) if until_iso_date else None
+            except ValueError:
+                return "Invalid date; use the YYYY-MM-DD format."
+        label = (
+            f"{since.isoformat() if since else 'start'} to "
+            f"{until.isoformat() if until else 'latest'}"
+        )
+        totals: dict[str, dict[str, float]] = {}
+        for account in bank_data.get_accounts(customer_id):
+            for t in bank_data.get_transactions(account.account_id, since=since):
+                if t.amount >= 0 or t.category in _NON_SPENDING_CATEGORIES:
+                    continue
+                if until is not None and t.booking_date > until:
+                    continue
+                by_cat = totals.setdefault(t.currency, {})
+                by_cat[t.category] = by_cat.get(t.category, 0.0) + -t.amount
+        if not totals:
+            return f"No spending found for {label}."
+        lines = [f"Period: {label}"]
+        for currency, by_cat in totals.items():
+            lines.append(f"Total spending: {sum(by_cat.values()):,.0f} {currency}")
+            for cat, amount in sorted(by_cat.items(), key=lambda kv: -kv[1]):
+                lines.append(f"- {cat}: {amount:,.0f} {currency}")
+        return "\n".join(lines)
+
+    return [list_accounts, get_transaction_history, summarize_spending]
 
 
 def create_product_specialist_tools(customer_id: str) -> list[Any]:
@@ -334,19 +370,59 @@ def create_product_specialist_tools(customer_id: str) -> list[Any]:
     return [list_catalog, list_personalized_offers]
 
 
+SPECIALIST_RECURSION_LIMIT = 60
+SPECIALIST_FAILURE_REPLY = (
+    "The specialist could not answer this question right now. Do not guess - "
+    "tell the officer the information is temporarily unavailable."
+)
+_logger = logging.getLogger(__name__)
+
+
+def _specialist_gate(state: BranchState) -> str | None:
+    """Deterministic pre-checks shared by both specialist wrapper tools.
+
+    Returns a fixed reply when the specialist must not run: no customer is
+    selected, or the customer selected *now* (possibly earlier in this same
+    turn) is not entitled to the endpoint the router matched. Re-checking
+    here, instead of trusting the router's annotation or the coordinator's
+    prompt, keeps the entitlement rule enforced in code even when the
+    customer is selected mid-turn.
+    """
+    customer_id = state.get("current_customer_id")
+    if not customer_id:
+        return "No customer is currently selected. Call select_customer first."
+    matched = state.get("matched_endpoint")
+    if matched is not None and check_endpoint_access(customer_id, matched):
+        return f"ACCESS DENIED - relay this verbatim and stop: {access_denied_reply(matched)}"
+    return None
+
+
+def _run_specialist(agent: Any, question: str) -> str:
+    """Invoke a specialist with a bounded loop; fall back to a fixed reply on
+    any failure (recursion limit, provider error, timeout) instead of letting
+    the coordinator improvise."""
+    try:
+        response = agent.invoke(
+            {"messages": [HumanMessage(content=question)]},
+            config={"recursion_limit": SPECIALIST_RECURSION_LIMIT},
+        )
+    except Exception:
+        _logger.exception("Specialist call failed")
+        return SPECIALIST_FAILURE_REPLY
+    return response["messages"][-1].content
+
+
 def create_branch_tools(
-    account_model: BaseChatModel,
-    account_prompt: str,
-    product_model: BaseChatModel,
-    product_prompt: str,
+    account_factory: AgentFactory,
+    product_factory: AgentFactory,
 ) -> list[Any]:
     """Create the coordinator's own tools: customer lookup plus two specialist
     wrappers. Unlike ``create_offsite_tools`` (whose specialists have static
     tools because the data - the candidate images - is fixed ahead of time),
     the account/product specialists here must be scoped to whichever customer
     is currently selected, so each wrapper tool builds a fresh specialist
-    agent with customer-scoped tools on every call, from the model+prompt
-    pair loaded once at startup.
+    agent with customer-scoped tools on every call, from the agent's own
+    Markdown definition (``AgentFactory``, model built once at startup).
     """
 
     @tool
@@ -398,17 +474,11 @@ def create_branch_tools(
     ) -> str:
         """Ask the account/transactions specialist about the selected customer's
         balances or transaction history."""
-        customer_id = runtime.state.get("current_customer_id")
-        if not customer_id:
-            return "No customer is currently selected. Call select_customer first."
-        account_agent = create_agent(
-            model=account_model,
-            tools=create_account_specialist_tools(customer_id),
-            system_prompt=account_prompt,
-            middleware=build_guardrail_middleware(),
-        )
-        response = account_agent.invoke({"messages": [HumanMessage(content=question)]})
-        return response["messages"][-1].content
+        if (blocked := _specialist_gate(runtime.state)) is not None:
+            return blocked
+        customer_id = runtime.state["current_customer_id"]
+        account_agent = account_factory.build(create_account_specialist_tools(customer_id))
+        return _run_specialist(account_agent, question)
 
     @tool
     def ask_product_specialist(
@@ -416,16 +486,10 @@ def create_branch_tools(
     ) -> str:
         """Ask the product/offers specialist about the catalog or the selected
         customer's personalized discounts."""
-        customer_id = runtime.state.get("current_customer_id")
-        if not customer_id:
-            return "No customer is currently selected. Call select_customer first."
-        product_agent = create_agent(
-            model=product_model,
-            tools=create_product_specialist_tools(customer_id),
-            system_prompt=product_prompt,
-            middleware=build_guardrail_middleware(),
-        )
-        response = product_agent.invoke({"messages": [HumanMessage(content=question)]})
-        return response["messages"][-1].content
+        if (blocked := _specialist_gate(runtime.state)) is not None:
+            return blocked
+        customer_id = runtime.state["current_customer_id"]
+        product_agent = product_factory.build(create_product_specialist_tools(customer_id))
+        return _run_specialist(product_agent, question)
 
     return [list_customers, select_customer, ask_account_specialist, ask_product_specialist]

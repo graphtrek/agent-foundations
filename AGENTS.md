@@ -15,6 +15,9 @@ LangGraph, using OpenRouter as the model provider.
 - Run the multi-agent planner: `uv run python src/corporate_offsite_planner_agent.py`.
 - Run the MCP server: `uv run python src/mcp_server.py`.
 - Run the bank branch officer chat assistant: `uv run python src/bank_officer_agent.py`.
+- Run the bank branch officer web chat: `uv run python src/bank_officer_web.py`,
+  then open http://127.0.0.1:8010/ (`BANK_WEB_HOST`/`BANK_WEB_PORT` override
+  the address).
 
 The first three commands make OpenRouter requests. The search example also
 uses DuckDuckGo, and the image example in `simple_agent.py` expects `test.jpg`
@@ -27,32 +30,50 @@ The planner supports `PLANNER_*`, `VISION_*`, and `TEXT_*` settings for
 model. Planner images are cached in `src/resources/offsite/`, conversations
 are saved in `conversations/`, and logs are written to `logs/`.
 
-The bank branch officer assistant reuses the `TEXT_*` defaults (`config.text`)
-as the base model config for its coordinator, both specialists, and the
-endpoint router, since none need vision; per-role tuning lives in the
-`branch_coordinator.md`, `account_specialist.md`, `product_specialist.md`,
-and `endpoint_specialist.md` prompt files' `yaml` blocks rather than a new
-env-var family. It is an interactive, query-only demo (type `exit`, `quit`,
+The bank branch officer assistant builds every agent (endpoint router,
+coordinator, account and product specialists) from its own Markdown file in
+`src/resources/agents/bank_officer/` (`00_endpoint_router.md`,
+`01_branch_coordinator.md`, `02_account_specialist.md`,
+`03_product_specialist.md`), following the `dev-vault/data/agents` persona
+convention: a `# Label` heading, `<!-- key: value -->` directives for model
+settings, the `tools` list and the `middleware` stack, then the system prompt
+body. `src/utils/agent_spec.py` loads them; see that directory's `README.md`
+for the format. The `TEXT_*` defaults (`config.text`) are the base model
+config the files' directives override, since none of the agents need vision. It is an interactive, query-only demo (type `exit`, `quit`,
 or `kilépés` to end the session) with three mock customers defined in
 `src/utils/bank_data.py`, each with an `entitlement_tier`
 (`retail`/`premium`/`business`); conversations are saved in `conversations/`
 and logs are written to `logs/bank_officer_agent.log`. On every officer turn,
-an endpoint-router agent (`build_endpoint_router()` in `bank_officer_agent.py`)
-runs before the coordinator, matching the question to the best REST endpoint
-in the mock catalog in `src/utils/endpoint_catalog.py` and recording the
-result as `matched_endpoint` in `BranchState`; the coordinator's prompt uses
-it to help pick a specialist, or to refuse directly when the selected
-customer's entitlement tier doesn't cover the matched endpoint. Every LLM
-call this example makes (coordinator, both specialists, and the endpoint
-router) runs through the guardrail middleware stack from
+an endpoint router runs before the coordinator, matching the question to the
+best REST endpoint in the mock catalog in `src/utils/endpoint_catalog.py` and
+recording the result as `matched_endpoint` in `BranchState`. The router is
+not a chat agent: it is the TypeSafe Jev decision model
+(`~typesafe/jev-latest`), which OpenRouter serves only through the alpha
+Decisions API (`POST /api/alpha/decisions`, not `/chat/completions`), called
+by `EndpointRouter` in `src/utils/decision_router.py` with one `choice`
+question over the catalog (plus `none`). Below its file's `min_probability`
+the answer counts as no match; a refusal, malformed answer or request error
+fails closed with a fixed reply. The coordinator's prompt uses the result the coordinator's prompt uses
+it to help pick a specialist. Entitlement refusals are enforced in code, not
+by the prompt: when `access_denied` is true the chat loop answers with the
+fixed `access_denied_reply()` and never calls the coordinator, and the
+specialist wrapper tools re-check access via `check_endpoint_access()` for a
+customer selected mid-turn. Every reply goes through the deterministic
+`deliver_reply()` gateway, router/coordinator/specialist failures fall back to
+a fixed reply, and the coordinator thread is reset when the officer switches
+to a different customer so the previous customer's data leaves the context. Every chat-model
+call this example makes (coordinator and both specialists) runs through the
+guardrail middleware stack from
 `src/utils/guardrails.py`: a `before_model` check blocks prompt-injection/
 instruction-override attempts, `PIIMiddleware` redacts emails and masks
 credit card numbers on both input and output, and an `after_model` check
 rewrites any reply that claims to have performed a mutating action, since
-the example is query-only. The endpoint router additionally runs
-`EndpointAccessMiddleware` (via `build_endpoint_router_middleware()`), which
-flags `matched_endpoint.access_denied` when the selected customer's
-entitlement tier is below the matched endpoint's `required_entitlement`.
+the example is query-only. The Jev router has no LangChain middleware; it
+runs the same checks in code (`is_prompt_injection()` and `redact_pii()` from
+`guardrails.py` before the call) and sets `matched_endpoint.access_denied`
+from `check_endpoint_access()`: `True` when the selected customer's
+entitlement tier is below the matched endpoint's `required_entitlement`,
+`None` when no customer is selected yet.
 
 ## Validation
 
@@ -76,8 +97,13 @@ requires them.
   wrapping models with `create_agent()` from `langchain.agents`.
 - `src/utils/agent_response.py` centralizes invoke, streaming, and full-message
   response handling. `src/utils/tools.py` contains the search and specialist
-  tool factories.
-- Keep prompts in `src/resources/prompts/` and planner image handling in
+  tool factories. The account specialist's `summarize_spending` tool sums
+  outgoing debits deterministically (excluding transfers/deposit placements);
+  specialist/coordinator recursion limits are 60/80 because guardrail
+  middleware nodes count as graph steps.
+- Keep prompts in `src/resources/prompts/` (agent definition files for the
+  bank officer example in `src/resources/agents/<example>/`, loaded by
+  `src/utils/agent_spec.py`) and planner image handling in
   `src/utils/offsite_images.py`; avoid embedding those assets in the runnable
   scripts.
 - `src/utils/bank_data.py` holds static, dependency-free mock bank data
@@ -91,14 +117,35 @@ requires them.
   mock-up of the catalog as a navigable menu lives at
   `src/resources/webapp_mockup/catalog.html` (not `index.html`, since
   `.gitignore` has an unrelated repo-wide rule for that name); it mirrors
-  the catalog by hand and must be updated alongside it.
+  the catalog by hand and must be updated alongside it. Each GET item has
+  a "Show test data" toggle that renders its mock response in a DataTables
+  table (jQuery/DataTables from CDN) for a selectable customer, applying
+  the same entitlement-tier rule; its customers, accounts, transactions,
+  products and offers mirror `bank_data.py` by hand, the other fixtures
+  exist only in the page.
+- The branch officer turn pipeline (endpoint router, code-level access
+  short-circuit, coordinator, `_deliver()` reply gateway, customer-switch
+  thread reset) lives in `BranchSession` in `src/utils/branch_session.py`,
+  shared by the terminal loop in `bank_officer_agent.py` and the web chat in
+  `bank_officer_web.py`. `stream_turn()` yields `route`, `tool_call`,
+  `tool_result`, `customer` and `reply` events. The web chat is a FastAPI
+  JSON/SSE API modelled on the dev-vault chat service: `POST
+  /api/chats/{id}/messages` starts the turn in a worker thread, `GET
+  /api/chats/{id}/live` replays then streams its events (`src/utils/live_run.py`),
+  `POST .../cancel` stops it after the current step and resets the
+  coordinator thread, and `DELETE /api/chats/{id}` saves the transcript to
+  `conversations/`. It also serves `src/resources/webapp_mockup/`, whose
+  `chat.html` is the chat page (linked from `catalog.html` and back). The
+  reply is sent whole, never as raw model tokens, because the PII and
+  query-only guardrails act on the finished model message; tool-result
+  previews go through `redact_pii()`. Sessions are in-process: one worker.
 - `src/utils/guardrails.py` holds the before/after LLM-call guardrail
   middleware (`build_guardrail_middleware()`) used by the branch officer
   example; attach it via `create_agent(..., middleware=...)` on every agent
   a new example adds, the same way `bank_officer_agent.py` and
-  `create_branch_tools()` do. `build_endpoint_router_middleware()` extends
-  that stack with `EndpointAccessMiddleware`, the entitlement-tier access
-  check used only by the endpoint router. `build_coordinator_middleware()`
+  `create_branch_tools()` do. `check_endpoint_access()` is the single
+  entitlement-tier rule used by the endpoint router, the chat loop's
+  short-circuit and the specialist tools. `build_coordinator_middleware()`
   extends it with `MatchedEndpointContextMiddleware`, which the coordinator
   needs because a plain custom `AgentState` field like `matched_endpoint`
   is never automatically visible to the model - only `state["messages"]`

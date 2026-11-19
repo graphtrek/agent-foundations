@@ -7,12 +7,22 @@ mirroring the pattern in ``corporate_offsite_planner_agent.py``:
 - Account/transactions specialist: balances and transaction history.
 - Product/offers specialist: product catalog and personalized discounts.
 
-Before the coordinator sees each message, a separate endpoint-router agent
-(``build_endpoint_router()``) runs first, matching the officer's question to
-the best REST endpoint in a mock web banking app catalog and flagging
-whether the selected customer's entitlement tier covers it; the coordinator
-reads that result (``matched_endpoint`` in ``BranchState``) to help choose a
-specialist or to refuse outright.
+Before the coordinator sees each message, an endpoint router runs first:
+not a chat agent but a TypeSafe Jev decision model on OpenRouter's Decisions
+API (``utils.decision_router.EndpointRouter``), which picks the best REST
+endpoint in a mock web banking app catalog; code then flags whether the
+selected customer's entitlement tier covers it. The access rule
+is enforced in code, never by a prompt: when the verdict is "denied", the
+chat loop answers with a fixed refusal and the coordinator is not called at
+all; the specialist tools re-check it as well, for a customer selected
+mid-turn. Otherwise the coordinator reads the router's result
+(``matched_endpoint`` in ``BranchState``) to help choose a specialist.
+
+Every reply reaches the officer through ``BranchSession._deliver()``
+(``utils.branch_session``, shared with the web chat in
+``bank_officer_web.py``), a deterministic response gateway (no LLM), and
+the coordinator's conversation thread is reset whenever the officer switches to a different customer, so one
+customer's data never stays in context while serving the next one.
 
 The coordinator also owns direct tools for customer lookup/selection
 (``list_customers``, ``select_customer``) so the officer can serve several
@@ -26,22 +36,18 @@ Run with: uv run python src/bank_officer_agent.py
 import logging
 import os
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from langchain.agents import create_agent
-from langchain.messages import HumanMessage
-from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 
 from utils.config import load_config
-from utils.conversation_util import message_text, save_conversation
-from utils.guardrails import build_coordinator_middleware, build_endpoint_router_middleware
-from utils.model_util import load_configured_model
+from utils.agent_spec import load_agent_factories, load_agent_specs
+from utils.branch_session import BranchSession
+from utils.decision_router import EndpointRouter
 from utils.tools import (
     BranchContext,
     BranchState,
     create_branch_tools,
-    create_endpoint_router_tools,
 )
 
 SEPARATOR = "-" * 80
@@ -49,81 +55,54 @@ CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent / "conversations"
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_FILE = LOGS_DIR / "bank_officer_agent.log"
 EXIT_WORDS = {"exit", "quit", "kilépés"}
-THREAD_ID = "branch-visit-1"
 logger = logging.getLogger(__name__)
 
 config = load_config()
 openrouter_api_key = config.openrouter_api_key
 
-# None of the three roles (coordinator, account specialist, product
-# specialist) need vision, so the TEXT_* config is the shared base; each
-# prompt file's yaml block overrides whatever it needs per role.
+# Every agent of this example is defined by its own Markdown file in
+# src/resources/agents/bank_officer/ (model settings, tool list, guardrail
+# stack and system prompt). None need vision, so the TEXT_* config is the
+# shared base that each file's model directives override.
 BASE_CONFIG = config.text
+AGENTS_EXAMPLE = "bank_officer"
 
 
-def build_coordinator() -> Any:
-    """Load prompts/models for all three roles and assemble the coordinator."""
-    account_prompt, account_model = load_configured_model(
-        "account_specialist", BASE_CONFIG, openrouter_api_key
-    )
-    product_prompt, product_model = load_configured_model(
-        "product_specialist", BASE_CONFIG, openrouter_api_key
-    )
-    coordinator_prompt, coordinator_model = load_configured_model(
-        "branch_coordinator", BASE_CONFIG, openrouter_api_key
-    )
-
+def build_agents() -> tuple[EndpointRouter, Any]:
+    """Build the endpoint router and the coordinator (with its two specialist
+    tools) from their agent definition files. The coordinator's in-memory
+    checkpointer keys threads by id, so one coordinator can serve several
+    sessions as long as each uses its own thread id prefix."""
+    factories = load_agent_factories(AGENTS_EXAMPLE, BASE_CONFIG, openrouter_api_key)
     branch_tools = create_branch_tools(
-        account_model, account_prompt, product_model, product_prompt
+        factories["account_specialist"], factories["product_specialist"]
     )
-    return create_agent(
-        model=coordinator_model,
-        tools=branch_tools,
+    coordinator = factories["branch_coordinator"].build(
+        branch_tools,
         state_schema=BranchState,
         context_schema=BranchContext,
-        system_prompt=coordinator_prompt,
         checkpointer=InMemorySaver(),
-        middleware=build_coordinator_middleware(),
     )
-
-
-def build_endpoint_router() -> Any:
-    """Assemble the endpoint-router agent that runs before the coordinator on
-    every turn. It is stateless across turns (no checkpointer), the same way
-    the on-the-fly account/product specialist agents are, since it needs no
-    memory of its own between officer questions.
-    """
-    router_prompt, router_model = load_configured_model(
-        "endpoint_specialist", BASE_CONFIG, openrouter_api_key
+    # The router is a decision model (kind: decision), not a chat agent, and
+    # is stateless across turns: it sees only the current question.
+    endpoint_router = EndpointRouter(
+        load_agent_specs(AGENTS_EXAMPLE)["endpoint_router"], openrouter_api_key
     )
-    return create_agent(
-        model=router_model,
-        tools=create_endpoint_router_tools(),
-        state_schema=BranchState,
-        context_schema=BranchContext,
-        system_prompt=router_prompt,
-        middleware=build_endpoint_router_middleware(),
-    )
+    return endpoint_router, coordinator
 
 
 def run_officer_chat() -> None:
     """Run the interactive officer chat loop until an exit word is typed."""
-    coordinator = build_coordinator()
-    endpoint_router = build_endpoint_router()
-    thread_config: RunnableConfig = {
-        "configurable": {"thread_id": THREAD_ID},
-        "tags": ["BRANCH_OFFICER"],
-        "recursion_limit": 40,
-    }
-    context = BranchContext(officer_id="officer-demo", branch_id="branch-buda")
+    endpoint_router, coordinator = build_agents()
+    session = BranchSession(
+        endpoint_router,
+        coordinator,
+        BranchContext(officer_id="officer-demo", branch_id="branch-buda"),
+    )
 
     print(SEPARATOR)
     print("Bank Branch Officer Assistant - type 'exit', 'quit', or 'kilépés' to quit.")
     print(SEPARATOR)
-
-    first_prompt: str | None = None
-    final_messages: list[Any] = []
-    current_customer_id: str | None = None
 
     while True:
         try:
@@ -134,48 +113,14 @@ def run_officer_chat() -> None:
             continue
         if user_input.lower() in EXIT_WORDS:
             break
-        if first_prompt is None:
-            first_prompt = user_input
+        for event, data in session.stream_turn(user_input):
+            if event == "tool_call":
+                print(f"  … {data['name']}")
+            elif event == "reply":
+                print(f"Asszisztens: {data['text']}\n")
 
-        logger.info("Officer turn: %s", user_input)
-        router_response = cast(
-            dict[str, Any],
-            endpoint_router.invoke(
-                {
-                    "messages": [HumanMessage(content=user_input)],
-                    "current_customer_id": current_customer_id,
-                },
-                config={"tags": ["ENDPOINT_ROUTER"], "recursion_limit": 40},
-                context=context,
-            ),
-        )
-        matched_endpoint = router_response.get("matched_endpoint")
-        logger.info("Matched endpoint: %s", matched_endpoint)
-
-        response = cast(
-            dict[str, Any],
-            coordinator.invoke(
-                {
-                    "messages": [HumanMessage(content=user_input)],
-                    "matched_endpoint": matched_endpoint,
-                },
-                config=thread_config,
-                context=context,
-            ),
-        )
-        final_messages = response["messages"]
-        current_customer_id = response.get("current_customer_id", current_customer_id)
-        reply = message_text(final_messages[-1].content)
-        print(f"Asszisztens: {reply}\n")
-
-    if final_messages and first_prompt:
-        conversation_path = save_conversation(
-            first_prompt,
-            final_messages,
-            CONVERSATIONS_DIR,
-            title="Bank Branch Officer Chat Conversation",
-            assistant_heading="Assistant",
-        )
+    conversation_path = session.save(CONVERSATIONS_DIR)
+    if conversation_path is not None:
         logger.info("Conversation saved to %s", conversation_path)
         print(SEPARATOR)
         print(f"Conversation saved to: {conversation_path}")

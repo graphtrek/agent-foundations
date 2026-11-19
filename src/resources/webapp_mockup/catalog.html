@@ -3,15 +3,27 @@
   Static visual mock-up of the web banking app's menu, mirroring the REST
   endpoint catalog in src/utils/endpoint_catalog.py. Hand-written, not
   generated - keep the two in sync by hand when the catalog changes.
-  Open directly in a browser (file://); no build step, no JS required.
+  Open directly in a browser (file://); no build step. Every GET menu item
+  has a "Show test data" toggle that renders its mock response in a
+  DataTables table (jQuery + DataTables load from their CDNs, so the page
+  needs network access for that part). Customers, accounts, transactions,
+  products and offers in the MOCK script below mirror
+  src/utils/bank_data.py by hand; cards, limits, scheduled payments,
+  business sub-accounts, loan applications, tickets, conditions and
+  branches are mock-up-only fixtures with no Python counterpart.
   Named catalog.html, not index.html, because .gitignore has a repo-wide
   bare "index.html" rule for an unrelated generated file.
+  The header links to chat.html, the branch officer web chat; both pages
+  are served by src/bank_officer_web.py (http://127.0.0.1:8010/).
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Web Banking App — Menu &amp; Endpoint Catalog</title>
+<link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
 <style>
   :root {
     --bg: #f5f6f8;
@@ -29,6 +41,10 @@
     --premium-text: #8a4b00;
     --business: #e3d8fb;
     --business-text: #4c2a9c;
+    --credit: #1b7f3a;
+    --debit: #b42318;
+    --denied-bg: #fdecea;
+    --denied-text: #8a1c12;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -43,6 +59,10 @@
       --premium-text: #f0b056;
       --business: #352a57;
       --business-text: #c9b6f5;
+      --credit: #5cc77f;
+      --debit: #f28b82;
+      --denied-bg: #3b1d1a;
+      --denied-text: #f6b4ad;
     }
   }
   body {
@@ -52,7 +72,10 @@
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 760px; margin: 0 auto; }
+  main { max-width: 960px; margin: 0 auto; }
+  .top-nav { display: flex; justify-content: flex-end; font-size: 0.88rem; }
+  .top-nav a { color: var(--post); text-decoration: none; font-weight: 600; }
+  .top-nav a:hover { text-decoration: underline; }
   h1 { font-size: 1.4rem; margin-bottom: 4px; }
   p.subtitle { color: var(--muted); margin-top: 0; font-size: 0.9rem; }
   details {
@@ -98,35 +121,110 @@
   .tier.business { background: var(--business); color: var(--business-text); }
   .description { margin: 4px 0 2px; font-size: 0.88rem; }
   .menu { margin: 0; font-size: 0.78rem; color: var(--muted); }
+
+  /* --- Customer selector and GET test-data panels ------------------------ */
+  .customer-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 0.88rem;
+  }
+  .customer-bar label { font-weight: 600; }
+  select, input {
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 6px;
+  }
+  .toggle-data {
+    font: 600 0.75rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--get);
+    background: transparent;
+    border: 1px solid var(--get);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .toggle-data[aria-expanded="true"] { background: var(--get); color: #fff; }
+  .data-panel {
+    flex-basis: 100%;
+    min-width: 0;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+  .data-panel[hidden] { display: none; }
+  .request-line { font: 600 0.8rem ui-monospace, monospace; margin: 0 0 8px; word-break: break-all; }
+  .request-line .status { color: var(--get); margin-left: 6px; }
+  .request-line .status.denied { color: var(--debit); }
+  .params { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 8px; }
+  .params label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .note { margin: 0 0 8px; color: var(--muted); }
+  .denied {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--denied-bg);
+    color: var(--denied-text);
+  }
+  .amount.credit { color: var(--credit); }
+  .amount.debit { color: var(--debit); }
+  table.dataTable { font-size: 0.82rem; color: var(--text); }
+  div.dt-container { color: var(--text); }
 </style>
 </head>
 <body>
 <main>
+  <nav class="top-nav">
+    <a href="chat.html">Branch officer chat →</a>
+  </nav>
   <h1>Web Banking App — Menu &amp; Endpoint Catalog</h1>
   <p class="subtitle">
     Visual reference for <code>src/utils/endpoint_catalog.py</code>, used by
     the endpoint-router specialist in the bank branch officer demo. Each
-    menu item below is backed by the REST endpoint shown.
+    menu item below is backed by the REST endpoint shown. Open a GET item's
+    <em>Show test data</em> panel to see its mock response for the selected
+    customer.
   </p>
+
+  <div class="customer-bar">
+    <label for="customer-select">Customer</label>
+    <select id="customer-select"></select>
+    <span id="customer-tier" class="tier"></span>
+  </div>
 
   <details open>
     <summary>Accounts</summary>
     <ul>
-      <li class="row">
+      <li class="row" data-endpoint="ep-accounts-list">
         <span class="method get">GET</span>
         <span class="path">/accounts</span>
         <span class="tier retail">retail</span>
         <p class="description">List the current customer's accounts with type and balance.</p>
         <p class="menu">Accounts &gt; Overview</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-accounts-get">
         <span class="method get">GET</span>
         <span class="path">/accounts/{id}</span>
         <span class="tier retail">retail</span>
         <p class="description">Get the details of a single account.</p>
         <p class="menu">Accounts &gt; Overview &gt; Account details</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-accounts-transactions">
         <span class="method get">GET</span>
         <span class="path">/accounts/{id}/transactions</span>
         <span class="tier retail">retail</span>
@@ -140,14 +238,14 @@
         <p class="description">File a dispute on a single transaction.</p>
         <p class="menu">Accounts &gt; Transactions &gt; Dispute a charge</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-accounts-statement">
         <span class="method get">GET</span>
         <span class="path">/accounts/{id}/statements/{period}</span>
         <span class="tier retail">retail</span>
         <p class="description">Download a monthly account statement.</p>
         <p class="menu">Accounts &gt; Statements</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-accounts-business-overview">
         <span class="method get">GET</span>
         <span class="path">/accounts/business/overview</span>
         <span class="tier business">business</span>
@@ -188,7 +286,7 @@
         <p class="description">Upload a batch payment file, e.g. monthly payroll.</p>
         <p class="menu">Payments &gt; Batch / payroll upload</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-payments-scheduled-list">
         <span class="method get">GET</span>
         <span class="path">/payments/scheduled</span>
         <span class="tier retail">retail</span>
@@ -208,7 +306,7 @@
   <details>
     <summary>Cards</summary>
     <ul>
-      <li class="row">
+      <li class="row" data-endpoint="ep-cards-list">
         <span class="method get">GET</span>
         <span class="path">/cards</span>
         <span class="tier retail">retail</span>
@@ -229,7 +327,7 @@
         <p class="description">Unblock a previously blocked card.</p>
         <p class="menu">Cards &gt; Overview &gt; Unblock card</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-cards-get-limits">
         <span class="method get">GET</span>
         <span class="path">/cards/{id}/limits</span>
         <span class="tier premium">premium</span>
@@ -249,14 +347,14 @@
   <details>
     <summary>Loans</summary>
     <ul>
-      <li class="row">
+      <li class="row" data-endpoint="ep-loans-offers">
         <span class="method get">GET</span>
         <span class="path">/loans/offers</span>
         <span class="tier retail">retail</span>
         <p class="description">List the loan products and headline rates available to the customer.</p>
         <p class="menu">Loans &gt; Offers</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-loans-status">
         <span class="method get">GET</span>
         <span class="path">/loans/applications/{id}/status</span>
         <span class="tier retail">retail</span>
@@ -283,7 +381,7 @@
   <details>
     <summary>Profile &amp; support</summary>
     <ul>
-      <li class="row">
+      <li class="row" data-endpoint="ep-profile-get">
         <span class="method get">GET</span>
         <span class="path">/profile</span>
         <span class="tier retail">retail</span>
@@ -304,7 +402,7 @@
         <p class="description">Open a new customer support ticket.</p>
         <p class="menu">Support &gt; New request</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-support-ticket-status">
         <span class="method get">GET</span>
         <span class="path">/support/tickets/{id}</span>
         <span class="tier retail">retail</span>
@@ -317,21 +415,21 @@
   <details>
     <summary>General</summary>
     <ul>
-      <li class="row">
+      <li class="row" data-endpoint="ep-general-conditions">
         <span class="method get">GET</span>
         <span class="path">/general/conditions</span>
         <span class="tier retail">retail</span>
         <p class="description">List standard account and product terms, fees, and interest conditions.</p>
         <p class="menu">General &gt; Terms &amp; conditions</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-general-branches">
         <span class="method get">GET</span>
         <span class="path">/general/branches</span>
         <span class="tier retail">retail</span>
         <p class="description">List branch locations with address and map coordinates, optionally filtered by city or postal code.</p>
         <p class="menu">General &gt; Branch locator</p>
       </li>
-      <li class="row">
+      <li class="row" data-endpoint="ep-general-branch-hours">
         <span class="method get">GET</span>
         <span class="path">/general/branches/{id}/hours</span>
         <span class="tier retail">retail</span>
@@ -341,5 +439,605 @@
     </ul>
   </details>
 </main>
+<script>
+/*
+ * Mock test data. Customers, accounts, transactions, products and offers
+ * mirror src/utils/bank_data.py by hand - keep them in sync. Everything
+ * after "Mock-up-only fixtures" exists only on this page.
+ */
+const MOCK = {
+  customers: [
+    { id: "cust-001", name: "Nagy Katalin", dob: "1985-04-12", phone: "+36 20 123 4567",
+      email: "nagy.katalin@example.hu", branch: "branch-buda", tier: "premium" },
+    { id: "cust-002", name: "Kovács Bence", dob: "1979-11-03", phone: "+36 30 234 5678",
+      email: "kovacs.bence@example.hu", branch: "branch-buda", tier: "business" },
+    { id: "cust-003", name: "Szabó Emese", dob: "1992-07-21", phone: "+36 70 345 6789",
+      email: "szabo.emese@example.hu", branch: "branch-pest", tier: "retail" },
+  ],
+  accounts: [
+    { id: "acc-001-chk", customer: "cust-001", type: "checking", product: "Lakossági Folyószámla", balance: 482350, opened: "2016-03-01", currency: "HUF" },
+    { id: "acc-001-sav", customer: "cust-001", type: "savings", product: "Megtakarítási Számla", balance: 3120000, opened: "2018-09-15", currency: "HUF" },
+    { id: "acc-002-chk", customer: "cust-002", type: "checking", product: "Lakossági Folyószámla", balance: 915420, opened: "2011-06-20", currency: "HUF" },
+    { id: "acc-002-sav", customer: "cust-002", type: "savings", product: "Megtakarítási Számla", balance: 7480000, opened: "2012-01-10", currency: "HUF" },
+    { id: "acc-003-chk", customer: "cust-003", type: "checking", product: "Lakossági Folyószámla", balance: 168900, opened: "2021-02-05", currency: "HUF" },
+    { id: "acc-003-sav", customer: "cust-003", type: "savings", product: "Megtakarítási Számla", balance: 540000, opened: "2021-02-05", currency: "HUF" },
+  ],
+  // [booking_date, amount, description, category] per account, oldest first.
+  txnRows: {
+    "acc-001-chk": [
+      ["2026-09-18", 450000, "Munkabér - ACME Zrt.", "salary"],
+      ["2026-09-20", -180000, "Lakbér átutalás", "rent"],
+      ["2026-09-24", -12450, "Tesco vásárlás", "grocery"],
+      ["2026-10-02", -6990, "Netflix előfizetés", "subscription"],
+      ["2026-10-05", -20000, "ATM készpénzfelvétel", "atm_withdrawal"],
+      ["2026-10-18", 450000, "Munkabér - ACME Zrt.", "salary"],
+      ["2026-10-22", -18200, "MVM közműszámla", "utility"],
+      ["2026-11-01", -8450, "Belvárosi étterem", "restaurant"],
+      ["2026-11-10", -15990, "Online vásárlás - eMAG", "shopping"],
+    ],
+    "acc-001-sav": [
+      ["2026-08-15", 500000, "Átvezetés folyószámláról", "transfer_in"],
+      ["2026-09-01", 3120, "Kamatjóváírás", "interest"],
+      ["2026-09-30", 3125, "Kamatjóváírás", "interest"],
+      ["2026-10-10", 300000, "Átvezetés folyószámláról", "transfer_in"],
+      ["2026-10-31", 3250, "Kamatjóváírás", "interest"],
+      ["2026-11-05", -100000, "Átvezetés folyószámlára", "transfer_out"],
+      ["2026-11-14", 100000, "Készpénz befizetés", "deposit"],
+      ["2026-11-14", 3300, "Kamatjóváírás", "interest"],
+      ["2026-11-15", 50000, "Átvezetés folyószámláról", "transfer_in"],
+    ],
+    "acc-002-chk": [
+      ["2026-09-15", 780000, "Munkabér - DeltaTech Kft.", "salary"],
+      ["2026-09-19", -220000, "Jelzáloghitel törlesztés", "loan_payment"],
+      ["2026-09-27", -34900, "Benzinkút - MOL", "fuel"],
+      ["2026-10-03", -9990, "Spotify + HBO Max", "subscription"],
+      ["2026-10-15", 780000, "Munkabér - DeltaTech Kft.", "salary"],
+      ["2026-10-19", -220000, "Jelzáloghitel törlesztés", "loan_payment"],
+      ["2026-10-28", -45000, "ATM készpénzfelvétel", "atm_withdrawal"],
+      ["2026-11-05", -62300, "Auchan vásárlás", "grocery"],
+      ["2026-11-12", -14500, "Gyógyszertár", "health"],
+    ],
+    "acc-002-sav": [
+      ["2026-08-01", 1000000, "Lekötött betét lejárat - jóváírás", "deposit_maturity"],
+      ["2026-09-01", 28600, "Kamatjóváírás", "interest"],
+      ["2026-09-20", 500000, "Átvezetés folyószámláról", "transfer_in"],
+      ["2026-10-01", 30100, "Kamatjóváírás", "interest"],
+      ["2026-10-15", -1200000, "Lekötött betétbe helyezés", "deposit_placement"],
+      ["2026-11-01", 29800, "Kamatjóváírás", "interest"],
+      ["2026-11-08", 200000, "Átvezetés folyószámláról", "transfer_in"],
+      ["2026-11-14", 31200, "Kamatjóváírás", "interest"],
+      ["2026-11-15", 15000, "Osztalékjóváírás", "dividend"],
+    ],
+    "acc-003-chk": [
+      ["2026-09-10", 310000, "Munkabér - StartUpHub Kft.", "salary"],
+      ["2026-09-14", -90000, "Albérlet átutalás", "rent"],
+      ["2026-09-22", -9450, "Lidl vásárlás", "grocery"],
+      ["2026-10-02", -4990, "Telekom mobilszámla", "utility"],
+      ["2026-10-10", 310000, "Munkabér - StartUpHub Kft.", "salary"],
+      ["2026-10-16", -25000, "ATM készpénzfelvétel", "atm_withdrawal"],
+      ["2026-10-29", -11990, "Online vásárlás - ASOS", "shopping"],
+      ["2026-11-04", -7200, "Kávézó", "restaurant"],
+      ["2026-11-13", -3490, "Bolt vásárlás", "grocery"],
+    ],
+    "acc-003-sav": [
+      ["2026-09-01", 100000, "Készpénz befizetés", "deposit"],
+      ["2026-09-15", 300, "Kamatjóváírás", "interest"],
+      ["2026-10-01", 500, "Kamatjóváírás", "interest"],
+      ["2026-10-12", 150000, "Átvezetés folyószámláról", "transfer_in"],
+      ["2026-10-15", 700, "Kamatjóváírás", "interest"],
+      ["2026-11-01", 900, "Kamatjóváírás", "interest"],
+      ["2026-11-05", -50000, "Átvezetés folyószámlára", "transfer_out"],
+      ["2026-11-10", 288600, "Hozamkifizetés", "interest"],
+      ["2026-11-14", 1000, "Kamatjóváírás", "interest"],
+    ],
+  },
+  products: [
+    { id: "prod-savings", name: "Zöld Megtakarítási Számla", category: "savings", rateLabel: "éves hozam", rate: 4.5 },
+    { id: "prod-loan", name: "Rugalmas Személyi Kölcsön", category: "loan", rateLabel: "THM", rate: 11.9 },
+    { id: "prod-creditcard", name: "Mindennapi Hitelkártya", category: "credit_card", rateLabel: "THM", rate: 24.9 },
+    { id: "prod-deposit", name: "Lekötött Betét Plusz", category: "deposit", rateLabel: "éves hozam", rate: 5.2 },
+    { id: "prod-mortgage", name: "Otthon Lakáshitel", category: "mortgage", rateLabel: "THM", rate: 7.3 },
+  ],
+  offers: [
+    { id: "offer-001a", customer: "cust-001", product: "prod-deposit", detail: "+0.5 pp hozam az első 12 hónapban", validUntil: "2026-12-31" },
+    { id: "offer-001b", customer: "cust-001", product: "prod-creditcard", detail: "Éves díj elengedve az első 12 hónapban", validUntil: "2027-01-31" },
+    { id: "offer-002a", customer: "cust-002", product: "prod-mortgage", detail: "-0.4 pp a hirdetett THM-ből a teljes futamidőre", validUntil: "2027-02-28" },
+    { id: "offer-002b", customer: "cust-002", product: "prod-deposit", detail: "+0.6 pp hozam 2 millió Ft feletti lekötésre", validUntil: "2026-12-15" },
+    { id: "offer-003a", customer: "cust-003", product: "prod-loan", detail: "-1.0 pp a hirdetett THM-ből 36 hónapos futamidőig", validUntil: "2027-01-15" },
+    { id: "offer-003b", customer: "cust-003", product: "prod-savings", detail: "+0.3 pp hozam az első 6 hónapban", validUntil: "2027-03-31" },
+  ],
+
+  // --- Mock-up-only fixtures (no counterpart in bank_data.py) -------------
+  businessAccounts: [
+    { id: "acc-002-biz", customer: "cust-002", type: "business_checking", product: "Kovács Consulting Kft. - Üzleti számla", balance: 4250000, currency: "HUF" },
+    { id: "acc-002-biz-payroll", customer: "cust-002", type: "sub_account", product: "Bérszámfejtési alszámla", balance: 1800000, currency: "HUF" },
+    { id: "acc-002-biz-tax", customer: "cust-002", type: "sub_account", product: "Adó- és járulék alszámla", balance: 650000, currency: "HUF" },
+  ],
+  scheduled: [
+    { id: "sp-001-1", customer: "cust-001", from: "acc-001-chk", beneficiary: "Lakbér - Kiss Péter", amount: 180000, frequency: "monthly (20th)", next: "2026-11-20", status: "active" },
+    { id: "sp-001-2", customer: "cust-001", from: "acc-001-chk", beneficiary: "Saját megtakarítás (acc-001-sav)", amount: 50000, frequency: "monthly (15th)", next: "2026-12-15", status: "active" },
+    { id: "sp-002-1", customer: "cust-002", from: "acc-002-chk", beneficiary: "Jelzáloghitel törlesztés", amount: 220000, frequency: "monthly (19th)", next: "2026-12-19", status: "active" },
+    { id: "sp-002-2", customer: "cust-002", from: "acc-002-chk", beneficiary: "MVM Next - csoportos beszedés", amount: null, frequency: "monthly (direct debit)", next: "2026-11-25", status: "active" },
+    { id: "sp-002-3", customer: "cust-002", from: "acc-002-chk", beneficiary: "Iskolai tandíj", amount: 150000, frequency: "one-off", next: "2026-12-01", status: "active" },
+    { id: "sp-003-1", customer: "cust-003", from: "acc-003-chk", beneficiary: "Albérlet - Tóth Anna", amount: 90000, frequency: "monthly (14th)", next: "2026-12-14", status: "active" },
+    { id: "sp-003-2", customer: "cust-003", from: "acc-003-chk", beneficiary: "Telekom - csoportos beszedés", amount: null, frequency: "monthly (direct debit)", next: "2026-12-02", status: "paused" },
+  ],
+  cards: [
+    { id: "card-001-deb", customer: "cust-001", kind: "debit", brand: "Visa Debit", number: "**** 4821", account: "acc-001-chk", expires: "2028-05", status: "active" },
+    { id: "card-001-cc", customer: "cust-001", kind: "credit", brand: "Mastercard Gold", number: "**** 7710", account: "-", expires: "2027-09", status: "active" },
+    { id: "card-002-deb", customer: "cust-002", kind: "debit", brand: "Visa Business Debit", number: "**** 1934", account: "acc-002-chk", expires: "2029-01", status: "active" },
+    { id: "card-002-cc", customer: "cust-002", kind: "credit", brand: "Mastercard Business", number: "**** 5520", account: "-", expires: "2028-11", status: "active" },
+    { id: "card-002-old", customer: "cust-002", kind: "debit", brand: "Visa Debit", number: "**** 3307", account: "acc-002-chk", expires: "2027-03", status: "blocked (lost)" },
+    { id: "card-003-deb", customer: "cust-003", kind: "debit", brand: "Visa Debit", number: "**** 6642", account: "acc-003-chk", expires: "2026-12", status: "active" },
+  ],
+  // [limit type, limit, used today]
+  cardLimits: {
+    "card-001-deb": [["Daily purchase", 500000, 15990], ["Daily ATM withdrawal", 200000, 0], ["Daily online", 300000, 15990]],
+    "card-001-cc": [["Credit limit", 800000, 124300], ["Daily purchase", 400000, 0], ["Daily ATM withdrawal", 100000, 0]],
+    "card-002-deb": [["Daily purchase", 1000000, 62300], ["Daily ATM withdrawal", 400000, 45000], ["Daily online", 600000, 0]],
+    "card-002-cc": [["Credit limit", 2500000, 410000], ["Daily purchase", 1000000, 0], ["Daily ATM withdrawal", 200000, 0]],
+    "card-002-old": [["Daily purchase", 0, 0], ["Daily ATM withdrawal", 0, 0], ["Daily online", 0, 0]],
+    "card-003-deb": [["Daily purchase", 250000, 3490], ["Daily ATM withdrawal", 100000, 0], ["Daily online", 150000, 0]],
+  },
+  loanApplications: [
+    { id: "la-001-1", customer: "cust-001", product: "prod-mortgage", amount: 25000000, history: [
+      ["2026-10-28", "submitted", "Online application received."],
+      ["2026-10-30", "documents_received", "Income certificate and property documents uploaded."],
+      ["2026-11-06", "under_review", "Property valuation scheduled for 2026-11-24."] ] },
+    { id: "la-002-1", customer: "cust-002", product: "prod-loan", amount: 3000000, history: [
+      ["2026-09-12", "submitted", "Application submitted at branch-buda."],
+      ["2026-09-15", "approved", "Approved at 11.9% THM, 48 months."],
+      ["2026-09-17", "disbursed", "Amount credited to acc-002-chk."] ] },
+    { id: "la-003-1", customer: "cust-003", product: "prod-loan", amount: 1500000, history: [
+      ["2026-11-11", "submitted", "Online application received."],
+      ["2026-11-13", "documents_requested", "Last 3 months' payslips requested."] ] },
+  ],
+  tickets: [
+    { id: "tk-001-1", customer: "cust-001", subject: "Kártyás vásárlás reklamáció (eMAG, 15 990 Ft)", history: [
+      ["2026-11-11 09:14", "open", "customer", "Nem ismerem fel a terhelést."],
+      ["2026-11-11 13:40", "in_progress", "support", "A kártyatársaságtól bekértük a tranzakció adatait."] ] },
+    { id: "tk-002-1", customer: "cust-002", subject: "Netbank belépési hiba", history: [
+      ["2026-10-04 08:02", "open", "customer", "SMS kód nem érkezik."],
+      ["2026-10-04 10:15", "resolved", "support", "Telefonszám újraregisztrálva, a belépés működik."] ] },
+    { id: "tk-002-2", customer: "cust-002", subject: "Számlakivonat másolat 2026-09", history: [
+      ["2026-11-14 16:20", "open", "customer", "Papír alapú másolatot kérek a szeptemberi kivonatról."] ] },
+    { id: "tk-003-1", customer: "cust-003", subject: "Mobilszám módosítás", history: [
+      ["2026-10-20 11:05", "open", "customer", "Új telefonszámot szeretnék megadni."],
+      ["2026-10-21 09:30", "resolved", "branch-pest", "Személyes azonosítás után módosítva."] ] },
+  ],
+  conditions: [
+    ["Lakossági Folyószámla", "Monthly account fee", "990 Ft", "Waived above 250 000 Ft monthly income"],
+    ["Lakossági Folyószámla", "Domestic transfer (online)", "0.3%, min. 150 Ft", "First 2 transfers per month free"],
+    ["Lakossági Folyószámla", "ATM withdrawal (own ATM)", "0.6% + 200 Ft", "First 2 withdrawals per month free"],
+    ["Megtakarítási Számla", "Interest", "4.5% éves hozam", "Credited monthly"],
+    ["Megtakarítási Számla", "Withdrawal", "0 Ft", "Up to 2 per month, then 300 Ft"],
+    ["Lekötött Betét Plusz", "Interest", "5.2% éves hozam", "12-month term, fixed"],
+    ["Lekötött Betét Plusz", "Early termination", "Interest forfeited", "Principal fully returned"],
+    ["Mindennapi Hitelkártya", "Annual fee", "8 900 Ft", "1% cashback on grocery and fuel"],
+    ["Mindennapi Hitelkártya", "THM", "24.9%", "Interest-free period up to 45 days"],
+    ["Rugalmas Személyi Kölcsön", "THM", "from 11.9%", "1-10 million Ft, 12-84 months"],
+    ["Otthon Lakáshitel", "THM", "from 7.3%", "Up to 30 years, property valuation 45 000 Ft"],
+    ["International transfer", "SWIFT fee", "0.4%, min. 4 000 Ft", "Premium tier and above"],
+  ],
+  branches: [
+    { id: "branch-buda", name: "Buda Központ", postal: "1012", city: "Budapest", address: "Attila út 12.", lat: 47.4979, lon: 19.0336 },
+    { id: "branch-pest", name: "Pest Belváros", postal: "1052", city: "Budapest", address: "Váci utca 20.", lat: 47.4935, lon: 19.0530 },
+    { id: "branch-debrecen", name: "Debrecen Piac utca", postal: "4024", city: "Debrecen", address: "Piac utca 30.", lat: 47.5316, lon: 21.6273 },
+    { id: "branch-szeged", name: "Szeged Kárász utca", postal: "6720", city: "Szeged", address: "Kárász utca 8.", lat: 46.2530, lon: 20.1482 },
+    { id: "branch-gyor", name: "Győr Baross út", postal: "9021", city: "Győr", address: "Baross Gábor út 15.", lat: 47.6849, lon: 17.6351 },
+  ],
+  // [day, opens, closes, note]; branches without an entry use the default.
+  hours: {
+    default: [
+      ["Monday", "08:00", "17:00", ""], ["Tuesday", "08:00", "16:00", ""],
+      ["Wednesday", "08:00", "16:00", ""], ["Thursday", "08:00", "18:00", "Late opening"],
+      ["Friday", "08:00", "14:00", ""], ["Saturday", "-", "-", "Closed"], ["Sunday", "-", "-", "Closed"],
+      ["2026-12-24", "-", "-", "Holiday exception: closed"],
+      ["2026-12-31", "08:00", "12:00", "Holiday exception: short day"],
+    ],
+    "branch-buda": [
+      ["Monday", "08:00", "18:00", ""], ["Tuesday", "08:00", "18:00", ""],
+      ["Wednesday", "08:00", "18:00", ""], ["Thursday", "08:00", "19:00", "Late opening"],
+      ["Friday", "08:00", "15:00", ""], ["Saturday", "09:00", "12:00", "Cash desk closed"], ["Sunday", "-", "-", "Closed"],
+      ["2026-12-24", "-", "-", "Holiday exception: closed"],
+      ["2026-12-31", "08:00", "12:00", "Holiday exception: short day"],
+    ],
+  },
+};
+
+MOCK.transactions = Object.entries(MOCK.txnRows).flatMap(([account, rows]) =>
+  rows.map(([date, amount, description, category], i) => ({
+    // Same id scheme as bank_data.py: f"txn-{account_id[4:]}-{index:02d}"
+    id: `txn-${account.slice(4)}-${String(i + 1).padStart(2, "0")}`,
+    account, date, amount, description, category, currency: "HUF",
+  })));
+
+/* --- Helpers ------------------------------------------------------------- */
+
+const TIERS = ["retail", "premium", "business"];
+const hufFormat = new Intl.NumberFormat("hu-HU", { style: "currency", currency: "HUF", maximumFractionDigits: 0 });
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+const text = (d, type) => (type === "display" ? esc(d) : d);
+const huf = (d, type) => {
+  if (d === null || d === undefined) return type === "display" ? "variable" : -1;
+  return type === "display" ? hufFormat.format(d) : d;
+};
+const signedHuf = (d, type) => type === "display"
+  ? `<span class="amount ${d < 0 ? "debit" : "credit"}">${hufFormat.format(d)}</span>` : d;
+const percent = (d, type) => (type === "display" ? `${d.toFixed(1)}%` : d);
+
+const accountsOf = c => MOCK.accounts.filter(a => a.customer === c.id);
+const txnsOf = accountId => MOCK.transactions.filter(t => t.account === accountId);
+const product = id => MOCK.products.find(p => p.id === id);
+const kv = obj => Object.entries(obj).map(([field, value]) => ({ field, value }));
+const KV_COLUMNS = [{ title: "Field", data: "field" }, { title: "Value", data: "value" }];
+
+const TXN_COLUMNS = [
+  { title: "Transaction ID", data: "id" },
+  { title: "Booking date", data: "date" },
+  { title: "Description", data: "description" },
+  { title: "Category", data: "category" },
+  { title: "Amount", data: "amount", render: signedHuf, className: "dt-right" },
+];
+
+/*
+ * One view per GET endpoint_id. `params` become path placeholders
+ * ({name}) or query-string parameters in the request line; `rows`
+ * returns an array, or { rows, note } to add a summary line.
+ */
+const VIEWS = {
+  "ep-accounts-list": {
+    columns: [
+      { title: "Account ID", data: "id" }, { title: "Type", data: "type" },
+      { title: "Product", data: "product" },
+      { title: "Balance", data: "balance", render: huf, className: "dt-right" },
+      { title: "Currency", data: "currency" }, { title: "Opened", data: "opened" },
+    ],
+    rows: c => accountsOf(c),
+  },
+  "ep-accounts-get": {
+    params: [{ name: "id", label: "Account", options: c => accountsOf(c).map(a => a.id) }],
+    kv: true,
+    rows: (c, p) => {
+      const a = MOCK.accounts.find(x => x.id === p.id);
+      const txns = txnsOf(a.id).sort((x, y) => y.date.localeCompare(x.date));
+      return kv({
+        "Account ID": a.id, "Customer": `${c.name} (${c.id})`, "Type": a.type,
+        "Product": a.product, "Balance": hufFormat.format(a.balance), "Currency": a.currency,
+        "Opened on": a.opened, "Transactions on file": txns.length,
+        "Last booking": txns.length ? `${txns[0].date} - ${txns[0].description}` : "-",
+      });
+    },
+  },
+  "ep-accounts-transactions": {
+    params: [
+      { name: "id", label: "Account", options: c => accountsOf(c).map(a => a.id) },
+      { name: "min_amount", label: "Min. amount", type: "number", query: true },
+      { name: "since", label: "Since", type: "date", query: true },
+    ],
+    columns: TXN_COLUMNS,
+    order: [[1, "desc"]],
+    rows: (c, p) => txnsOf(p.id).filter(t =>
+      (!p.min_amount || Math.abs(t.amount) >= Number(p.min_amount)) &&
+      (!p.since || t.date >= p.since)),
+  },
+  "ep-accounts-statement": {
+    params: [
+      { name: "id", label: "Account", options: c => accountsOf(c).map(a => a.id) },
+      { name: "period", label: "Period", options: (c, p) =>
+          [...new Set(txnsOf(p.id).map(t => t.date.slice(0, 7)))].sort().reverse() },
+    ],
+    columns: TXN_COLUMNS,
+    order: [[1, "asc"]],
+    rows: (c, p) => {
+      const rows = txnsOf(p.id).filter(t => t.date.startsWith(p.period));
+      const credits = rows.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const debits = rows.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+      return { rows, note: `Statement ${p.period}: ${rows.length} items, credits ${hufFormat.format(credits)}, ` +
+        `debits ${hufFormat.format(debits)}, net ${hufFormat.format(credits + debits)}.` };
+    },
+  },
+  "ep-accounts-business-overview": {
+    columns: [
+      { title: "Account ID", data: "id" }, { title: "Type", data: "type" },
+      { title: "Name", data: "product" },
+      { title: "Balance", data: "balance", render: huf, className: "dt-right" },
+      { title: "Share", data: "share", render: percent, className: "dt-right" },
+    ],
+    order: [[3, "desc"]],
+    rows: c => {
+      const all = [...accountsOf(c), ...MOCK.businessAccounts.filter(a => a.customer === c.id)];
+      const total = all.reduce((s, a) => s + a.balance, 0);
+      return { rows: all.map(a => ({ ...a, share: total ? (100 * a.balance) / total : 0 })),
+               note: `Consolidated balance: ${hufFormat.format(total)} across ${all.length} accounts.` };
+    },
+  },
+  "ep-payments-scheduled-list": {
+    columns: [
+      { title: "ID", data: "id" }, { title: "From account", data: "from" },
+      { title: "Beneficiary", data: "beneficiary" },
+      { title: "Amount", data: "amount", render: huf, className: "dt-right" },
+      { title: "Frequency", data: "frequency" }, { title: "Next execution", data: "next" },
+      { title: "Status", data: "status" },
+    ],
+    order: [[5, "asc"]],
+    rows: c => MOCK.scheduled.filter(s => s.customer === c.id),
+  },
+  "ep-cards-list": {
+    columns: [
+      { title: "Card ID", data: "id" }, { title: "Kind", data: "kind" },
+      { title: "Brand", data: "brand" }, { title: "Number", data: "number" },
+      { title: "Linked account", data: "account" }, { title: "Expires", data: "expires" },
+      { title: "Status", data: "status" },
+    ],
+    rows: c => MOCK.cards.filter(card => card.customer === c.id),
+  },
+  "ep-cards-get-limits": {
+    params: [{ name: "id", label: "Card", options: c =>
+      MOCK.cards.filter(card => card.customer === c.id).map(card => card.id) }],
+    columns: [
+      { title: "Limit type", data: "type" },
+      { title: "Limit", data: "limit", render: huf, className: "dt-right" },
+      { title: "Used today", data: "used", render: huf, className: "dt-right" },
+      { title: "Remaining", data: "remaining", render: huf, className: "dt-right" },
+    ],
+    simple: true,
+    rows: (c, p) => (MOCK.cardLimits[p.id] || []).map(([type, limit, used]) =>
+      ({ type, limit, used, remaining: limit - used })),
+  },
+  "ep-loans-offers": {
+    columns: [
+      { title: "Product ID", data: "id" }, { title: "Name", data: "name" },
+      { title: "Category", data: "category" }, { title: "Rate label", data: "rateLabel" },
+      { title: "Headline rate", data: "rate", render: percent, className: "dt-right" },
+      { title: "Personal offer", data: "offer" },
+    ],
+    order: [[4, "asc"]],
+    rows: c => MOCK.products
+      .filter(p => ["loan", "mortgage", "credit_card"].includes(p.category))
+      .map(p => {
+        const offer = MOCK.offers.find(o => o.customer === c.id && o.product === p.id);
+        return { ...p, offer: offer ? `${offer.detail} (until ${offer.validUntil})` : "-" };
+      }),
+  },
+  "ep-loans-status": {
+    params: [{ name: "id", label: "Application", options: c =>
+      MOCK.loanApplications.filter(a => a.customer === c.id).map(a => a.id) }],
+    columns: [
+      { title: "Date", data: "date" }, { title: "Status", data: "status" }, { title: "Note", data: "note" },
+    ],
+    order: [[0, "desc"]],
+    simple: true,
+    rows: (c, p) => {
+      const app = MOCK.loanApplications.find(a => a.id === p.id);
+      const rows = app.history.map(([date, status, note]) => ({ date, status, note }));
+      return { rows, note: `${product(app.product).name}, ${hufFormat.format(app.amount)} - ` +
+        `current status: ${rows[rows.length - 1].status}.` };
+    },
+  },
+  "ep-profile-get": {
+    kv: true,
+    rows: c => kv({
+      "Customer ID": c.id, "Full name": c.name, "Date of birth": c.dob, "Phone": c.phone,
+      "Email": c.email, "Home branch": c.branch, "Entitlement tier": c.tier,
+    }),
+  },
+  "ep-support-ticket-status": {
+    params: [{ name: "id", label: "Ticket", options: c =>
+      MOCK.tickets.filter(t => t.customer === c.id).map(t => t.id) }],
+    columns: [
+      { title: "Time", data: "time" }, { title: "Status", data: "status" },
+      { title: "By", data: "by" }, { title: "Message", data: "message" },
+    ],
+    order: [[0, "desc"]],
+    simple: true,
+    rows: (c, p) => {
+      const ticket = MOCK.tickets.find(t => t.id === p.id);
+      const rows = ticket.history.map(([time, status, by, message]) => ({ time, status, by, message }));
+      return { rows, note: `${ticket.subject} - current status: ${rows[rows.length - 1].status}.` };
+    },
+  },
+  "ep-general-conditions": {
+    columns: [
+      { title: "Product", data: 0 }, { title: "Item", data: 1 },
+      { title: "Fee / rate", data: 2 }, { title: "Note", data: 3 },
+    ],
+    rows: () => MOCK.conditions,
+  },
+  "ep-general-branches": {
+    params: [{ name: "city", label: "City", query: true, options: () =>
+      ["", ...new Set(MOCK.branches.map(b => b.city))] }],
+    columns: [
+      { title: "Branch ID", data: "id" }, { title: "Name", data: "name" },
+      { title: "Postal code", data: "postal" }, { title: "City", data: "city" },
+      { title: "Address", data: "address" },
+      { title: "Map", data: null, orderable: false, render: (d, type, b) => type === "display"
+          ? `<a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=17/${b.lat}/${b.lon}" ` +
+            `target="_blank" rel="noopener">${b.lat.toFixed(4)}, ${b.lon.toFixed(4)}</a>` : "" },
+    ],
+    rows: (c, p) => MOCK.branches.filter(b => !p.city || b.city === p.city),
+  },
+  "ep-general-branch-hours": {
+    params: [{ name: "id", label: "Branch", options: () => MOCK.branches.map(b => b.id) }],
+    columns: [
+      { title: "Day / date", data: 0 }, { title: "Opens", data: 1 },
+      { title: "Closes", data: 2 }, { title: "Note", data: 3 },
+    ],
+    ordering: false,
+    simple: true,
+    rows: (c, p) => MOCK.hours[p.id] || MOCK.hours.default,
+  },
+};
+
+/* --- Rendering ------------------------------------------------------------- */
+
+const customerSelect = document.getElementById("customer-select");
+const customerTier = document.getElementById("customer-tier");
+let customer = MOCK.customers[0];
+
+function hasAccess(c, requiredTier) {
+  // Same rule as check_endpoint_access() in src/utils/guardrails.py.
+  return TIERS.indexOf(c.tier) >= TIERS.indexOf(requiredTier);
+}
+
+function renderPanel(li) {
+  const view = VIEWS[li.dataset.endpoint];
+  const panel = li.querySelector(".data-panel");
+  if (li._table) { li._table.destroy(); li._table = null; }
+  panel.innerHTML = "";
+
+  const path = li.querySelector(".path").textContent;
+  const requiredTier = li.querySelector(".tier").textContent.trim();
+  const state = li._params || (li._params = {});
+
+  const requestLine = document.createElement("p");
+  requestLine.className = "request-line";
+  panel.appendChild(requestLine);
+
+  if (!hasAccess(customer, requiredTier)) {
+    requestLine.innerHTML = `GET ${esc(path)} <span class="status denied">403 Forbidden</span>`;
+    const denied = document.createElement("p");
+    denied.className = "denied";
+    denied.textContent = `${customer.name} (${customer.tier}) is not entitled to this endpoint: ` +
+      `it requires the ${requiredTier} tier or above.`;
+    panel.appendChild(denied);
+    return;
+  }
+
+  // Parameter controls; drop stale values that the current customer lacks.
+  let missingParam = null;
+  if (view.params) {
+    const bar = document.createElement("div");
+    bar.className = "params";
+    for (const param of view.params) {
+      const label = document.createElement("label");
+      label.textContent = param.label;
+      let control;
+      if (param.options) {
+        const options = param.options(customer, state);
+        if (!options.includes(state[param.name])) state[param.name] = options[0];
+        if (state[param.name] === undefined) missingParam = param;
+        control = document.createElement("select");
+        for (const value of options) {
+          control.add(new Option(value === "" ? "(all)" : value, value));
+        }
+        control.value = state[param.name] ?? "";
+      } else {
+        control = document.createElement("input");
+        control.type = param.type;
+        if (param.type === "number") { control.min = "0"; control.step = "1000"; control.placeholder = "any"; }
+        control.value = state[param.name] ?? "";
+      }
+      control.addEventListener("change", () => {
+        state[param.name] = control.value;
+        renderPanel(li);
+      });
+      label.appendChild(control);
+      bar.appendChild(label);
+    }
+    panel.appendChild(bar);
+  }
+
+  // Resolved request line: path placeholders plus query string.
+  let url = path;
+  const query = new URLSearchParams();
+  for (const param of view.params || []) {
+    const value = state[param.name];
+    if (param.query) { if (value) query.set(param.name, value); }
+    else url = url.replace(`{${param.name}}`, value ?? `{${param.name}}`);
+  }
+  const qs = query.toString();
+  if (missingParam) {
+    requestLine.innerHTML = `GET ${esc(url)} <span class="status denied">404 Not Found</span>`;
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = `${customer.name} has no ${missingParam.label.toLowerCase()} for this endpoint.`;
+    panel.appendChild(note);
+    return;
+  }
+  requestLine.innerHTML = `GET ${esc(url + (qs ? `?${qs}` : ""))} <span class="status">200 OK</span>`;
+
+  const result = view.rows(customer, state);
+  const rows = Array.isArray(result) ? result : result.rows;
+  if (!Array.isArray(result) && result.note) {
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = result.note;
+    panel.appendChild(note);
+  }
+
+  const table = document.createElement("table");
+  table.className = "display compact";
+  table.style.width = "100%";
+  panel.appendChild(table);
+  const simple = view.kv || view.simple;
+  li._table = new DataTable(table, {
+    data: rows,
+    columns: (view.kv ? KV_COLUMNS : view.columns).map(col => ({ render: text, ...col })),
+    order: view.order || (view.kv ? [] : [[0, "asc"]]),
+    ordering: view.kv ? false : view.ordering !== false,
+    paging: rows.length > 10,
+    pageLength: 10,
+    searching: !simple,
+    info: !simple,
+    scrollX: true,
+    language: { emptyTable: "No records match this request." },
+  });
+}
+
+function renderOpenPanels() {
+  for (const li of document.querySelectorAll("li[data-endpoint]")) {
+    if (!li.querySelector(".data-panel").hidden) renderPanel(li);
+  }
+}
+
+// Customer selector.
+for (const c of MOCK.customers) {
+  customerSelect.add(new Option(`${c.name} (${c.id})`, c.id));
+}
+function selectCustomer(id) {
+  customer = MOCK.customers.find(c => c.id === id);
+  customerTier.textContent = customer.tier;
+  customerTier.className = `tier ${customer.tier}`;
+  renderOpenPanels();
+}
+customerSelect.addEventListener("change", () => selectCustomer(customerSelect.value));
+
+// One "Show test data" toggle and (initially hidden) panel per GET item.
+for (const li of document.querySelectorAll("li[data-endpoint]")) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "toggle-data";
+  button.textContent = "Show test data";
+  button.setAttribute("aria-expanded", "false");
+  li.querySelector(".tier").after(button);
+
+  const panel = document.createElement("div");
+  panel.className = "data-panel";
+  panel.hidden = true;
+  li.appendChild(panel);
+
+  button.addEventListener("click", () => {
+    const open = panel.hidden;
+    panel.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    button.textContent = open ? "Hide test data" : "Show test data";
+    if (open) renderPanel(li);
+    else if (li._table) { li._table.destroy(); li._table = null; panel.innerHTML = ""; }
+  });
+}
+
+// DataTables 2 switches to its dark styling when <html> has the "dark" class.
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+const syncDark = () => document.documentElement.classList.toggle("dark", darkQuery.matches);
+syncDark();
+darkQuery.addEventListener("change", syncDark);
+
+selectCustomer(customer.id);
+</script>
 </body>
 </html>

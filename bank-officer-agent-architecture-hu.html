@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>A kérdés útja — bank-tisztviselői asszisztens architektúra | agent-foundations</title>
+    <title>A kérdés útja — általános agentic asszisztens architektúra | agent-foundations</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
       :root {
@@ -205,6 +205,50 @@
       }
       .principle strong {
         color: var(--ink);
+      }
+      .cca-section {
+        padding-bottom: 32px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 40px;
+      }
+      .cca-section h3 {
+        margin: 36px 0 4px;
+        font-size: 20px;
+      }
+      .cca-section h3 .sub {
+        font-family: 'DM Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+        margin-right: 8px;
+      }
+      .cca-tip {
+        margin-top: 14px;
+        padding: 12px 16px;
+        border-left: 4px solid var(--coral);
+        background: var(--white);
+        font-size: 15px;
+      }
+      .stop-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+        font-size: 14.5px;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+      .stop-table th,
+      .stop-table td {
+        text-align: left;
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        vertical-align: top;
+      }
+      .stop-table th {
+        background: var(--ink);
+        color: var(--lime);
+        font-family: 'DM Mono', monospace;
+        font-weight: 500;
+        font-size: 12px;
       }
       .diagram-card {
         background: var(--white);
@@ -466,24 +510,150 @@
         </div>
       </section>
 
+      <section class="narrow cca-section">
+        <div class="eyebrow">Alapelvek részletesen</div>
+        <h2>Agentic architektúra és orkesztráció</h2>
+        <p class="lede">
+          A fenti négy alapelv az agentic architektúrára és
+          orkesztrációra épül. Következetesen a determinisztikus,
+          kontrollált megoldásokat érdemes előnyben részesíteni a
+          valószínűségi, "megérzésre" bízott megoldásokkal szemben.
+        </p>
+
+        <h3><span class="sub">1.1</span>Agentic loop és az API alapjai</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>Az agentic loop többlépéses önálló végrehajtás.</strong>
+              A Claude emberi beavatkozás nélkül hajt végre többlépéses feladatot: <code>Terv → Cselekvés → Megfigyelés → Döntés → Ismétlés</code>. A ciklus minden körben meghívja az Anthropic API-t.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>A legfontosabb a ciklus kontrollja.</strong>
+              A ciklus akkor ér véget, amikor az API-válaszban a <code>stop_reason</code> ezt jelzi. Nem a modell szövegét értelmezzük, hanem ezt a determinisztikus jelzést.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>A tool eredményt mindig vissza kell fűzni.</strong>
+              A következő API-hívás előtt a beszélgetés-előzményhez hozzá kell adni az assistant üzenetet (a <code>tool_use</code> kéréssel), majd egy új user üzenetet a tool eredményével.
+            </p>
+          </div>
+        </div>
+        <table class="stop-table">
+          <tr><th>stop_reason</th><th>Jelentése a ciklusban</th></tr>
+          <tr><td><code>tool_use</code></td><td>A modell tool-t kér: futtasd, fűzd vissza az eredményt, ismételj.</td></tr>
+          <tr><td><code>end_turn</code></td><td>A modell végzett: a ciklus normálisan véget ér.</td></tr>
+          <tr><td><code>max_tokens</code></td><td>A válasz a tokenkorlát miatt csonkult el.</td></tr>
+          <tr><td><code>stop_sequence</code></td><td>A modell egy előre megadott leállító szekvenciát generált.</td></tr>
+          <tr><td><code>pause_turn</code></td><td>A hosszan futó kör szünetel: a beszélgetés folytatható.</td></tr>
+          <tr><td><code>refusal</code></td><td>A modell biztonsági okból megtagadta a választ.</td></tr>
+          <tr><td><code>model_context_window_exceeded</code></td><td>A kontextusablak betelt.</td></tr>
+        </table>
+
+        <h3><span class="sub">1.2</span>Multi-agent orkesztráció</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>Hub-and-spoke minta.</strong>
+              Minden kommunikáció a központi orkesztrátoron (hub) megy keresztül; a sub-agentek soha nem beszélnek egymással. Előnyei: kontextus-izoláció, fókuszált tool-ok, párhuzamos végrehajtás és hibaizoláció.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>A Task tool új, izolált agentet indít.</strong>
+              Csak az orkesztrátor rendelkezik vele. Ha egyetlen válaszban több Task hívás szerepel, a sub-agentek párhuzamosan futnak; ha külön válaszokban, akkor szekvenciálisan.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Session-műveletek: resume és fork.</strong>
+              A <code>--resume</code> egy meglévő sessiont folytat, mint egy commit a fő ágra. A <code>fork session</code> új sessiont hoz létre a teljes eddigi kontextussal, de függetlenül fut, és nem módosítja a szülőt, mint egy új ág Gitben.
+            </p>
+          </div>
+        </div>
+
+        <h3><span class="sub">1.3</span>Hookok: programozott kikényszerítés</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>A hook determinisztikus kód a tool előtt és után.</strong>
+              Futhat a tool hívása előtt (a paraméterek validálása, a művelet blokkolása) és után is. Üzleti szabályokra, megfelelőségre és biztonságra való, és azonnali hibát dob.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Ami 100%-ban kötelező, azt hookkal kell kikényszeríteni.</strong>
+              A prompt alapú utasítás valószínűségi, ezért nem garancia. Ugyanez az elv áll a példa guardrail-rétege mögött.
+            </p>
+          </div>
+        </div>
+        <div class="cca-tip"><strong>Tipp:</strong> ha bizonytalan vagy, válaszd a legkontrolláltabb, legdeterminisztikusabb megoldást.</div>
+        <div class="cca-tip">
+          <strong>Megfeleltetés a példa megvalósításához:</strong> a fenti
+          fogalmak a Claude API és a Claude Agent SDK nevei. A példa
+          LangChain-nel és OpenAI modellekkel fut, ott a megfelelőik:
+          hook → LangChain middleware (<code>before_model</code> /
+          <code>after_model</code>), <code>stop_reason</code> → OpenAI
+          <code>finish_reason</code>, Task tool (az Agent SDK-ban ma már
+          <strong>Agent</strong> tool) → tool-ként becsomagolt subagent.
+        </div>
+
+        <h3><span class="sub">1.4</span>Session-kezelés és munkafolyamat</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>Elavult kontextus csapdája.</strong>
+              A session elején lekért adat a felhasználás idejére elavulhat. Védekezés: a kritikus adat újralekérése a felhasználás előtt, scratchpad fájlok a köztes állapothoz, TTL-t figyelő cache és checkpointok.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Prompt chaining: kiszámítható, lineáris feladatokra.</strong>
+              A munkafolyamatot előre definiáljuk, a lépések sorrendje fix.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Dinamikus, adaptív: előre nem látható, eredményvezérelt feladatokra.</strong>
+              Az agent maga dönt a következő lépésről. A kérdés: a következő lépést a terv vagy az eredmény határozza meg? Terv → chaining, eredmény → adaptív.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section class="hero narrow">
         <div class="eyebrow">Teljes áttekintés</div>
         <h1>Így jut el egy kérdés a válaszig.</h1>
         <p class="lede">
-          Lent a teljes folyamat egy ábrán: a kérdés egy témafelismerő
-          segítőtől a koordinátorig, onnan egy szakértőig jut, majd
-          ugyanezen az úton tér vissza a válasz — közben folyamatos
-          biztonsági ellenőrzés mellett. Alatta, lefelé görgetve,
+          Lent a teljes folyamat egy ábrán: a kérdés a Routertől
+          az Orchestratorig, onnan egy vagy több subagentig jut. A
+          subagentek válasza mindig az Orchestratorhoz tér vissza (hub),
+          és onnan egy kódban megírt válaszkapun keresztül jut el az
+          operátorhoz — közben folyamatos biztonsági ellenőrzés mellett. Alatta, lefelé görgetve,
           minden egyes lépés külön, egyszerűen el van magyarázva.
         </p>
         <div class="legend">
-          <span><span class="swatch sw-human"></span>ügyfél / tisztviselő</span>
-          <span><span class="swatch sw-agent"></span><strong>segítő</strong> (lekerekített, zöld, vastag kerettel)</span>
-          <span><span class="swatch sw-tool"></span>funkció — amit egy segítő hív</span>
+          <span><span class="swatch sw-human"></span>felhasználó / operátor</span>
+          <span><span class="swatch sw-agent"></span><strong>agent</strong> (lekerekített, zöld, vastag kerettel)</span>
+          <span><span class="swatch sw-tool"></span>funkció — amit egy agent hív</span>
           <span><span class="swatch sw-state"></span>amit megjegyez</span>
           <span><span class="swatch sw-guard"></span>biztonsági ellenőrzés</span>
-          <span><span class="legend-line ll-auth"></span>ügyfél-azonosítás szükséges</span>
-          <span><span class="legend-line ll-noauth"></span>nincs szükség ügyfél-azonosításra</span>
+          <span><span class="legend-line ll-auth"></span>felhasználó-azonosítás szükséges</span>
+          <span><span class="legend-line ll-noauth"></span>nincs szükség felhasználó-azonosításra</span>
+          <span><span class="legend-line" style="border-color: #d7263d"></span>a kód elutasítja (nincs jogosultság)</span>
         </div>
       </section>
 
@@ -491,43 +661,50 @@
        <div class="diagram-inner">
         <pre class="mermaid">
 flowchart TD
-  CU["Ugyfel a pultnal"] -->|0. elmondja a kerdest| O["Tisztviselo"]
-  O -->|1. beirja a kerdest| ER(["Temafelismero segito"])
-  ER -->|2. megnezi, mirol van szo| SEC["Banki funkciok listaja"]
+  CU["Felhasznalo"] -->|0. elmondja a kerdest| O["Operator"]
+  O -->|1. beirja a kerdest| ER(["Router - TypeSafe Jev"])
+  ER -->|2. megnezi, mirol van szo| SEC["Funkciok katalogusa"]
   SEC -->|3. megallapitja| ME("Mirol szol a kerdes - konkret vagy altalanos - + ki ferhet hozza")
   ER -.->|biztonsagi ellenorzes| GRR{{"Biztonsagi szuro"}}
-  O -->|4. tovabbitja| C(["Koordinator segito"])
-  ME -.->|5. atadja az eredmenyt| C
-  C -->|6. ha konkret ugyfelkerdes: kivalasztja az ugyfelet| SC["Ugyfel azonositasa"]
-  SC -->|7. megjegyzi| ST("Ki az aktualis ugyfel")
+  ME -->|4. csak ha hozzaferhet: tovabbitja a kerdest| C(["Orchestrator - OpenAI Terra"])
+  ME -.->|5. atadja az eredmenyt is| C
+  ME -->|ha nincs jogosultsag: a kod rovidre zarja| DENY{{"Fix elutasito valasz - kod, nem LLM"}}
+  DENY --> GW["Valaszkapu - kod, nem LLM"]
+  C -->|6. ha konkret felhasznaloi kerdes: kivalasztja a felhasznalot| SC["Felhasznalo azonositasa"]
+  SC -->|7. megjegyzi| ST("Ki az aktualis felhasznalo")
   ST -.->|emlekszik ra| C
-  C -->|8. szakertot ker| AA["Szakerto megkerese"]
-  AA -->|9. uj szakerto indul| AS(["Szamla- vagy termekszakerto"])
-  AS -->|10. lekeri az adatokat| LT["Egyenleg / tranzakciok / termekek"]
+  C -->|8. subagentet ker| AA["Subagent kivalasztasa"]
+  AA -->|9. egy vagy tobb uj subagent indul parhuzamosan| AS(["Domain subagent(ek) - 1..N"])
+  AS -->|10. lekeri az adatokat| LT["Felhasznaloi adatok"]
   LT -->|11. visszaadja az adatot| AS
   AS -->|12. megfogalmazza a valaszt| AA
-  AA -->|13. visszaadja a koordinatornak| C
-  C -->|"alt.: altalanos / small talk kerdes, ugyfel-azonositas nelkul"| PUB(["Nyilvanos info szakerto"])
-  PUB -->|lekeri| PUBD["Altalanos kondiciok, nyilvanosan elerheto adatok"]
+  AA -->|13. visszaadja az Orchestratornak| C
+  C -->|"alt.: altalanos / small talk kerdes, felhasznalo-azonositas nelkul"| PUB(["Nyilvanos info subagent"])
+  PUB -->|lekeri| PUBD["Nyilvanos adatok, altalanos tajekoztatok"]
   PUBD --> PUB
   PUB -->|valasz| C
-  PUB -.->|biztonsagi ellenorzes| GRA
-  C -->|14. osszefoglalja| O
-  O -->|15. elmondja az ugyfelnek| CU
-  C -.->|biztonsagi ellenorzes| GRC{{"Biztonsagi szuro"}}
   AS -.->|biztonsagi ellenorzes| GRA{{"Biztonsagi szuro"}}
-  linkStyle 7,8,9,10,11,12,13,14,15 stroke:#2f6fb3,stroke-width:3px
-  linkStyle 16,17,18,19 stroke:#3f9142,stroke-width:3px
+  PUB -.->|biztonsagi ellenorzes| GRA
+  C -->|14. csak ha tobb subagent valaszolt| SYN(["Valasz-osszeallito subagent"])
+  SYN -->|egyseges, ellentmondasmentes valasz| C
+  C -.->|biztonsagi ellenorzes| GRO{{"Biztonsagi szuro"}}
+  SYN -.->|biztonsagi ellenorzes| GRC{{"Biztonsagi szuro"}}
+  C -->|vegso valasz| GW
+  GW -->|visszaadja a valaszt| O
+  O -->|15. elmondja a felhasznalonak| CU
+  linkStyle 7,8 stroke:#d7263d,stroke-width:3px
+  linkStyle 9,10,11,12,13,14,15,16,17 stroke:#2f6fb3,stroke-width:3px
+  linkStyle 18,19,20,21 stroke:#3f9142,stroke-width:3px
   classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
   classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
   classDef state fill:#e5eef2,stroke:#7bb9d8,stroke-width:1px,color:#17212b
   classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
   classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
-  class C,AS,ER,PUB agent
-  class SC,AA,LT,SEC,PUBD tool
+  class C,AS,ER,PUB,SYN agent
+  class SC,AA,LT,SEC,PUBD,GW tool
   class ST,ME state
   class CU,O result
-  class GRC,GRA,GRR guardrail</pre
+  class GRC,GRA,GRR,GRO,DENY guardrail</pre
         >
        </div>
       </div>
@@ -536,17 +713,17 @@ flowchart TD
       <div class="phase narrow">
         <div class="phase-head">
           <span class="phase-badge">0 – 3</span>
-          <h2>Mielőtt a koordinátor egyáltalán látná a kérdést</h2>
+          <h2>Mielőtt az Orchestrator egyáltalán látná a kérdést</h2>
         </div>
         <div class="timeline">
           <div class="step kind-human">
             <div class="num">0</div>
             <div class="card">
-              <span class="step-tag">ügyfél → tisztviselő</span>
-              <h3>Kérdés szóban a pultnál</h3>
+              <span class="step-tag">felhasználó → operátor</span>
+              <h3>Kérdés szóban az operátornak</h3>
               <p>
-                Az ügyfél elmondja a kérdését a tisztviselőnek a
-                pultnál. A tisztviselő beírja ugyanezt a kérdést az
+                A felhasználó elmondja a kérdését az operátornak.
+                Az operátor beírja ugyanezt a kérdést az
                 asszisztensnek.
               </p>
             </div>
@@ -554,20 +731,27 @@ flowchart TD
           <div class="step kind-agent">
             <div class="num">1</div>
             <div class="card">
-              <span class="step-tag">tisztviselő → témafelismerő segítő</span>
-              <h3>A kérdés először egy "témafelismerő" segítőhöz kerül</h3>
+              <span class="step-tag">operátor → router</span>
+              <h3>Az operátor a Routernek írja a kérdést</h3>
               <p>
-                Mielőtt bárki mást bevonnánk, egy kis segítő megnézi,
-                miről szól a kérdés. Ennek nincs memóriája a korábbi
-                beszélgetésről — csak az éppen feltett kérdést és azt
-                kapja meg, ki az aktuálisan kiszolgált ügyfél.
+                Az operátor a Routernek ír; a választ pedig egy kódban
+                megírt válaszkapu adja vissza neki (lásd a 15. lépést) —
+                az Orchestratorral nincs közvetlen kapcsolata. A Router egy kis, gyors komponens
+                (TypeSafe Jev döntési modell), amely nem szöveget
+                generál, hanem előre megadott lehetőségek közül
+                választ: megnézi, miről szól a kérdés. Ennek nincs
+                memóriája a korábbi beszélgetésről — csak az éppen
+                feltett kérdést és azt kapja meg, ki az aktuálisan
+                kiszolgált felhasználó.
               </p>
               <div class="guard-note">
                 <p>
-                  <strong>Biztonsági ellenőrzés:</strong> mielőtt ez a
-                  segítő egyáltalán válaszolna, egy szűrő megnézi,
+                  <strong>Biztonsági ellenőrzés:</strong> mielőtt a
+                  Router egyáltalán válaszolna, egy szűrő megnézi,
                   nem próbálja-e valaki a kérdésen keresztül átvenni
-                  az irányítást. A válaszát is átnézik, nincs-e benne
+                  az irányítást — ez a Jev esetében különösen fontos,
+                  mert a beágyazott utasítás elmozdíthatja a
+                  besorolását. A válaszát is átnézik, nincs-e benne
                   véletlenül érzékeny adat, például e-mail cím.
                 </p>
               </div>
@@ -577,12 +761,11 @@ flowchart TD
             <div class="num">2</div>
             <div class="card">
               <span class="step-tag">funkció</span>
-              <h3>Megkeresi, melyik banki funkcióról van szó</h3>
+              <h3>Megkeresi, melyik funkcióról van szó</h3>
               <p>
-                A segítő végignézi a bank mobilalkalmazásának
-                funkcióit — például egyenleg-lekérdezés, átutalás,
-                kártya letiltása — és megkeresi, melyik illik
-                legjobban a feltett kérdéshez.
+                A Router végignézi a rendszer funkciókatalógusát, és
+                megkeresi, melyik illik legjobban a feltett
+                kérdéshez.
               </p>
             </div>
           </div>
@@ -593,17 +776,18 @@ flowchart TD
               <h3>Megállapítja: miről szól a kérdés, és ki férhet hozzá</h3>
               <p>
                 Az eredmény tartalmazza, melyik funkcióról van szó, és
-                hogy milyen ügyfélszint szükséges hozzá: alap,
-                prémium vagy üzleti.
+                hogy milyen hozzáférési szint szükséges hozzá: alap,
+                bővített vagy vállalati.
               </p>
               <div class="guard-note">
                 <p>
                   <strong>Itt dönt a jogosultságról:</strong> egy
-                  biztonsági szűrő összehasonlítja az ügyfél szintjét
+                  biztonsági szűrő összehasonlítja a felhasználó szintjét
                   azzal, amit a funkció megkövetel, és eldönti:
-                  hozzáférhet-e vagy nem. Ez egy megbízható, automatikus
-                  ellenőrzés — már itt megtörténik, nem a koordinátor
-                  segítőnél.
+                  hozzáférhet-e vagy nem. A döntés és a kikényszerítés is
+                  kódban történik: ha nincs jogosultság, a kód rövidre zárja
+                  a folyamatot, az Orchestrator meg sem hívódik, és az
+                  operátor egy fix, előre megírt elutasító választ kap.
                 </p>
               </div>
             </div>
@@ -615,19 +799,27 @@ flowchart TD
       <div class="phase narrow">
         <div class="phase-head">
           <span class="phase-badge">4 – 7</span>
-          <h2>A koordinátor átveszi, és kiválasztja az ügyfelet</h2>
+          <h2>Az Orchestrator átveszi, és kiválasztja a felhasználót</h2>
         </div>
         <div class="timeline">
           <div class="step kind-agent">
             <div class="num">4</div>
             <div class="card">
-              <span class="step-tag">tisztviselő → koordinátor segítő</span>
-              <h3>A kérdés a koordinátorhoz kerül</h3>
+              <span class="step-tag">router → Orchestrator</span>
+              <h3>A kérdés az Orchestratorhoz kerül</h3>
               <p>
-                Most lép be a fő segítő, a koordinátor. Megkapja a
-                kérdést, és a témafelismerő segítő már elkészült
-                eredményét is.
+                Ha a felhasználó hozzáférhet a funkcióhoz, a Router
+                továbbítja a kérdést a lead agentnek, az Orchestratornak,
+                az elkészült besorolási eredménnyel együtt. Az operátor és
+                az Orchestrator között nincs közvetlen kapcsolat.
               </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Biztonsági ellenőrzés:</strong> az Orchestrator
+                  minden modellhívása előtt és után ugyanazok a szűrők
+                  futnak, mint a többi agentnél.
+                </p>
+              </div>
             </div>
           </div>
           <div class="step kind-state">
@@ -636,19 +828,18 @@ flowchart TD
               <span class="step-tag">amit megjegyez</span>
               <h3>Megkapja az előző lépés eredményét</h3>
               <p>
-                A koordinátor magától nem látná, mit talált a
-                témafelismerő segítő — ezért ezt az eredményt minden
+                Az Orchestrator magától nem látná, mit talált a
+                Router — ezért ezt az eredményt minden
                 alkalommal külön, mintegy emlékeztetőként, odaírjuk
                 neki.
               </p>
               <div class="guard-note">
                 <p>
-                  <strong>Csak elolvassa, nem ő dönt:</strong> a
-                  koordinátor itt már csak elolvassa, hozzáférhet-e az
-                  ügyfél a funkcióhoz vagy nem. Magát az elutasítást a
-                  koordinátor saját szövegbe írt szabálya mondja ki —
-                  ez nem egy szigorú, kikényszerített ellenőrzés, csak
-                  egy utasítás, amit a koordinátor követ.
+                  <strong>Nem ő dönt a jogosultságról:</strong> az
+                  Orchestrator ide csak akkor jut el, ha a kód már
+                  engedélyezte a hozzáférést. Az elutasítás nem az
+                  Orchestrator promptjában lévő szabályon múlik, hanem a
+                  kódban megírt rövidzáron — ez 100%-ban kikényszerített.
                 </p>
               </div>
             </div>
@@ -657,10 +848,10 @@ flowchart TD
             <div class="num">6</div>
             <div class="card">
               <span class="step-tag">funkció (ha szükséges)</span>
-              <h3>Kiválasztja, melyik ügyféllel beszélünk</h3>
+              <h3>Kiválasztja, melyik felhasználóról van szó</h3>
               <p>
-                Ha még nem tudjuk, ki az ügyfél, a koordinátor
-                megmutatja a tisztviselőnek, kik közül választhat,
+                Ha még nem tudjuk, ki a felhasználó, az Orchestrator
+                megmutatja az operátornak, kik közül választhat,
                 majd megjegyzi, kit szolgálunk ki éppen — névvel vagy
                 azonosítóval is kereshető.
               </p>
@@ -670,12 +861,21 @@ flowchart TD
             <div class="num">7</div>
             <div class="card">
               <span class="step-tag">amit megjegyez</span>
-              <h3>Megjegyzi az ügyfelet a következő kérdésekre is</h3>
+              <h3>Megjegyzi a felhasználót a következő kérdésekre is</h3>
               <p>
                 Ez a kiválasztás megmarad a beszélgetés további
                 részére — a következő kérdéseknél már nem kell újra
-                megadni, ki az ügyfél.
+                megadni, ki a felhasználó.
               </p>
+              <div class="guard-note">
+                <p>
+                  <strong>Ügyfélváltáskor minden törlődik:</strong> új
+                  felhasználó kiválasztásakor a kód nullázza az összes
+                  felhasználófüggő állapotot (besorolás, korábbi válaszok),
+                  hogy elavult vagy másik ügyfélhez tartozó adat ne
+                  kerülhessen a kontextusba.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -685,45 +885,45 @@ flowchart TD
       <div class="phase narrow proposal-phase">
         <div class="phase-head">
           <span class="phase-badge proposal">Javaslat</span>
-          <h2>Általános kérdéseknél nincs szükség ügyfél-azonosításra</h2>
+          <h2>Általános kérdéseknél nincs szükség felhasználó-azonosításra</h2>
         </div>
         <div class="card proposal-intro">
           <p>
-            Nem minden kérdés szól egy konkrét ügyfélről. Ha a
-            tisztviselő csak egy általános dologra kérdez rá — például
+            Nem minden kérdés szól egy konkrét felhasználóról. Ha az
+            operátor csak egy általános dologra kérdez rá — például
             kötetlen beszélgetés, vagy olyan kérdés, amire a válasz
             mindenkire egyformán vonatkozik, mint egy nyilvánosan
-            elérhető általános feltétel vagy kondíció — akkor nincs
-            szükség arra, hogy bármelyik ügyfelet azonosítsuk.
+            elérhető általános tájékoztató vagy dokumentáció — akkor nincs
+            szükség arra, hogy bármelyik felhasználót azonosítsuk.
           </p>
         </div>
         <div class="timeline">
           <div class="step kind-agent">
             <div class="num proposal">+</div>
             <div class="card">
-              <span class="step-tag">témafelismerő segítő — kiterjesztve</span>
-              <h3>Felismeri: konkrét pénzügyi kérdés, vagy általános kérdés</h3>
+              <span class="step-tag">Router — kiterjesztve</span>
+              <h3>Felismeri: konkrét felhasználói kérdés, vagy általános kérdés</h3>
               <p>
-                A témafelismerő segítő nem csak azt dönti el, melyik
-                banki funkcióról van szó, hanem azt is, hogy a kérdés
-                egy konkrét ügyfél adataihoz kötődik-e (ez a már
+                A Router nem csak azt dönti el, melyik
+                funkcióról van szó, hanem azt is, hogy a kérdés
+                egy konkrét felhasználó adataihoz kötődik-e (ez a már
                 megismert folyamat), vagy egy általános, nyilvánosan
                 elérhető témát érint, ahol nincs szükség arra, hogy
-                tudjuk, ki az ügyfél.
+                tudjuk, ki a felhasználó.
               </p>
             </div>
           </div>
           <div class="step kind-agent">
             <div class="num proposal">+</div>
             <div class="card">
-              <span class="step-tag">a koordinátor után, egy új segítő</span>
-              <h3>Nyilvános infó szakértő</h3>
+              <span class="step-tag">az Orchestrator után, egy új subagent</span>
+              <h3>Nyilvános infó subagent</h3>
               <p>
-                Ha a kérdés általános, a koordinátor ehhez az új
-                segítőhöz fordul, aki csak a bank nyilvánosan elérhető
-                adataiból válaszol — például általános kondíciókból,
-                nyitvatartásból vagy általános tájékoztatókból.
-                Ehhez nincs szükség ügyfél-azonosításra: ez a segítő
+                Ha a kérdés általános, az Orchestrator ehhez az új
+                subagenthez fordul, aki csak nyilvánosan elérhető
+                adatokból válaszol — például általános
+                tájékoztatókból vagy dokumentációból.
+                Ehhez nincs szükség felhasználó-azonosításra: ez a subagent
                 ugyanúgy válaszol, bárki kérdezi is.
               </p>
             </div>
@@ -735,38 +935,40 @@ flowchart TD
       <div class="phase narrow">
         <div class="phase-head">
           <span class="phase-badge">8 – 13</span>
-          <h2>Delegálás a specialistának</h2>
+          <h2>Delegálás subagentnek</h2>
         </div>
         <div class="timeline">
           <div class="step kind-tool">
             <div class="num">8</div>
             <div class="card">
               <span class="step-tag">funkció</span>
-              <h3>Szakértőt kér</h3>
+              <h3>Subagenteket kér</h3>
               <p>
-                A koordinátor a kérdés témája alapján eldönti, hogy a
-                számlákkal foglalkozó vagy a termékekkel és
-                ajánlatokkal foglalkozó szakértőt kéri fel — feltéve,
-                hogy az ügyfél hozzáférhet a kérdéses funkcióhoz.
+                Az Orchestrator a kérdés témája alapján eldönti, melyik
+                domain subagentet vagy subagenteket kéri fel — több is
+                indulhat egyszerre, ha a kérdés több területet érint —
+                ehhez az Orchestrator csak akkor jut el, ha a kód már
+                engedélyezte a hozzáférést.
               </p>
             </div>
           </div>
           <div class="step kind-agent">
             <div class="num">9</div>
             <div class="card">
-              <span class="step-tag">új segítő indul minden hívásnál</span>
-              <h3>Friss szakértő, csak ehhez az ügyfélhez</h3>
+              <span class="step-tag">új subagentek indulnak minden hívásnál</span>
+              <h3>Friss subagent(ek), csak ehhez a felhasználóhoz</h3>
               <p>
-                Minden kérdésnél egy teljesen új szakértő "ébred fel",
-                aki csak az éppen kiválasztott ügyfél adataihoz fér
-                hozzá. Nincs saját memóriája — mindig csak az aktuális
-                kérdésre válaszol.
+                Minden kérdésnél egy vagy több teljesen új subagent "ébred
+                fel". Ha több indul, párhuzamosan futnak, és egymásról
+                nem tudnak. Mindegyik csak az éppen kiválasztott
+                felhasználó adataihoz fér hozzá. Nincs saját
+                memóriájuk — mindig csak az aktuális kérdésre válaszolnak.
               </p>
               <div class="guard-note">
                 <p>
                   <strong>Biztonsági ellenőrzés itt is:</strong> ez a
-                  friss szakértő is ugyanazokat a szűrőket kapja, mint
-                  a többi segítő.
+                  friss subagent is ugyanazokat a szűrőket kapja, mint
+                  a többi agent.
                 </p>
               </div>
             </div>
@@ -777,12 +979,20 @@ flowchart TD
               <span class="step-tag">funkció</span>
               <h3>Lekéri az adatokat</h3>
               <p>
-                A szakértő lekéri a kért információt — az egyenleget,
-                a tranzakciókat, a termékkínálatot vagy a személyre
-                szabott ajánlatokat. Mielőtt bármit visszaadna,
-                ellenőrzi, hogy a kért számla valóban az aktuális
-                ügyfélhez tartozik.
+                A subagent lekéri a kért információt a megfelelő
+                adatforrásból. Mielőtt bármit visszaadna, a kód
+                ellenőrzi, hogy a kért adat valóban az aktuális
+                felhasználóhoz tartozik.
               </p>
+              <div class="guard-note">
+                <p>
+                  <strong>A felhasználó-azonosító nem a modelltől jön:</strong>
+                  a funkció a felhasználó azonosítóját a kódban tárolt
+                  állapotból kapja, nem a modell által kitöltött
+                  paraméterből — így egy beágyazott utasítás sem tudja
+                  egy másik felhasználó adataira irányítani.
+                </p>
+              </div>
             </div>
           </div>
           <div class="step kind-state">
@@ -792,8 +1002,8 @@ flowchart TD
               <h3>Megkapja a választ</h3>
               <p>
                 Az adat egyszerű szövegként érkezik vissza — ez egy
-                kitalált, demó célú adatból jön, nem egy valódi banki
-                rendszerből.
+                kitalált, demó célú adatból jön, nem egy valódi
+                éles rendszerből.
               </p>
             </div>
           </div>
@@ -801,21 +1011,25 @@ flowchart TD
             <div class="num">12</div>
             <div class="card">
               <span class="step-tag">válasz</span>
-              <h3>A szakértő megfogalmazza a választ</h3>
+              <h3>A subagent megfogalmazza a kész választ</h3>
               <p>
+                A subagent a saját területére vonatkozó, kész választ
+                adja vissza, így az Orchestratornak nem kell az
+                adatot értelmeznie vagy üzleti logikát futtatnia.
                 Mielőtt ez elkészül, a biztonsági szűrők itt is
-                átnézik a választ, ugyanúgy, mint a koordinátornál.
+                átnézik a választ, ugyanúgy, mint az Orchestratornál.
               </p>
             </div>
           </div>
           <div class="step kind-tool">
             <div class="num">13</div>
             <div class="card">
-              <span class="step-tag">visszajelzés a koordinátornak</span>
-              <h3>Visszaadja a választ a koordinátornak</h3>
+              <span class="step-tag">visszajelzés az Orchestratornak</span>
+              <h3>Visszaadják a válaszokat az Orchestratornak</h3>
               <p>
-                A szakértő válasza visszajut a koordinátorhoz, aki
-                innen folytatja a beszélgetést a tisztviselővel.
+                A subagentek válasza mindig az Orchestratorhoz jut
+                vissza — a subagentek soha nem beszélnek egymással vagy
+                közvetlenül az operátorral (hub-and-spoke).
               </p>
             </div>
           </div>
@@ -826,28 +1040,35 @@ flowchart TD
       <div class="phase narrow">
         <div class="phase-head">
           <span class="phase-badge">14 – 15</span>
-          <h2>A válasz visszajut a pulthoz</h2>
+          <h2>A válasz visszajut a felhasználóhoz</h2>
         </div>
         <div class="timeline">
           <div class="step kind-agent">
             <div class="num">14</div>
             <div class="card">
               <span class="step-tag">végső válasz</span>
-              <h3>A koordinátor összefoglalja a választ</h3>
+              <h3>Az összeállító subagent egységes választ készít</h3>
               <p>
-                A koordinátor a szakértőtől kapott információra
-                alapozva fogalmazza meg a végső választ — sosem
-                fejből találja ki.
+                Ha csak egy domain subagent válaszolt, ez a lépés
+                kimarad: a kód közvetlenül azt a választ adja tovább.
+                Ha több subagent futott, az Orchestrator nem értelmezi a
+                válaszaikat, csak továbbadja őket egy külön
+                válasz-összeállító subagentnek. Mivel a domain subagentek
+                válaszai ellentmondhatnak egymásnak, ez a subagent oldja
+                fel az ellentmondásokat, és az egységes választ
+                visszaadja az Orchestratornak. Így az Orchestrator
+                egyszerű marad, az üzleti logika a subagenteknél van.
               </p>
               <div class="guard-note">
                 <p>
-                  <strong>Utolsó biztonsági ellenőrzés:</strong> egy
+                  <strong>Utolsó biztonsági ellenőrzés:</strong> a
+                  végső válaszon, még a válaszkapu előtt, egy
                   szűrő megnézi, nem állítja-e a válasz, hogy valamit
                   megváltoztatott vagy jóváhagyott — az asszisztens
                   ugyanis csak kérdésekre válaszol, semmit nem
                   módosít. Egy másik szűrő pedig eltakarja az esetleg
                   belekerült érzékeny adatokat, például e-mail címeket
-                  vagy kártyaszámokat.
+                  vagy azonosítókat.
                 </p>
               </div>
             </div>
@@ -855,12 +1076,14 @@ flowchart TD
           <div class="step kind-human">
             <div class="num">15</div>
             <div class="card">
-              <span class="step-tag">koordinátor → tisztviselő → ügyfél</span>
-              <h3>Válasz szóban a pultnál</h3>
+              <span class="step-tag">Orchestrator → válaszkapu → operátor → felhasználó</span>
+              <h3>Válasz szóban a felhasználónak</h3>
               <p>
-                A válasz megjelenik a képernyőn. A tisztviselő
-                elolvassa, és a saját szavaival továbbadja az
-                ügyfélnek — az emberi jóváhagyás már eddig a pontig
+                A végső választ egy kódban megírt válaszkapu (nem LLM)
+                adja vissza, és az megjelenik a képernyőn. Ugyanezen a
+                kapun érkezik a kód által adott fix elutasító válasz is. Az operátor
+                elolvassa, és a saját szavaival továbbadja a
+                felhasználónak — az emberi jóváhagyás már eddig a pontig
                 megtörténik, nincs szükség semmilyen külön
                 megerősítésre.
               </p>
@@ -869,15 +1092,92 @@ flowchart TD
         </div>
       </div>
 
+      <section class="narrow cca-section" style="margin-top: 64px">
+        <div class="eyebrow">Javaslat</div>
+        <h2>Egyszerűsítés, hibakezelés és mérés</h2>
+        <p class="lede">
+          Az Anthropic és az OpenAI ajánlása is ugyanaz: a legegyszerűbb
+          működő megoldással kell indulni, és csak mérés alapján szabad
+          komplexitást hozzáadni.
+        </p>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>Ami fix útvonal, az legyen kód.</strong>
+              Ha a Router már besorolta a kérdést, és az Orchestrator csak
+              továbbad, akkor az Orchestrator kiváltható determinisztikus
+              útválasztással (routing workflow). LLM-alapú Orchestrator
+              csak ott kell, ahol a következő lépést az eredmény határozza
+              meg, nem a terv.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Minden ciklusnak van korlátja.</strong>
+              Az agentic loop maximális iterációszámmal és időkorláttal
+              fut. Ha egy párhuzamos subagent hibázik, időtúllépésbe fut,
+              vagy <code>max_tokens</code> / <code>refusal</code> okkal
+              áll le, a kód egy fix „ezt most nem tudom megválaszolni”
+              választ ad a helyére, nem hagyja, hogy a modell találgasson.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Ha a guardrail tilt, a futás leáll.</strong>
+              A szűrő nem csak jelez, hanem megszakítja a folyamatot
+              (tripwire), és a válaszkapu egy fix üzenetet ad vissza.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">4</span>
+            <p>
+              <strong>Mérés nélkül nincs hangolás.</strong>
+              Minden agenthívás nyomkövetéssel (tracing) fut, és egy
+              rögzített kérdéskészlet (eval) méri a besorolás, a
+              jogosultság-döntés és a válaszok helyességét. A modell- és
+              effort-választás ezekre az eredményekre épül.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="narrow cca-section">
+        <div class="eyebrow">Javaslat</div>
+        <h2>Modellválasztás agentenként</h2>
+        <p class="lede">
+          A modellek és az effort-szintek kiindulópontok: az
+          effort-ot <code>none</code>-ról érdemes indítani, és csak ott
+          emelni, ahol a mérés hibát mutat. A jogosultságot továbbra is
+          a kódban megírt guardrail dönti el, nem a modell.
+        </p>
+        <table class="stop-table">
+          <tr><th>Agent</th><th>Modell</th><th>Effort</th></tr>
+          <tr><td>Router</td><td>TypeSafe Jev (<code>~typesafe/jev-latest</code>, Decisions API)</td><td>—</td></tr>
+          <tr><td>Orchestrator</td><td>OpenAI Terra (ha nincs, Sol)</td><td><code>low</code></td></tr>
+          <tr><td>Domain subagent(ek) (üzleti domain, akár párhuzamosan)</td><td>OpenAI Luna</td><td><code>none</code>–<code>low</code></td></tr>
+          <tr><td>Válasz-összeállító subagent</td><td>OpenAI Luna (ha a feloldás gyenge, Terra)</td><td><code>low</code></td></tr>
+          <tr><td>Nyilvános infó subagent</td><td>OpenAI Luna</td><td><code>none</code></td></tr>
+        </table>
+        <div class="cca-tip">
+          <strong>Jev tartalék:</strong> a Jev korai hozzáférésű, nem LLM, és
+          a besorolását beágyazott utasítás elmozdíthatja. Ha nem
+          illeszthető be, a Router Luna <code>none</code> effort-tal is
+          működik.
+        </div>
+      </section>
+
       <div class="outro narrow">
-        <h2 style="color: var(--lime)">16 lépés, egy fontos különbség.</h2>
+        <h2 style="color: var(--lime)">16 lépés, egy fontos szabály.</h2>
         <p style="margin-top: 10px">
-          Vannak dolgok, amiket a rendszer automatikusan, megbízhatóan
-          kikényszerít — például hogy kinek a számlájáról van szó,
-          vagy hogy milyen ügyfélszint szükséges egy funkcióhoz. És
-          vannak dolgok, amik csak egy leírt szabályon alapulnak —
-          például a koordinátor elutasítása —, és ezek a segítő
-          jóindulatán is múlnak, nem egy szigorú ellenőrzésen.
+          Ami 100%-ban kötelező, azt a kód kényszeríti ki, nem a modell
+          jóindulata: hogy kinek az adatáról van szó, hogy hozzáférhet-e
+          a felhasználó egy funkcióhoz, és hogy mi jut el az
+          operátorhoz. A modellek csak ott döntenek, ahol a döntés
+          valóban értelmezést igényel — és ott is biztonsági szűrők
+          veszik körül őket.
         </p>
       </div>
     </main>
@@ -914,4 +1214,3 @@ flowchart TD
       updateProgress();
     </script>
   </body>
-</html>
