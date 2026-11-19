@@ -2,7 +2,7 @@
 <!--
   Browser chat for the bank branch officer assistant. Served, together with
   catalog.html, by src/bank_officer_web.py (uv run python src/bank_officer_web.py,
-  then open http://127.0.0.1:8010/) - it needs that server's JSON/SSE API, so
+  then open http://127.0.0.1:8050/) - it needs that server's JSON/SSE API, so
   opening this file directly (file://) only shows how to start it.
   Each turn streams live over Server-Sent Events (GET /api/chats/{id}/live):
   the endpoint router's match, every coordinator tool call with its (PII-
@@ -340,7 +340,7 @@
     banner.className = "banner";
     banner.innerHTML = "This page needs the chat server. Start it with " +
       "<code>uv run python src/bank_officer_web.py</code> and open " +
-      "<a href=\"http://127.0.0.1:8010/chat.html\">http://127.0.0.1:8010/chat.html</a>.";
+      "<a href=\"http://127.0.0.1:8050/chat.html\">http://127.0.0.1:8050/chat.html</a>.";
     messagesEl.appendChild(banner);
     form.hidden = true;
     newChatBtn.hidden = true;

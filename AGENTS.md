@@ -15,7 +15,7 @@ LangGraph, using OpenRouter as the model provider.
 - Run the multi-agent planner: `uv run python src/offsite_planner/main.py`.
 - Run the MCP server: `uv run python src/mcp_server/main.py`.
 - Run the bank branch officer web chat: `uv run python src/bank_officer/main.py`,
-  then open http://127.0.0.1:8010/ (`BANK_WEB_HOST`/`BANK_WEB_PORT` override
+  then open http://127.0.0.1:8050/ (`BANK_WEB_HOST`/`BANK_WEB_PORT` override
   the address).
 - Run the bank branch officer terminal chat assistant:
   `uv run python src/bank_officer/terminal.py`.
