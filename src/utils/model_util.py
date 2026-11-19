@@ -35,7 +35,9 @@ def load_prompt_template(name: str) -> tuple[str, dict[str, Any]]:
     return text.strip(), overrides
 
 
-def get_openrouter_model(config: ModelConfigLike, api_key: str) -> BaseChatModel:
+def get_openrouter_model(
+    config: ModelConfigLike, api_key: str, reasoning: dict[str, Any] | None = None
+) -> BaseChatModel:
     """Create an OpenRouter chat model from a model configuration."""
     params: dict[str, Any] = {
         "model": config.name,
@@ -52,6 +54,8 @@ def get_openrouter_model(config: ModelConfigLike, api_key: str) -> BaseChatModel
         params["presence_penalty"] = config.presence_penalty
     if config.seed is not None:
         params["seed"] = config.seed
+    if reasoning is not None:
+        params["reasoning"] = reasoning
     return init_chat_model(**params)
 
 

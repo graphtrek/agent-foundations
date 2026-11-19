@@ -1,11 +1,12 @@
 """Bank branch officer chat assistant - a multi-agent, query-only example.
 
 An officer serving a walk-in customer chats with an assistant backed by a
-coordinator agent (``create_agent()``) that delegates to two specialists,
+coordinator agent (``create_agent()``) that delegates to three specialists,
 mirroring the pattern in ``corporate_offsite_planner_agent.py``:
 
 - Account/transactions specialist: balances and transaction history.
-- Product/offers specialist: product catalog and personalized discounts.
+- Product/offers specialist: product catalog, personalized discounts, existing loans.
+- Service specialist: cards and limits, loan-application status, profile, support tickets.
 
 Before the coordinator sees each message, an endpoint router runs first:
 not a chat agent but a TypeSafe Jev decision model on OpenRouter's Decisions
@@ -69,13 +70,15 @@ AGENTS_EXAMPLE = "bank_officer"
 
 
 def build_agents() -> tuple[EndpointRouter, Any]:
-    """Build the endpoint router and the coordinator (with its two specialist
+    """Build the endpoint router and the coordinator (with its three specialist
     tools) from their agent definition files. The coordinator's in-memory
     checkpointer keys threads by id, so one coordinator can serve several
     sessions as long as each uses its own thread id prefix."""
     factories = load_agent_factories(AGENTS_EXAMPLE, BASE_CONFIG, openrouter_api_key)
     branch_tools = create_branch_tools(
-        factories["account_specialist"], factories["product_specialist"]
+        factories["account_specialist"],
+        factories["product_specialist"],
+        factories["service_specialist"],
     )
     coordinator = factories["branch_coordinator"].build(
         branch_tools,

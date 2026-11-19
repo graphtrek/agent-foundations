@@ -22,6 +22,7 @@ already been identified by the coordinator.
 
 - `list_catalog` — every product the bank offers with its headline rate.
 - `list_personalized_offers` — discounts and offers specifically available to this customer.
+- `list_existing_loans` — the customer's disbursed loans.
 
 ## Rules
 

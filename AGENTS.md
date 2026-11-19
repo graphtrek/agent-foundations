@@ -31,10 +31,10 @@ model. Planner images are cached in `src/resources/offsite/`, conversations
 are saved in `conversations/`, and logs are written to `logs/`.
 
 The bank branch officer assistant builds every agent (endpoint router,
-coordinator, account and product specialists) from its own Markdown file in
+coordinator, account, product and service specialists) from its own Markdown file in
 `src/resources/agents/bank_officer/` (`00_endpoint_router.md`,
 `01_branch_coordinator.md`, `02_account_specialist.md`,
-`03_product_specialist.md`), following the `dev-vault/data/agents` persona
+`03_product_specialist.md`, `04_service_specialist.md`), following the `dev-vault/data/agents` persona
 convention: a `# Label` heading, `<!-- key: value -->` directives for model
 settings, the `tools` list and the `middleware` stack, then the system prompt
 body. `src/utils/agent_spec.py` loads them; see that directory's `README.md`
@@ -62,7 +62,7 @@ customer selected mid-turn. Every reply goes through the deterministic
 `deliver_reply()` gateway, router/coordinator/specialist failures fall back to
 a fixed reply, and the coordinator thread is reset when the officer switches
 to a different customer so the previous customer's data leaves the context. Every chat-model
-call this example makes (coordinator and both specialists) runs through the
+call this example makes (coordinator and all three specialists) runs through the
 guardrail middleware stack from
 `src/utils/guardrails.py`: a `before_model` check blocks prompt-injection/
 instruction-override attempts, `PIIMiddleware` redacts emails and masks
@@ -97,7 +97,15 @@ requires them.
   wrapping models with `create_agent()` from `langchain.agents`.
 - `src/utils/agent_response.py` centralizes invoke, streaming, and full-message
   response handling. `src/utils/tools.py` contains the search and specialist
-  tool factories. The account specialist's `summarize_spending` tool sums
+  tool factories. Every GET endpoint in the catalog has a backing tool:
+  account specialist (details, statements, business overview, scheduled
+  payments), product specialist (catalog, offers, existing loans), service
+  specialist (cards, card limits, loan applications, profile, support tickets)
+  and customer-independent coordinator tools (`get_branch_opening_hours` with
+  dates like `next_monday` via `resolve_date()`, `list_branch_locations`,
+  `get_general_conditions`). Tier-restricted tools (card limits, business
+  overview) re-check entitlement in code. Their data lives in `bank_data.py`
+  and mirrors the fixtures in `catalog.html`. The account specialist's `summarize_spending` tool sums
   outgoing debits deterministically (excluding transfers/deposit placements);
   specialist/coordinator recursion limits are 60/80 because guardrail
   middleware nodes count as graph steps.

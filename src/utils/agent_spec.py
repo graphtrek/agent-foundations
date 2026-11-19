@@ -176,5 +176,7 @@ def load_agent_factories(
         if spec.kind != "agent":
             continue
         config = cast(ModelConfigLike, replace(cast(Any, base_config), **spec.model_overrides))
-        factories[agent_id] = AgentFactory(spec, get_openrouter_model(config, api_key))
+        factories[agent_id] = AgentFactory(
+            spec, get_openrouter_model(config, api_key, reasoning={"effort": "low"})
+        )
     return factories

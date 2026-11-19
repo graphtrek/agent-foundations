@@ -267,6 +267,182 @@ _LOANS: list[Loan] = [
          date(2026, 11, 17), date(2030, 9, 17), "acc-002-chk"),
 ]
 
+# --- Service data: business accounts, scheduled payments, cards, applications, -
+# --- tickets, conditions (mirrors the mock-up-only fixtures in catalog.html) ----
+
+@dataclass
+class BusinessAccount:
+    account_id: str
+    customer_id: str
+    account_type: str
+    name: str
+    balance: float
+    currency: str = "HUF"
+
+
+@dataclass
+class ScheduledPayment:
+    payment_id: str
+    customer_id: str
+    from_account_id: str
+    beneficiary: str
+    amount: float | None  # None = variable (direct debit)
+    frequency: str
+    next_execution: date
+    status: str
+
+
+@dataclass
+class Card:
+    card_id: str
+    customer_id: str
+    kind: str  # "debit" | "credit"
+    brand: str
+    number: str
+    account_id: str
+    expires: str
+    status: str
+
+
+@dataclass
+class LoanApplication:
+    application_id: str
+    customer_id: str
+    product_id: str
+    amount: float
+    history: list[tuple[str, str, str]]  # (date, status, note)
+
+
+@dataclass
+class SupportTicket:
+    ticket_id: str
+    customer_id: str
+    subject: str
+    history: list[tuple[str, str, str, str]]  # (time, status, by, message)
+
+
+_BUSINESS_ACCOUNTS: list[BusinessAccount] = [
+    BusinessAccount("acc-002-biz", "cust-002", "business_checking",
+                    "Kovács Consulting Kft. - Üzleti számla", 4_250_000.0),
+    BusinessAccount("acc-002-biz-payroll", "cust-002", "sub_account",
+                    "Bérszámfejtési alszámla", 1_800_000.0),
+    BusinessAccount("acc-002-biz-tax", "cust-002", "sub_account",
+                    "Adó- és járulék alszámla", 650_000.0),
+]
+
+_SCHEDULED: list[ScheduledPayment] = [
+    ScheduledPayment("sp-001-1", "cust-001", "acc-001-chk", "Lakbér - Kiss Péter", 180_000.0, "monthly (20th)", date(2026, 11, 20), "active"),
+    ScheduledPayment("sp-001-2", "cust-001", "acc-001-chk", "Saját megtakarítás (acc-001-sav)", 50_000.0, "monthly (15th)", date(2026, 12, 15), "active"),
+    ScheduledPayment("sp-002-1", "cust-002", "acc-002-chk", "Jelzáloghitel törlesztés", 220_000.0, "monthly (19th)", date(2026, 12, 19), "active"),
+    ScheduledPayment("sp-002-2", "cust-002", "acc-002-chk", "MVM Next - csoportos beszedés", None, "monthly (direct debit)", date(2026, 11, 25), "active"),
+    ScheduledPayment("sp-002-3", "cust-002", "acc-002-chk", "Iskolai tandíj", 150_000.0, "one-off", date(2026, 12, 1), "active"),
+    ScheduledPayment("sp-003-1", "cust-003", "acc-003-chk", "Albérlet - Tóth Anna", 90_000.0, "monthly (14th)", date(2026, 12, 14), "active"),
+    ScheduledPayment("sp-003-2", "cust-003", "acc-003-chk", "Telekom - csoportos beszedés", None, "monthly (direct debit)", date(2026, 12, 2), "paused"),
+]
+
+_CARDS: list[Card] = [
+    Card("card-001-deb", "cust-001", "debit", "Visa Debit", "**** 4821", "acc-001-chk", "2028-05", "active"),
+    Card("card-001-cc", "cust-001", "credit", "Mastercard Gold", "**** 7710", "-", "2027-09", "active"),
+    Card("card-002-deb", "cust-002", "debit", "Visa Business Debit", "**** 1934", "acc-002-chk", "2029-01", "active"),
+    Card("card-002-cc", "cust-002", "credit", "Mastercard Business", "**** 5520", "-", "2028-11", "active"),
+    Card("card-002-old", "cust-002", "debit", "Visa Debit", "**** 3307", "acc-002-chk", "2027-03", "blocked (lost)"),
+    Card("card-003-deb", "cust-003", "debit", "Visa Debit", "**** 6642", "acc-003-chk", "2026-12", "active"),
+]
+
+# card_id -> [(limit type, limit, used today)]
+_CARD_LIMITS: dict[str, list[tuple[str, float, float]]] = {
+    "card-001-deb": [("Daily purchase", 500_000, 15_990), ("Daily ATM withdrawal", 200_000, 0), ("Daily online", 300_000, 15_990)],
+    "card-001-cc": [("Credit limit", 800_000, 124_300), ("Daily purchase", 400_000, 0), ("Daily ATM withdrawal", 100_000, 0)],
+    "card-002-deb": [("Daily purchase", 1_000_000, 62_300), ("Daily ATM withdrawal", 400_000, 45_000), ("Daily online", 600_000, 0)],
+    "card-002-cc": [("Credit limit", 2_500_000, 410_000), ("Daily purchase", 1_000_000, 0), ("Daily ATM withdrawal", 200_000, 0)],
+    "card-002-old": [("Daily purchase", 0, 0), ("Daily ATM withdrawal", 0, 0), ("Daily online", 0, 0)],
+    "card-003-deb": [("Daily purchase", 250_000, 3_490), ("Daily ATM withdrawal", 100_000, 0), ("Daily online", 150_000, 0)],
+}
+
+_LOAN_APPLICATIONS: list[LoanApplication] = [
+    LoanApplication("la-001-1", "cust-001", "prod-mortgage", 25_000_000.0, [
+        ("2026-10-28", "submitted", "Online application received."),
+        ("2026-10-30", "documents_received", "Income certificate and property documents uploaded."),
+        ("2026-11-06", "under_review", "Property valuation scheduled for 2026-11-24.")]),
+    LoanApplication("la-002-1", "cust-002", "prod-loan", 3_000_000.0, [
+        ("2026-09-12", "submitted", "Application submitted at branch-buda."),
+        ("2026-09-15", "approved", "Approved at 11.9% THM, 48 months."),
+        ("2026-09-17", "disbursed", "Amount credited to acc-002-chk.")]),
+    LoanApplication("la-003-1", "cust-003", "prod-loan", 1_500_000.0, [
+        ("2026-11-11", "submitted", "Online application received."),
+        ("2026-11-13", "documents_requested", "Last 3 months' payslips requested.")]),
+]
+
+_TICKETS: list[SupportTicket] = [
+    SupportTicket("tk-001-1", "cust-001", "Kártyás vásárlás reklamáció (eMAG, 15 990 Ft)", [
+        ("2026-11-11 09:14", "open", "customer", "Nem ismerem fel a terhelést."),
+        ("2026-11-11 13:40", "in_progress", "support", "A kártyatársaságtól bekértük a tranzakció adatait.")]),
+    SupportTicket("tk-002-1", "cust-002", "Netbank belépési hiba", [
+        ("2026-10-04 08:02", "open", "customer", "SMS kód nem érkezik."),
+        ("2026-10-04 10:15", "resolved", "support", "Telefonszám újraregisztrálva, a belépés működik.")]),
+    SupportTicket("tk-002-2", "cust-002", "Számlakivonat másolat 2026-09", [
+        ("2026-11-14 16:20", "open", "customer", "Papír alapú másolatot kérek a szeptemberi kivonatról.")]),
+    SupportTicket("tk-003-1", "cust-003", "Mobilszám módosítás", [
+        ("2026-10-20 11:05", "open", "customer", "Új telefonszámot szeretnék megadni."),
+        ("2026-10-21 09:30", "resolved", "branch-pest", "Személyes azonosítás után módosítva.")]),
+]
+
+# [product, item, fee / rate, note] - general, not customer-specific.
+_CONDITIONS: list[tuple[str, str, str, str]] = [
+    ("Lakossági Folyószámla", "Monthly account fee", "990 Ft", "Waived above 250 000 Ft monthly income"),
+    ("Lakossági Folyószámla", "Domestic transfer (online)", "0.3%, min. 150 Ft", "First 2 transfers per month free"),
+    ("Lakossági Folyószámla", "ATM withdrawal (own ATM)", "0.6% + 200 Ft", "First 2 withdrawals per month free"),
+    ("Megtakarítási Számla", "Interest", "4.5% éves hozam", "Credited monthly"),
+    ("Megtakarítási Számla", "Withdrawal", "0 Ft", "Up to 2 per month, then 300 Ft"),
+    ("Lekötött Betét Plusz", "Interest", "5.2% éves hozam", "12-month term, fixed"),
+    ("Lekötött Betét Plusz", "Early termination", "Interest forfeited", "Principal fully returned"),
+    ("Mindennapi Hitelkártya", "Annual fee", "8 900 Ft", "1% cashback on grocery and fuel"),
+    ("Mindennapi Hitelkártya", "THM", "24.9%", "Interest-free period up to 45 days"),
+    ("Rugalmas Személyi Kölcsön", "THM", "from 11.9%", "1-10 million Ft, 12-84 months"),
+    ("Otthon Lakáshitel", "THM", "from 7.3%", "Up to 30 years, property valuation 45 000 Ft"),
+    ("International transfer", "SWIFT fee", "0.4%, min. 4 000 Ft", "Premium tier and above"),
+]
+
+# --- Branches and opening hours -------------------------------------------------
+# Mirrors MOCK.branches / MOCK.hours in webapp_mockup/catalog.html (by hand).
+
+@dataclass
+class Branch:
+    branch_id: str
+    name: str
+    city: str
+    address: str
+    postal_code: str = ""
+    lat: float = 0.0
+    lon: float = 0.0
+
+
+_BRANCHES: list[Branch] = [
+    Branch("branch-buda", "Buda Központ", "Budapest", "Attila út 12.", "1012", 47.4979, 19.0336),
+    Branch("branch-pest", "Pest Belváros", "Budapest", "Váci utca 20.", "1052", 47.4935, 19.0530),
+    Branch("branch-debrecen", "Debrecen Piac utca", "Debrecen", "Piac utca 30.", "4024", 47.5316, 21.6273),
+    Branch("branch-szeged", "Szeged Kárász utca", "Szeged", "Kárász utca 8.", "6720", 46.2530, 20.1482),
+    Branch("branch-gyor", "Győr Baross út", "Győr", "Baross Gábor út 15.", "9021", 47.6849, 17.6351),
+]
+
+# weekday index (Monday=0) -> (opens, closes, note); None = closed.
+_DEFAULT_HOURS: dict[int, tuple[str, str, str] | None] = {
+    0: ("08:00", "17:00", ""), 1: ("08:00", "16:00", ""), 2: ("08:00", "16:00", ""),
+    3: ("08:00", "18:00", "Late opening"), 4: ("08:00", "14:00", ""), 5: None, 6: None,
+}
+_BRANCH_HOURS: dict[str, dict[int, tuple[str, str, str] | None]] = {
+    "branch-buda": {
+        0: ("08:00", "18:00", ""), 1: ("08:00", "18:00", ""), 2: ("08:00", "18:00", ""),
+        3: ("08:00", "19:00", "Late opening"), 4: ("08:00", "15:00", ""),
+        5: ("09:00", "12:00", "Cash desk closed"), 6: None,
+    },
+}
+# Date-specific exceptions apply to every branch.
+_HOLIDAY_EXCEPTIONS: dict[date, tuple[str, str, str] | None] = {
+    date(2026, 12, 24): None,
+    date(2026, 12, 31): ("08:00", "12:00", "Short day"),
+}
+
 # --- Personalized offers -------------------------------------------------------
 
 _OFFERS: list[Offer] = [
@@ -360,3 +536,67 @@ def get_offers(customer_id: str) -> list[Offer]:
 def get_loans(customer_id: str) -> list[Loan]:
     """Return the customer's existing (disbursed) loans."""
     return [loan for loan in _LOANS if loan.customer_id == customer_id]
+
+
+def list_branches() -> list[Branch]:
+    """Return every branch."""
+    return list(_BRANCHES)
+
+
+def find_branch(name_or_id: str) -> Branch | None:
+    """Find a branch by id or (case-insensitive) name fragment."""
+    needle = name_or_id.strip().lower()
+    return next(
+        (b for b in _BRANCHES if needle == b.branch_id or needle in b.name.lower()
+         or needle in b.branch_id),
+        None,
+    )
+
+
+def get_branch_hours(branch_id: str, day: date) -> tuple[str, str, str] | None:
+    """Return (opens, closes, note) for the branch on that date, None if closed.
+
+    Holiday exceptions override the weekly schedule; a branch without its own
+    schedule uses the default one.
+    """
+    if day in _HOLIDAY_EXCEPTIONS:
+        return _HOLIDAY_EXCEPTIONS[day]
+    schedule = _BRANCH_HOURS.get(branch_id, _DEFAULT_HOURS)
+    return schedule[day.weekday()]
+
+
+def get_account(customer_id: str, account_id: str) -> Account | None:
+    """Return one of the customer's own accounts, or None."""
+    return next((a for a in get_accounts(customer_id) if a.account_id == account_id), None)
+
+
+def get_business_accounts(customer_id: str) -> list[BusinessAccount]:
+    """Return the customer's business accounts and sub-accounts."""
+    return [a for a in _BUSINESS_ACCOUNTS if a.customer_id == customer_id]
+
+
+def get_scheduled_payments(customer_id: str) -> list[ScheduledPayment]:
+    return [p for p in _SCHEDULED if p.customer_id == customer_id]
+
+
+def get_cards(customer_id: str) -> list[Card]:
+    return [c for c in _CARDS if c.customer_id == customer_id]
+
+
+def get_card_limits(customer_id: str, card_id: str) -> list[tuple[str, float, float]] | None:
+    """Limits of one of the customer's own cards, or None if not theirs."""
+    if not any(c.card_id == card_id for c in get_cards(customer_id)):
+        return None
+    return list(_CARD_LIMITS.get(card_id, []))
+
+
+def get_loan_applications(customer_id: str) -> list[LoanApplication]:
+    return [a for a in _LOAN_APPLICATIONS if a.customer_id == customer_id]
+
+
+def get_support_tickets(customer_id: str) -> list[SupportTicket]:
+    return [t for t in _TICKETS if t.customer_id == customer_id]
+
+
+def list_conditions() -> list[tuple[str, str, str, str]]:
+    return list(_CONDITIONS)
