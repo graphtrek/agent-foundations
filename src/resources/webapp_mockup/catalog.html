@@ -354,6 +354,13 @@
         <p class="description">List the loan products and headline rates available to the customer.</p>
         <p class="menu">Loans &gt; Offers</p>
       </li>
+      <li class="row" data-endpoint="ep-loans-list">
+        <span class="method get">GET</span>
+        <span class="path">/loans</span>
+        <span class="tier retail">retail</span>
+        <p class="description">List the customer's existing loans with balance, installment and maturity.</p>
+        <p class="menu">Loans &gt; My loans</p>
+      </li>
       <li class="row" data-endpoint="ep-loans-status">
         <span class="method get">GET</span>
         <span class="path">/loans/applications/{id}/status</span>
@@ -579,6 +586,14 @@ const MOCK = {
     "card-002-old": [["Daily purchase", 0, 0], ["Daily ATM withdrawal", 0, 0], ["Daily online", 0, 0]],
     "card-003-deb": [["Daily purchase", 250000, 3490], ["Daily ATM withdrawal", 100000, 0], ["Daily online", 150000, 0]],
   },
+  loans: [
+    { id: "loan-002-1", customer: "cust-002", name: "Otthon Lakáshitel", original: 28000000,
+      balance: 21450000, payment: 220000, rate: 7.3, next: "2026-11-19", maturity: "2041-03-19",
+      account: "acc-002-chk" },
+    { id: "loan-002-2", customer: "cust-002", name: "Rugalmas Személyi Kölcsön", original: 3000000,
+      balance: 2790000, payment: 78500, rate: 11.9, next: "2026-11-17", maturity: "2030-09-17",
+      account: "acc-002-chk" },
+  ],
   loanApplications: [
     { id: "la-001-1", customer: "cust-001", product: "prod-mortgage", amount: 25000000, history: [
       ["2026-10-28", "submitted", "Online application received."],
@@ -803,6 +818,18 @@ const VIEWS = {
         const offer = MOCK.offers.find(o => o.customer === c.id && o.product === p.id);
         return { ...p, offer: offer ? `${offer.detail} (until ${offer.validUntil})` : "-" };
       }),
+  },
+  "ep-loans-list": {
+    columns: [
+      { title: "Loan ID", data: "id" }, { title: "Name", data: "name" },
+      { title: "Original", data: "original", render: huf, className: "dt-right" },
+      { title: "Outstanding", data: "balance", render: huf, className: "dt-right" },
+      { title: "Installment", data: "payment", render: huf, className: "dt-right" },
+      { title: "Rate", data: "rate", render: percent, className: "dt-right" },
+      { title: "Next payment", data: "next" }, { title: "Matures", data: "maturity" },
+      { title: "Repayment account", data: "account" },
+    ],
+    rows: c => MOCK.loans.filter(l => l.customer === c.id),
   },
   "ep-loans-status": {
     params: [{ name: "id", label: "Application", options: c =>

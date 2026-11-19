@@ -369,7 +369,22 @@ def create_product_specialist_tools(customer_id: str) -> list[Any]:
             )
         return "\n".join(lines)
 
-    return [list_catalog, list_personalized_offers]
+    @tool
+    def list_existing_loans() -> str:
+        """List this customer's existing loans: balance, installment, rate, dates."""
+        loans = bank_data.get_loans(customer_id)
+        if not loans:
+            return "This customer has no existing loans."
+        return "\n".join(
+            f"- {loan.loan_id} {loan.name}: original {loan.original_amount:,.0f} "
+            f"{loan.currency}, outstanding {loan.outstanding_balance:,.0f}, "
+            f"installment {loan.monthly_payment:,.0f}/month from {loan.repayment_account_id}, "
+            f"rate {loan.interest_rate}%, next payment {loan.next_payment_date.isoformat()}, "
+            f"matures {loan.maturity_date.isoformat()}"
+            for loan in loans
+        )
+
+    return [list_catalog, list_personalized_offers, list_existing_loans]
 
 
 SPECIALIST_RECURSION_LIMIT = 60

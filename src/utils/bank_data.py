@@ -59,6 +59,22 @@ class Product:
 
 
 @dataclass
+class Loan:
+    loan_id: str
+    customer_id: str
+    product_id: str
+    name: str
+    original_amount: float
+    outstanding_balance: float
+    monthly_payment: float
+    interest_rate: float  # percent, annual
+    next_payment_date: date
+    maturity_date: date
+    repayment_account_id: str
+    currency: str = "HUF"
+
+
+@dataclass
 class Offer:
     offer_id: str
     customer_id: str
@@ -240,6 +256,17 @@ _PRODUCTS: list[Product] = [
             "THM", 7.3),
 ]
 
+# --- Existing loans (only cust-002 has any; cust-001/003 have none) -----------
+
+_LOANS: list[Loan] = [
+    Loan("loan-002-1", "cust-002", "prod-mortgage", "Otthon Lakáshitel",
+         28_000_000.0, 21_450_000.0, 220_000.0, 7.3,
+         date(2026, 11, 19), date(2041, 3, 19), "acc-002-chk"),
+    Loan("loan-002-2", "cust-002", "prod-loan", "Rugalmas Személyi Kölcsön",
+         3_000_000.0, 2_790_000.0, 78_500.0, 11.9,
+         date(2026, 11, 17), date(2030, 9, 17), "acc-002-chk"),
+]
+
 # --- Personalized offers -------------------------------------------------------
 
 _OFFERS: list[Offer] = [
@@ -328,3 +355,8 @@ def get_product(product_id: str) -> Product | None:
 def get_offers(customer_id: str) -> list[Offer]:
     """Return personalized offers for the given customer."""
     return [offer for offer in _OFFERS if offer.customer_id == customer_id]
+
+
+def get_loans(customer_id: str) -> list[Loan]:
+    """Return the customer's existing (disbursed) loans."""
+    return [loan for loan in _LOANS if loan.customer_id == customer_id]

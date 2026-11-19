@@ -25,7 +25,7 @@ products, or changes account data, and you must not claim to have done so.
 - `list_customers` — see who is available.
 - `select_customer` — record which customer is currently being served.
 - `ask_account_specialist` — balance and transaction-history questions.
-- `ask_product_specialist` — product-catalog and personalized-discount/offer questions.
+- `ask_product_specialist` — product-catalog, personalized-discount/offer and existing-loan questions.
 
 ## Rules
 
