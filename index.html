@@ -237,6 +237,17 @@
             <a class="btn" data-page="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Katalógus megnyitása →</a>
           </div>
           <div class="card">
+            <span class="tag coral">2b · mobilbank</span>
+            <h3>Mobilbank szimuláció</h3>
+            <p>
+              Ügyféloldali, telefonos banki app a katalógus összes végpontjával: számlák,
+              fizetések, kártyák, hitelek, ügyintézés. A csomag (lakossági / prémium / üzleti)
+              szerint zárolja a funkciókat.
+            </p>
+            <div class="spacer"></div>
+            <a class="btn" data-page="mobile" href="src/bank_officer/webapp_mockup/mobile.html">Mobilbank megnyitása →</a>
+          </div>
+          <div class="card">
             <span class="tag blue">3 · chat</span>
             <h3>Branch Officer chat</h3>
             <p>
@@ -458,6 +469,7 @@
         var map = {
           architecture: '/architecture.html',
           catalog: '/catalog.html',
+          mobile: '/mobile.html',
           chat: '/chat.html'
         };
         document.querySelectorAll('a[data-page]').forEach(function (a) {

@@ -8,9 +8,10 @@
   DataTables table (jQuery + DataTables load from their CDNs, so the page
   needs network access for that part). Customers, accounts, transactions,
   products and offers in the MOCK script below mirror
-  src/utils/bank_data.py by hand; cards, limits, scheduled payments,
-  business sub-accounts, loan applications, tickets, conditions and
-  branches are mock-up-only fixtures with no Python counterpart.
+  src/bank_officer/bank_data.py by hand; Python counterparts exist for
+  the other fixtures too (cards, limits, scheduled payments, business
+  sub-accounts, loan applications, tickets, conditions, branches). The
+  same fixtures are copied into mobile.html - update both pages.
   Named catalog.html, not index.html, because .gitignore has a repo-wide
   bare "index.html" rule for an unrelated generated file.
   The header links to chat.html, the branch officer web chat; both pages
@@ -190,7 +191,7 @@
 <body>
 <main>
   <nav class="top-nav">
-    <a data-home href="index.html">← Home</a> <a href="chat.html">Branch officer chat →</a>
+    <a data-home href="index.html">← Home</a> <a href="mobile.html">Mobile banking app →</a> <a href="chat.html">Branch officer chat →</a>
   </nav>
   <h1>Web Banking App — Menu &amp; Endpoint Catalog</h1>
   <p class="subtitle">

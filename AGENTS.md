@@ -154,6 +154,16 @@ requires them.
   reply is sent whole, never as raw model tokens, because the PII and
   query-only guardrails act on the finished model message; tool-result
   previews go through `redact_pii()`. Sessions are in-process: one worker.
+- `src/bank_officer/webapp_mockup/mobile.html` is a customer-facing, Hungarian,
+  phone-style mobile banking simulation implementing all 31 catalog endpoints
+  (reads and the POST/PATCH/DELETE writes) as screens and actions. It is fully
+  client-side: a mock `api(method, url, body)` layer with one route per
+  endpoint (including the entitlement-tier 403 rule) runs over a copy of the
+  `catalog.html` fixtures, and write state lives in `localStorage` ("Demó
+  visszaállítása" resets it). The fixtures are copied by hand from
+  `catalog.html`, so update `bank_data.py`, `catalog.html` and `mobile.html`
+  together. It is served at http://127.0.0.1:8050/mobile.html and linked from
+  `index.html`, `catalog.html` and `chat.html`.
 - `src/bank_officer/guardrails.py` holds the before/after LLM-call guardrail
   middleware (`build_guardrail_middleware()`) used by the branch officer
   example; attach it via `create_agent(..., middleware=...)` on every agent
