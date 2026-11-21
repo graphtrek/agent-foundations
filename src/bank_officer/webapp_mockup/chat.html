@@ -326,11 +326,14 @@
   var customerEl = document.getElementById("customer");
   var STORAGE_KEY = "bankOfficerChatId";
   var SUGGESTIONS = [
-    "List the customers in this branch session",
-    "Select Nagy Katalin and show the account balances",
-    "What personalized offers does the customer have?",
-    "Show transactions over 100 000 HUF since September"
+    "Válaszd ki Nagy Katalint, majd foglald össze a számlái egyenlegét, és mutasd meg a szeptember óta történt 100 000 Ft feletti tranzakciókat.",
+    "Kovács Bence ügyfélnek mennyi volt a kimenő költése az elmúlt hónapban (az átutalások nélkül), és melyik kategóriában költött a legtöbbet?",
+    "Milyen személyre szabott ajánlatai és meglévő hitelei vannak Szabó Emesének, és melyik új hiteltermék illene a helyzetéhez?",
+    "Szabó Emese jogosult a kártyalimitek megtekintésére, és milyen ütemezett fizetései vannak a következő hónapra?",
+    "Mikor tart nyitva a Buda fiók a jövő hétfőn, és melyik közeli fiók nyitva szombaton is?",
+    "Kovács Bence kártyái és beadott hitelkérelmei alapján van-e nyitott támogatási ügye, és mi a következő lépés?"
   ];
+
 
   var chatId = null;
   var streaming = false;
@@ -556,7 +559,7 @@
 
   function showEmpty() {
     var box = el("div", "empty");
-    box.appendChild(el("p", null, "Ask about the customer at the desk. Replies are query-only and pass through the guardrails."));
+    box.appendChild(el("p", null, "Kérdezzen a pultnál álló ügyfélről. A válaszok csak lekérdezések, és átmennek a védőkorlátokon."));
     var list = el("div", "suggestions");
     SUGGESTIONS.forEach(function (s) {
       var b = el("button", null, s);
