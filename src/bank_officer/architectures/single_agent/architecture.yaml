@@ -1,0 +1,10 @@
+id: single_agent
+label: Egyetlen agent, minden tool közvetlenül
+description: Nincs router és nincsenek subagentek. Egy agent kapja az összes adat-toolt. Alapvonal a "kell-e egyáltalán több agent" kérdéshez.
+router:
+  enabled: false
+  agent: endpoint_router
+coordinator:
+  agent: branch_coordinator
+  mode: flat
+  specialists: []

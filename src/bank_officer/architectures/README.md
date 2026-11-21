@@ -1,9 +1,10 @@
-# agents/bank_officer
+# architectures/
 
-One Markdown file per agent of `src/bank_officer/`; `agent_spec.py` builds every agent
-(model, tools, middleware, system prompt) from these files. Architecture profiles in
-`../architectures/*.yaml` choose which agents run and can override their settings. Same convention as
-`dev-vault/data/agents`.
+One folder per architecture: `<id>/architecture.yaml` (which parts the pipeline has) plus one
+Markdown file per agent that architecture uses (`<id>/NN_<agent>.md`). The agent files are used
+exactly as written - the YAML cannot override them - so to change an agent in one architecture,
+edit that architecture's copy. `agent_spec.py` builds every agent (model, tools, middleware,
+system prompt) from these files. Same convention as `dev-vault/data/agents`.
 
 File format:
 

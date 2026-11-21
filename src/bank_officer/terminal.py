@@ -55,15 +55,15 @@ logger = logging.getLogger(__name__)
 config = load_config()
 openrouter_api_key = config.openrouter_api_key
 
-# Every agent of this example is defined by its own Markdown file in
-# src/bank_officer/agents/ (model settings, tool list, guardrail
+# Every agent is defined by its own Markdown file in its architecture's folder,
+# src/bank_officer/architectures/<id>/ (model settings, tool list, guardrail
 # stack and system prompt). None need vision, so the TEXT_* config is the
 # shared base that each file's model directives override.
 BASE_CONFIG = config.text
 DEFAULT_ARCHITECTURE = os.environ.get("BANK_ARCH", "baseline")
 
-# Every architecture (router or not, coordinator, specialists, per-agent
-# overrides) is a profile in src/bank_officer/architectures/; the registry
+# Every architecture (router or not, coordinator, specialists) is a folder in
+# src/bank_officer/architectures/ with architecture.yaml and its agent files; the registry
 # builds a profile's agents on first use and caches them. One coordinator can
 # serve several sessions as long as each uses its own thread id prefix.
 REGISTRY = PipelineRegistry(BASE_CONFIG, openrouter_api_key)

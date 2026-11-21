@@ -151,7 +151,7 @@ src/                          # every app is a fully self-contained folder; no s
 └── bank_officer/             # main.py (web chat), terminal.py (terminal chat), config.py, tools.py,
                               #   bank_data.py, endpoint_catalog.py, decision_router.py,
                               #   branch_session.py, guardrails.py, agent_spec.py, live_run.py,
-                              #   model_util.py, conversation_util.py, agents/, webapp_mockup/
+                              #   model_util.py, conversation_util.py, architectures/, webapp_mockup/
 ```
 
 Apps never import from each other. When two apps need the same helper (for

@@ -20,7 +20,3 @@ coordinator:
     tool_group: service
     description: Ask the customer-service specialist about the selected customer's cards and card
       limits, loan-application status, profile/contact data or support tickets.
-agents:
-  account_specialist: {model: poolside/laguna-s-2.1}
-  product_specialist: {model: poolside/laguna-s-2.1}
-  service_specialist: {model: poolside/laguna-s-2.1}

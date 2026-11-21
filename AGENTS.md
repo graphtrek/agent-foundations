@@ -40,7 +40,7 @@ are saved in `conversations/`, and logs are written to `logs/`.
 
 The bank branch officer assistant builds every agent (endpoint router,
 coordinator, account, product and service specialists) from its own Markdown file in
-`src/bank_officer/agents/` (`00_endpoint_router.md`,
+its architecture's folder `src/bank_officer/architectures/<id>/` (`00_endpoint_router.md`,
 `01_branch_coordinator.md`, `02_account_specialist.md`,
 `03_product_specialist.md`, `04_service_specialist.md`), following the `dev-vault/data/agents` persona
 convention: a `# Label` heading, `<!-- key: value -->` directives for model
@@ -85,12 +85,13 @@ entitlement tier is below the matched endpoint's `required_entitlement`,
 
 ### Architecture profiles (bank officer)
 
-The pipeline's shape is data: `src/bank_officer/architectures/<id>.yaml`
+The pipeline's shape is data: `src/bank_officer/architectures/<id>/architecture.yaml`
 (`baseline`, `no_router`, `single_agent`, `alt_model_specialists`) says whether
 the Jev router runs, whether the coordinator delegates to specialist
 sub-agents (`mode: delegate`) or gets every data tool itself (`mode: flat`),
-and overrides per agent (model, sampling, tools, `prompt`/`prompt_append`) on
-top of `agents/*.md`. `src/bank_officer/architecture.py` validates profiles
+and each architecture folder holds its own complete copy of the agent files
+(`<id>/NN_<agent>.md`), used as is - the YAML never overrides them, so a
+change for one architecture is made in that folder's file. `src/bank_officer/architecture.py` validates profiles
 (`validate_profile()`) and builds/caches pipelines
 (`PipelineRegistry`); `tools.py` generates the `ask_<id>` wrappers from the
 profile (`SpecialistBinding`, `TOOL_GROUPS`). What is mandatory stays in code:
@@ -99,7 +100,7 @@ entitlement rule still holds in the specialist gate and the tier-restricted
 tools (only the code-level short-circuit is absent). The web chat has an
 architecture picker (`GET /api/architectures`, `GET /api/architectures/{id}`;
 `POST /api/chats` takes `{architecture}`); profiles are edited as YAML files.
-Specialists are `agents/*.md` files; a new one needs a new file.
+Specialists are agent files in the architecture's folder; a new one needs a new file.
 
 ## Validation
 
@@ -142,7 +143,7 @@ requires them.
   specialist/coordinator recursion limits are 60/80 because guardrail
   middleware nodes count as graph steps.
 - Keep prompts in `src/offsite_planner/prompts/` (agent definition files for the
-  bank officer example in `src/bank_officer/agents/`, loaded by
+  bank officer example in `src/bank_officer/architectures/<id>/`, loaded by
   `src/bank_officer/agent_spec.py`) and planner image handling in
   `src/offsite_planner/offsite_images.py`; avoid embedding those assets in the runnable
   scripts.

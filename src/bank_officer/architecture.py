@@ -1,15 +1,17 @@
 """Architecture profiles: the agent architecture as data, not as wiring code.
 
-A profile (``src/bank_officer/architectures/<id>.yaml``) says which parts the
+An architecture lives in its own folder, ``src/bank_officer/architectures/<id>/``:
+``architecture.yaml`` plus one ``NN_<agent>.md`` file per agent it uses. The
+agent files are used exactly as written (model, sampling, tools, prompt); the
+YAML never overrides them. The profile says which parts the
 pipeline has - an endpoint router in front or not, one coordinator, and either
 specialist sub-agents it delegates to (``mode: delegate``) or every data tool
-directly (``mode: flat``, the single-agent baseline) - and overrides the
-``agents/*.md`` defaults per agent (model, sampling, tools, prompt). The
+directly (``mode: flat``, the single-agent baseline). The
 ``PipelineRegistry`` builds a profile's agents lazily and caches them, so the
 terminal, the web chat and the eval runner can all try any architecture.
 
 What is mandatory stays in code, not in the profile: the guardrail middleware
-stack cannot be overridden (see ``agent_spec.apply_overrides``), and the
+stack comes from each agent file's ``middleware`` directive, and the
 entitlement checks live in the tools and the session, not in prompts.
 """
 
@@ -17,20 +19,14 @@ from __future__ import annotations
 
 import re
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 from langgraph.checkpoint.memory import InMemorySaver
 
-from agent_spec import (
-    OVERRIDE_KEYS,
-    AgentSpec,
-    apply_overrides,
-    load_agent_factories,
-    load_agent_specs,
-)
+from agent_spec import AgentSpec, load_agent_factories, load_agent_specs
 from decision_router import EndpointRouter
 from model_util import ModelConfigLike
 from tools import (
@@ -44,21 +40,12 @@ from tools import (
 )
 
 ARCHITECTURES_DIR = Path(__file__).resolve().parent / "architectures"
-AGENTS_EXAMPLE = "bank_officer"
+PROFILE_FILE = "architecture.yaml"
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 MODES = ("delegate", "flat")
-MAX_PROMPT_CHARS = 8000
-MAX_APPEND_CHARS = 4000
 MAX_LABEL_CHARS = 100
 MAX_DESCRIPTION_CHARS = 500
 MAX_SPECIALISTS = 8
-_NUMBER_RANGES = {
-    "temperature": (0.0, 2.0),
-    "top_p": (0.0, 1.0),
-    "frequency_penalty": (-2.0, 2.0),
-    "presence_penalty": (-2.0, 2.0),
-    "min_probability": (0.0, 1.0),
-}
 
 
 class ProfileError(ValueError):
@@ -82,7 +69,6 @@ class ArchitectureProfile:
     coordinator_agent: str
     mode: str
     specialists: tuple[SpecialistSpec, ...]
-    agents: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """The profile as the plain mapping stored in the YAML file."""
@@ -99,7 +85,6 @@ class ArchitectureProfile:
                     for s in self.specialists
                 ],
             },
-            "agents": self.agents,
         }
 
 
@@ -116,49 +101,10 @@ def _text(value: Any, name: str, limit: int, *, required: bool = True) -> str:
     return value
 
 
-def _check_override(agent_id: str, override: Any) -> dict[str, Any]:
-    _require(isinstance(override, dict), f"agents.{agent_id} must be a mapping")
-    unknown = set(override) - OVERRIDE_KEYS
-    _require(not unknown, f"agents.{agent_id}: unknown keys {sorted(unknown)}")
-    clean: dict[str, Any] = {}
-    for key, value in override.items():
-        where = f"agents.{agent_id}.{key}"
-        if key == "model":
-            clean[key] = _text(value, where, 100)
-        elif key == "prompt":
-            clean[key] = _text(value, where, MAX_PROMPT_CHARS)
-        elif key == "prompt_append":
-            clean[key] = _text(value, where, MAX_APPEND_CHARS, required=False)
-        elif key == "tools":
-            _require(
-                isinstance(value, list) and all(isinstance(t, str) for t in value),
-                f"{where} must be a list of tool names",
-            )
-            _require(len(value) <= 40, f"{where} has too many tools")
-            clean[key] = [t.strip() for t in value]
-        elif key in ("max_tokens", "seed"):
-            _require(
-                isinstance(value, int) and not isinstance(value, bool),
-                f"{where} must be an integer",
-            )
-            if key == "max_tokens":
-                _require(1 <= value <= 8000, f"{where} must be between 1 and 8000")
-            clean[key] = value
-        else:
-            low, high = _NUMBER_RANGES[key]
-            _require(
-                isinstance(value, (int, float)) and not isinstance(value, bool),
-                f"{where} must be a number",
-            )
-            _require(low <= value <= high, f"{where} must be between {low} and {high}")
-            clean[key] = value
-    return clean
-
-
 def parse_profile(raw: Any) -> ArchitectureProfile:
     """Validate the raw mapping of a profile (structure and value ranges)."""
     _require(isinstance(raw, dict), "a profile must be a mapping")
-    unknown = set(raw) - {"id", "label", "description", "router", "coordinator", "agents"}
+    unknown = set(raw) - {"id", "label", "description", "router", "coordinator"}
     _require(not unknown, f"unknown top-level keys {sorted(unknown)}")
     profile_id = raw.get("id")
     _require(
@@ -200,10 +146,6 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
     else:
         _require(not specialists, "flat mode has no specialists")
 
-    agents_raw = raw.get("agents") or {}
-    _require(isinstance(agents_raw, dict), "agents must be a mapping")
-    agents = {str(k): _check_override(str(k), v) for k, v in agents_raw.items()}
-
     return ArchitectureProfile(
         id=profile_id,
         label=_text(raw.get("label"), "label", MAX_LABEL_CHARS),
@@ -215,7 +157,6 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
         coordinator_agent=str(coordinator.get("agent", "branch_coordinator")),
         mode=mode,
         specialists=tuple(specialists),
-        agents=agents,
     )
 
 
@@ -226,35 +167,29 @@ def _agent_ids(profile: ArchitectureProfile) -> set[str]:
     return ids
 
 
-def agent_overrides(profile: ArchitectureProfile) -> dict[str, dict[str, Any]]:
-    """The profile's per-agent overrides, plus - in delegate mode, unless the
-    profile sets the coordinator's ``tools`` itself - the coordinator's tool
-    list adjusted to the profile's specialists (an ``ask_<id>`` tool for each,
-    none for specialists the file lists but the profile does not have)."""
-    overrides = {agent_id: dict(o) for agent_id, o in profile.agents.items()}
-    coordinator = overrides.get(profile.coordinator_agent, {})
-    if profile.mode == "delegate" and "tools" not in coordinator:
-        base = load_agent_specs(AGENTS_EXAMPLE).get(profile.coordinator_agent)
-        _require(base is not None, f"unknown agent '{profile.coordinator_agent}'")
-        wanted = [f"ask_{s.id}" for s in profile.specialists]
-        tools = [t for t in base.tools if not t.startswith("ask_") or t in wanted]
-        tools += [t for t in wanted if t not in tools]
-        overrides[profile.coordinator_agent] = {**coordinator, "tools": tools}
-    return overrides
+def profile_dir(profile_id: str) -> Path:
+    """The folder of one architecture (its YAML and its agent files)."""
+    _require(
+        isinstance(profile_id, str) and ID_RE.match(profile_id) is not None,
+        "invalid profile id",
+    )
+    path = (ARCHITECTURES_DIR / profile_id).resolve()
+    _require(path.parent == ARCHITECTURES_DIR.resolve(), "invalid profile id")
+    return path
 
 
 def effective_specs(profile: ArchitectureProfile) -> dict[str, AgentSpec]:
-    """The profile's agents with the overrides applied, checked against the
-    agent files (ids, kinds) and the tools the code actually provides."""
+    """The agents of the profile's own folder, as written, checked against the
+    profile (ids, kinds) and the tools the code actually provides."""
     try:
-        specs = load_agent_specs(AGENTS_EXAMPLE, agent_overrides(profile))
+        specs = load_agent_specs(profile_dir(profile.id))
     except ValueError as exc:
         raise ProfileError(str(exc)) from exc
     used = _agent_ids(profile)
-    stray = set(profile.agents) - used
-    _require(not stray, f"overrides for agents not used by this profile: {sorted(stray)}")
     for agent_id in used:
-        _require(agent_id in specs, f"unknown agent '{agent_id}'")
+        _require(
+            agent_id in specs, f"{profile.id}/: no agent file for '{agent_id}'"
+        )
 
     if profile.router_enabled:
         _require(
@@ -294,13 +229,7 @@ def validate_profile(raw: Any) -> ArchitectureProfile:
 
 
 def _profile_path(profile_id: str) -> Path:
-    _require(
-        isinstance(profile_id, str) and ID_RE.match(profile_id) is not None,
-        "invalid profile id",
-    )
-    path = (ARCHITECTURES_DIR / f"{profile_id}.yaml").resolve()
-    _require(path.parent == ARCHITECTURES_DIR.resolve(), "invalid profile id")
-    return path
+    return profile_dir(profile_id) / PROFILE_FILE
 
 
 def load_profile(profile_id: str) -> ArchitectureProfile:
@@ -308,7 +237,10 @@ def load_profile(profile_id: str) -> ArchitectureProfile:
     if not path.is_file():
         raise ProfileError(f"unknown architecture '{profile_id}'")
     profile = validate_profile(yaml.safe_load(path.read_text(encoding="utf-8")))
-    _require(profile.id == profile_id, f"{path.name}: id '{profile.id}' differs from the file name")
+    _require(
+        profile.id == profile_id,
+        f"{profile_id}/{PROFILE_FILE}: id '{profile.id}' differs from the folder name",
+    )
     return profile
 
 
@@ -316,14 +248,14 @@ def list_profiles() -> list[dict[str, str]]:
     """Id, label and description of every profile file; a broken file is listed
     with its error instead of hiding the others."""
     found: list[dict[str, str]] = []
-    for path in sorted(ARCHITECTURES_DIR.glob("*.yaml")):
+    for path in sorted(ARCHITECTURES_DIR.glob(f"*/{PROFILE_FILE}")):
         try:
-            profile = load_profile(path.stem)
+            profile = load_profile(path.parent.name)
             found.append(
                 {"id": profile.id, "label": profile.label, "description": profile.description}
             )
         except (ProfileError, yaml.YAMLError, OSError) as exc:
-            found.append({"id": path.stem, "label": path.stem, "description": "", "error": str(exc)})
+            found.append({"id": path.parent.name, "label": path.parent.name, "description": "", "error": str(exc)})
     return found
 
 
@@ -364,10 +296,9 @@ class PipelineRegistry:
     def _build(self, profile: ArchitectureProfile) -> Pipeline:
         specs = effective_specs(profile)
         factories = load_agent_factories(
-            AGENTS_EXAMPLE,
+            profile_dir(profile.id),
             self._base_config,
             self._api_key,
-            overrides=agent_overrides(profile),
             only=_agent_ids(profile),
         )
         bindings = [

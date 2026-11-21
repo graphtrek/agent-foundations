@@ -1,7 +1,8 @@
 """Build agents from one Markdown definition file per agent.
 
-Each agent of an example lives in its own ``NN_<id>.md`` file in a
-directory (e.g. ``src/bank_officer/agents/``), following the same
+Each agent of an architecture lives in its own ``NN_<id>.md`` file in that
+architecture's folder (``src/bank_officer/architectures/<id>/``), used as is,
+never overridden by the architecture YAML, following the same
 persona-file convention as ``dev-vault/data/agents``:
 
     # <Label>
@@ -47,8 +48,6 @@ from guardrails import (
     build_guardrail_middleware,
 )
 from model_util import ModelConfigLike, get_openrouter_model
-
-AGENTS_DIR = Path(__file__).resolve().parent / "agents"
 
 MIDDLEWARE_STACKS: dict[str, Callable[[], list[Any]]] = {
     "guardrails": build_guardrail_middleware,
@@ -127,44 +126,8 @@ def parse_agent_file(path: Path) -> AgentSpec:
     )
 
 
-OVERRIDE_KEYS = set(_MODEL_KEYS) | {"tools", "prompt", "prompt_append", "min_probability"}
-
-
-def apply_overrides(spec: AgentSpec, override: dict[str, Any]) -> AgentSpec:
-    """Return ``spec`` with an architecture profile's per-agent overrides applied.
-
-    Same keys as the file directives (``model``, ``temperature``, ... ``tools``,
-    ``min_probability``) plus ``prompt`` (replaces the system prompt) and
-    ``prompt_append`` (added after it). The middleware stack is deliberately not
-    overridable, so a profile can never switch the guardrails off."""
-    unknown = set(override) - OVERRIDE_KEYS
-    if unknown:
-        raise ValueError(f"agent '{spec.id}': unknown override keys {sorted(unknown)}")
-    model_overrides = dict(spec.model_overrides)
-    for key, field in _MODEL_KEYS.items():
-        if key in override:
-            model_overrides[field] = override[key]
-    prompt = str(override["prompt"]).strip() if "prompt" in override else spec.system_prompt
-    if override.get("prompt_append"):
-        prompt = f"{prompt}\n\n{str(override['prompt_append']).strip()}"
-    if not prompt:
-        raise ValueError(f"agent '{spec.id}': empty system prompt")
-    tools = tuple(override["tools"]) if "tools" in override else spec.tools
-    return replace(
-        spec,
-        system_prompt=prompt,
-        model_overrides=model_overrides,
-        tools=tools,
-        min_probability=float(override.get("min_probability", spec.min_probability)),
-    )
-
-
-def load_agent_specs(
-    example: str, overrides: dict[str, dict[str, Any]] | None = None
-) -> dict[str, AgentSpec]:
-    """Load every ``*.md`` agent file (except README.md) of one example, by id,
-    with an optional architecture profile's per-agent ``overrides`` applied."""
-    directory = AGENTS_DIR
+def load_agent_specs(directory: Path) -> dict[str, AgentSpec]:
+    """Load every ``*.md`` agent file (except README.md) in ``directory``, by id."""
     specs: dict[str, AgentSpec] = {}
     for path in sorted(directory.glob("*.md")):
         if path.name == "README.md":
@@ -173,10 +136,6 @@ def load_agent_specs(
         if spec.id in specs:
             raise ValueError(f"{path.name}: duplicate agent id '{spec.id}'")
         specs[spec.id] = spec
-    for agent_id, override in (overrides or {}).items():
-        if agent_id not in specs:
-            raise ValueError(f"override for unknown agent '{agent_id}'")
-        specs[agent_id] = apply_overrides(specs[agent_id], override)
     return specs
 
 
@@ -204,19 +163,17 @@ class AgentFactory:
 
 
 def load_agent_factories(
-    example: str,
+    directory: Path,
     base_config: ModelConfigLike,
     api_key: str,
-    overrides: dict[str, dict[str, Any]] | None = None,
     only: set[str] | None = None,
 ) -> dict[str, AgentFactory]:
-    """Load an example's ``kind: agent`` files and build each one's chat model
+    """Load an architecture folder's ``kind: agent`` files and build each one's chat model
     once. ``kind: decision`` files (decision models such as TypeSafe Jev, not
     callable as chat models) are built by their own client instead, e.g.
-    ``decision_router.EndpointRouter``. ``overrides`` are an architecture
-    profile's per-agent changes; ``only`` limits which agents get a model."""
+    ``decision_router.EndpointRouter``. ``only`` limits which agents get a model."""
     factories: dict[str, AgentFactory] = {}
-    for agent_id, spec in load_agent_specs(example, overrides).items():
+    for agent_id, spec in load_agent_specs(directory).items():
         if spec.kind != "agent" or (only is not None and agent_id not in only):
             continue
         config = cast(ModelConfigLike, replace(cast(Any, base_config), **spec.model_overrides))

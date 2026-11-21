@@ -6,7 +6,7 @@ serves it only through the alpha Decisions API
 calibrated probabilities instead of generated text. So the endpoint router is
 not a LangChain agent: it asks one ``choice`` question whose options are the
 mock catalog's endpoints (plus ``none``), built from its agent definition
-file (``kind: decision`` in ``src/bank_officer/agents/``).
+file (``kind: decision`` in ``src/bank_officer/architectures/<id>/``).
 
 Guardrails run in code around the call, mirroring what the LangChain
 middleware does for the chat agents: the prompt-injection check and PII
