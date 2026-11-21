@@ -304,7 +304,9 @@
             <p>
               Az előző két kártya alapján itt próbálható ki az architektúra: a chatben
               kérdezhetsz, és élőben látszik, melyik végpontot találta el a router, mely
-              tooloket hívta az agent, és mit adott vissza a guardrail után.
+              tooloket hívta az agent, és mit adott vissza a guardrail után. A fejlécben az
+              architektúra kiválasztható (router, subagentek, modellek, promptok a YAML profilokban),
+              az <a href="src/bank_officer/webapp_mockup/eval.html" data-page="eval">eval oldal</a> (vagy az <code>evals/run.py</code>) pedig ugyanazokat a kérdéseket futtatja több profilon.
             </p>
             <div class="spacer"></div>
             <a class="btn" data-page="chat" href="http://127.0.0.1:8050/chat.html">Chat megnyitása →</a>
@@ -398,7 +400,8 @@
           architecture: '/architecture.html',
           catalog: '/catalog.html',
           mobile: '/mobile.html',
-          chat: '/chat.html'
+          chat: '/chat.html',
+          eval: '/eval.html'
         };
         document.querySelectorAll('a[data-page]').forEach(function (a) {
           a.setAttribute('href', map[a.dataset.page]);

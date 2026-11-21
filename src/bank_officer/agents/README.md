@@ -1,7 +1,8 @@
 # agents/bank_officer
 
-One Markdown file per agent of `src/bank_officer_agent.py`; `utils.agent_spec` builds every agent
-(model, tools, middleware, system prompt) from these files. Same convention as
+One Markdown file per agent of `src/bank_officer/`; `agent_spec.py` builds every agent
+(model, tools, middleware, system prompt) from these files. Architecture profiles in
+`../architectures/*.yaml` choose which agents run and can override their settings. Same convention as
 `dev-vault/data/agents`.
 
 File format:
@@ -28,7 +29,7 @@ Directive lines (HTML comments, any order) right after the heading:
   - override the `TEXT_*` base model config (`config.text`).
 - `tools` - comma-separated tool names the agent gets. This list is the source of truth: a listed
   tool the code does not provide is an error, a provided tool that is not listed is left out.
-- `middleware` - the guardrail stack from `utils.agent_spec.MIDDLEWARE_STACKS`: `guardrails`
+- `middleware` - the guardrail stack from `agent_spec.MIDDLEWARE_STACKS`: `guardrails`
   (default) or `coordinator`.
 - `kind` - `agent` (default, a LangChain chat agent) or `decision` (a decision model such as
   TypeSafe Jev on OpenRouter's Decisions API, e.g. `00_endpoint_router.md`): the body becomes the

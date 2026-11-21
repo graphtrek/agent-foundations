@@ -38,8 +38,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import eval_runner
 import live_run
 import uvicorn
+from architecture import (
+    ProfileError,
+    list_profiles,
+    load_profile,
+)
 from branch_session import FAILURE_REPLY, BranchSession, customer_info
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import (
@@ -50,7 +56,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from terminal import CONVERSATIONS_DIR, LOGS_DIR, build_agents
+from terminal import CONVERSATIONS_DIR, DEFAULT_ARCHITECTURE, LOGS_DIR, REGISTRY
 from tools import BranchContext
 
 MOCKUP_DIR = Path(__file__).resolve().parent / "webapp_mockup"
@@ -65,12 +71,14 @@ PORT = int(os.environ.get("BANK_WEB_PORT", "8050"))
 MAX_MESSAGE_CHARS = 2000
 logger = logging.getLogger(__name__)
 
-endpoint_router, coordinator = build_agents()
+# Fail fast on a broken default profile; others are built on first use.
+REGISTRY.get(DEFAULT_ARCHITECTURE)
 
 
 @dataclass
 class WebChat:
     session: BranchSession
+    architecture: str
     turns: list[dict[str, Any]] = field(
         default_factory=list
     )  # finished: {prompt, events}
@@ -97,6 +105,16 @@ class PostMessageRequest(BaseModel):
     content: str = Field(max_length=MAX_MESSAGE_CHARS)
 
 
+class EvalRequest(BaseModel):
+    architectures: list[str] = Field(min_length=1, max_length=10)
+    cases: list[str] | None = None
+    repeat: int = Field(default=1, ge=1, le=eval_runner.MAX_REPEAT)
+
+
+class NewChatRequest(BaseModel):
+    architecture: str = Field(default=DEFAULT_ARCHITECTURE, max_length=40)
+
+
 app = FastAPI(title="Bank Branch Officer Chat")
 
 
@@ -110,16 +128,84 @@ def root() -> Response:
 
 
 @app.post("/api/chats", status_code=201)
-def new_chat() -> dict[str, str]:
+def new_chat(req: NewChatRequest | None = None) -> dict[str, str]:
+    architecture = req.architecture if req else DEFAULT_ARCHITECTURE
+    try:
+        pipeline = REGISTRY.get(architecture)
+    except ProfileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     chat_id = uuid.uuid4().hex[:12]
     session = BranchSession(
-        endpoint_router,
-        coordinator,
+        pipeline.router,
+        pipeline.coordinator,
         BranchContext(officer_id="officer-demo", branch_id="branch-buda"),
         thread_id_prefix=f"web-{chat_id}",
+        architecture=architecture,
     )
-    _chats[chat_id] = WebChat(session=session)
-    return {"chat_id": chat_id}
+    _chats[chat_id] = WebChat(session=session, architecture=architecture)
+    return {"chat_id": chat_id, "architecture": architecture}
+
+
+@app.get("/api/architectures")
+def get_architectures() -> dict[str, Any]:
+    return {"default": DEFAULT_ARCHITECTURE, "architectures": list_profiles()}
+
+
+@app.get("/api/architectures/{profile_id}")
+def get_architecture(profile_id: str) -> dict[str, Any]:
+    try:
+        return load_profile(profile_id).to_dict()
+    except ProfileError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+_eval_run: eval_runner.EvalRun | None = None
+
+
+@app.get("/api/evals/options")
+def eval_options() -> dict[str, Any]:
+    return {
+        "architectures": [p for p in list_profiles() if "error" not in p],
+        "cases": [
+            {"id": c["id"], "question": c["question"], "customer": c.get("customer")}
+            for c in eval_runner.load_cases()
+        ],
+        "max_repeat": eval_runner.MAX_REPEAT,
+    }
+
+
+@app.post("/api/evals", status_code=202)
+def start_eval(req: EvalRequest) -> dict[str, str]:
+    """Start one eval run in the background (these are real model calls; only
+    one runs at a time)."""
+    global _eval_run
+    if _eval_run is not None and not _eval_run.done:
+        raise HTTPException(status_code=409, detail="An eval is already running.")
+    known = set(eval_runner.valid_architectures())
+    unknown = [a for a in req.architectures if a not in known]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown architectures: {unknown}")
+    cases = eval_runner.load_cases()
+    if req.cases is not None:
+        cases = [c for c in cases if c["id"] in set(req.cases)]
+    if not cases:
+        raise HTTPException(status_code=400, detail="No cases selected.")
+    _eval_run = eval_runner.EvalRun(list(dict.fromkeys(req.architectures)), cases, req.repeat)
+    _eval_run.start()
+    return {"id": _eval_run.id}
+
+
+@app.get("/api/evals/current")
+def current_eval() -> dict[str, Any] | None:
+    return _eval_run.snapshot() if _eval_run is not None else None
+
+
+@app.post("/api/evals/cancel", status_code=204)
+def cancel_eval() -> Response:
+    if _eval_run is None or _eval_run.done:
+        raise HTTPException(status_code=404, detail="No running eval.")
+    _eval_run.cancelled.set()
+    return Response(status_code=204)
 
 
 @app.get("/api/chats/{chat_id}")
@@ -127,6 +213,7 @@ def get_chat(chat_id: str) -> dict[str, Any]:
     chat = _get_chat(chat_id)
     run = live_run.get(chat_id)
     return {
+        "architecture": chat.architecture,
         "customer": customer_info(chat.session.current_customer_id),
         "turns": chat.turns,
         "live": {"prompt": run.prompt} if run is not None and not run.done else None,

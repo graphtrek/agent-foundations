@@ -1,0 +1,23 @@
+id: baseline
+label: Router + koordinátor + 3 specialista
+description: A jelenlegi felépítés. Jev endpoint router, koordinátor és három specialista subagent.
+router:
+  enabled: true
+  agent: endpoint_router
+coordinator:
+  agent: branch_coordinator
+  mode: delegate
+  specialists:
+  - id: account_specialist
+    tool_group: account
+    description: Ask the account/transactions specialist about the selected customer's balances,
+      transaction history, statements, spending totals or scheduled payments.
+  - id: product_specialist
+    tool_group: product
+    description: Ask the product/offers specialist about the catalog or the selected customer's
+      personalized discounts and existing loans.
+  - id: service_specialist
+    tool_group: service
+    description: Ask the customer-service specialist about the selected customer's cards and card
+      limits, loan-application status, profile/contact data or support tickets.
+agents: {}

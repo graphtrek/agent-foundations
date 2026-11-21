@@ -1,0 +1,35 @@
+# Eval cases for the architecture comparison (evals/run.py). Deterministic checks only:
+#   customer              customer id selected before the question (null = none)
+#   expected_endpoint     endpoint_id the router should match (only scored when a router runs)
+#   expected_any_tools    at least one of these tools must be called
+#   must_contain_numbers  numbers that must appear in the reply (formatting ignored: 482 350 = 482,350)
+#   must_contain_text     case-insensitive fragments that must appear in the reply
+#   expect_access_denied  the reply must be the entitlement refusal
+cases:
+- id: balances
+  customer: cust-001
+  question: Mutasd meg a számláim egyenlegét.
+  expected_endpoint: ep-accounts-list
+  expected_any_tools: [ask_account_specialist, list_accounts]
+  must_contain_numbers: [482350, 3120000]
+- id: balances_other_customer
+  customer: cust-002
+  question: Mennyi pénz van az ügyfél számláin összesen, és melyik számlán van a legtöbb?
+  expected_any_tools: [ask_account_specialist, list_accounts]
+  must_contain_numbers: [7480000]
+- id: opening_hours
+  customer: null
+  question: Mikor tart nyitva a Buda fiók a jövő hétfőn?
+  expected_any_tools: [get_branch_opening_hours]
+- id: offers
+  customer: cust-001
+  question: Milyen személyre szabott ajánlatai vannak az ügyfélnek?
+  expected_any_tools: [ask_product_specialist, list_personalized_offers]
+- id: cards
+  customer: cust-001
+  question: Milyen bankkártyái vannak az ügyfélnek?
+  expected_any_tools: [ask_service_specialist, list_cards]
+- id: access_denied_business
+  customer: cust-003
+  question: Mutasd az üzleti számlák összesített áttekintését.
+  expect_access_denied: true

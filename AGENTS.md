@@ -18,7 +18,14 @@ LangGraph, using OpenRouter as the model provider.
   then open http://127.0.0.1:8050/ (`BANK_WEB_HOST`/`BANK_WEB_PORT` override
   the address).
 - Run the bank branch officer terminal chat assistant:
-  `uv run python src/bank_officer/terminal.py`.
+  `uv run python src/bank_officer/terminal.py [--arch <profile id>]`
+  (`BANK_ARCH` sets the default profile).
+- Compare architectures on the same questions:
+  `uv run python src/bank_officer/evals/run.py --arch baseline,no_router,single_agent [--repeat 3]`
+  (cases in `src/bank_officer/evals/cases.yaml`, results in `logs/evals/`).
+  The same runner (`src/bank_officer/eval_runner.py`) backs the web page
+  http://127.0.0.1:8050/eval.html (`GET /api/evals/options`, `POST /api/evals`,
+  `GET /api/evals/current`, `POST /api/evals/cancel`); one eval runs at a time.
 
 The first three commands make OpenRouter requests. The search example also
 uses DuckDuckGo, and the image example in `simple_agent.py` expects `test.jpg`
@@ -75,6 +82,24 @@ runs the same checks in code (`is_prompt_injection()` and `redact_pii()` from
 from `check_endpoint_access()`: `True` when the selected customer's
 entitlement tier is below the matched endpoint's `required_entitlement`,
 `None` when no customer is selected yet.
+
+### Architecture profiles (bank officer)
+
+The pipeline's shape is data: `src/bank_officer/architectures/<id>.yaml`
+(`baseline`, `no_router`, `single_agent`, `alt_model_specialists`) says whether
+the Jev router runs, whether the coordinator delegates to specialist
+sub-agents (`mode: delegate`) or gets every data tool itself (`mode: flat`),
+and overrides per agent (model, sampling, tools, `prompt`/`prompt_append`) on
+top of `agents/*.md`. `src/bank_officer/architecture.py` validates profiles
+(`validate_profile()`) and builds/caches pipelines
+(`PipelineRegistry`); `tools.py` generates the `ask_<id>` wrappers from the
+profile (`SpecialistBinding`, `TOOL_GROUPS`). What is mandatory stays in code:
+a profile cannot override the middleware stack, and without a router the
+entitlement rule still holds in the specialist gate and the tier-restricted
+tools (only the code-level short-circuit is absent). The web chat has an
+architecture picker (`GET /api/architectures`, `GET /api/architectures/{id}`;
+`POST /api/chats` takes `{architecture}`); profiles are edited as YAML files.
+Specialists are `agents/*.md` files; a new one needs a new file.
 
 ## Validation
 

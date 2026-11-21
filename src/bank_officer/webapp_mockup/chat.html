@@ -122,6 +122,8 @@
     padding: 6px 12px;
   }
   button:disabled { opacity: 0.5; cursor: default; }
+  .archpick { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+  .archpick select { font: inherit; font-size: 0.85rem; max-width: 260px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
 
   #messages {
     flex: 1;
@@ -293,8 +295,9 @@
 <div class="app">
   <header>
     <h1>Branch Officer</h1>
-    <nav><a data-home href="index.html">← Home</a> <a href="catalog.html">Endpoint catalog →</a> <a href="mobile.html">Mobile app →</a> <a href="architecture.html" target="_blank">Architecture →</a></nav>
+    <nav><a data-home href="index.html">← Home</a> <a href="catalog.html">Endpoint catalog →</a> <a href="eval.html">Eval →</a> <a href="mobile.html">Mobile app →</a> <a href="architecture.html" target="_blank">Architecture →</a></nav>
     <span class="spacer"></span>
+    <label class="archpick">Architecture <select id="arch" title="Agent architecture profile - switching starts a new chat"></select></label>
     <span class="customer" id="customer">No customer selected</span>
     <button type="button" id="flow-toggle">Flow</button>
     <button type="button" id="new-chat" title="End this session (saves it to conversations/) and start a new one">New chat</button>
@@ -343,7 +346,7 @@
     var banner = document.createElement("div");
     banner.className = "banner";
     banner.innerHTML = "This page needs the chat server. Start it with " +
-      "<code>uv run python src/bank_officer_web.py</code> and open " +
+      "<code>uv run python src/bank_officer/main.py</code> and open " +
       "<a href=\"http://127.0.0.1:8050/chat.html\">http://127.0.0.1:8050/chat.html</a>.";
     messagesEl.appendChild(banner);
     form.hidden = true;
@@ -461,20 +464,34 @@
     });
     [n.gin, n.router, n.access, n.coord, n.gout, n.gw].forEach(function (node) { node.classList.add("idle"); });
     this.state(n.q, null);
+    this.noRouter();
+  };
+
+  /* An architecture without a router step shows its two nodes as not present. */
+  Flow.prototype.noRouter = function () {
+    if (currentArch.router) return;
+    this.state(this.n.router, "skipped", "not in this architecture");
+    this.state(this.n.access, "skipped", "tools still enforce the tier");
   };
 
   Flow.prototype.start = function (text) {
     this.reset();
     this.state(this.n.q, "done", text.length > 70 ? text.slice(0, 70) + "…" : text);
     this.state(this.n.gin, "done");
-    this.state(this.n.router, "active");
+    if (currentArch.router) this.state(this.n.router, "active");
     this.arrows[0].classList.add("on");
     this.arrows[1].classList.add("on");
   };
 
   Flow.prototype.handle = function (event, data) {
     var n = this.n, self = this;
-    if (event === "route") {
+    if (event === "route" && data.skipped) {
+      this.lastAt = data.at_ms || 0;
+      this.llmTotal = 0;
+      this.arrows[2].classList.add("on");
+      this.arrows[3].classList.add("on");
+      this.state(n.coord, "active", currentArch.mode === "flat" ? "calling data tools directly" : "choosing a specialist");
+    } else if (event === "route") {
       var ep = data.endpoint;
       this.time(n.router, data.elapsed_ms);
       this.lastAt = data.at_ms || 0;
@@ -544,6 +561,43 @@
       });
     }
   };
+
+  /* ---- Architecture profiles: picker ---- */
+  var archSel = document.getElementById("arch");
+  var currentArch = { id: null, router: true, mode: "delegate" };
+
+  function loadProfile(id) {
+    return api("/api/architectures/" + encodeURIComponent(id)).then(function (p) {
+      currentArch = { id: p.id, router: !!(p.router && p.router.enabled), mode: p.coordinator.mode };
+      return p;
+    });
+  }
+
+  function loadArchitectures() {
+    return api("/api/architectures").then(function (body) {
+      archSel.textContent = "";
+      body.architectures.forEach(function (a) {
+        var o = el("option", null, a.label + (a.error ? " (invalid)" : ""));
+        o.value = a.id;
+        o.disabled = !!a.error;
+        o.title = a.error || a.description || "";
+        archSel.appendChild(o);
+      });
+      archSel.value = body.default;
+      if (archSel.value !== body.default) archSel.selectedIndex = 0;
+      return body;
+    });
+  }
+
+  function endChatThenNew() {
+    var done = chatId ? api("/api/chats/" + encodeURIComponent(chatId), { method: "DELETE" }).catch(function () {}) : Promise.resolve();
+    return done.then(function () { return loadProfile(archSel.value); }).then(startNewChat);
+  }
+
+  archSel.addEventListener("change", function () {
+    if (streaming) { archSel.value = currentArch.id; return; }
+    endChatThenNew().catch(function (err) { alert(err.message); archSel.value = currentArch.id; });
+  });
 
   var flow = new Flow();
   var flowPanel = document.getElementById("flow");
@@ -717,7 +771,7 @@
   }
 
   function startNewChat() {
-    return api("/api/chats", { method: "POST" }).then(function (body) {
+    return api("/api/chats", { method: "POST", json: { architecture: archSel.value } }).then(function (body) {
       chatId = body.chat_id;
       storageSet(chatId);
       messagesEl.textContent = "";
@@ -730,6 +784,9 @@
   function restore(id) {
     return api("/api/chats/" + encodeURIComponent(id)).then(function (body) {
       chatId = id;
+      archSel.value = body.architecture;
+      return loadProfile(body.architecture).then(function () { return body; });
+    }).then(function (body) {
       messagesEl.textContent = "";
       setCustomer(body.customer);
       flow.reset();
@@ -778,7 +835,10 @@
   });
 
   var saved = storageGet();
-  (saved ? restore(saved).catch(startNewChat) : startNewChat()).catch(function (err) {
+  loadArchitectures().then(function () {
+    return saved ? restore(saved).catch(function () { return loadProfile(archSel.value).then(startNewChat); })
+                 : loadProfile(archSel.value).then(startNewChat);
+  }).catch(function (err) {
     messagesEl.textContent = "";
     var b = el("div", "banner", "Could not reach the chat server: " + err.message);
     messagesEl.appendChild(b);

@@ -1,0 +1,26 @@
+id: alt_model_specialists
+label: Baseline, más modell a specialistáknak
+description: Ugyanaz, mint a baseline, de a specialisták másik modellt használnak (a modell a YAML-ban átírható).
+router:
+  enabled: true
+  agent: endpoint_router
+coordinator:
+  agent: branch_coordinator
+  mode: delegate
+  specialists:
+  - id: account_specialist
+    tool_group: account
+    description: Ask the account/transactions specialist about the selected customer's balances,
+      transaction history, statements, spending totals or scheduled payments.
+  - id: product_specialist
+    tool_group: product
+    description: Ask the product/offers specialist about the catalog or the selected customer's
+      personalized discounts and existing loans.
+  - id: service_specialist
+    tool_group: service
+    description: Ask the customer-service specialist about the selected customer's cards and card
+      limits, loan-application status, profile/contact data or support tickets.
+agents:
+  account_specialist: {model: poolside/laguna-s-2.1}
+  product_specialist: {model: poolside/laguna-s-2.1}
+  service_specialist: {model: poolside/laguna-s-2.1}

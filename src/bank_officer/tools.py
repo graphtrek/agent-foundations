@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from typing import Any
@@ -6,6 +7,8 @@ from typing import Any
 from langchain.agents import AgentState
 from langchain.messages import HumanMessage, ToolMessage
 from langchain.tools import ToolRuntime, tool
+from langchain_core.tools import StructuredTool
+from pydantic import create_model
 from langgraph.types import Command
 
 import bank_data
@@ -436,18 +439,95 @@ def _run_specialist(agent: Any, question: str) -> str:
     return response["messages"][-1].content
 
 
+# Customer-scoped tool groups a profile can hand to a specialist (or, in
+# ``flat`` mode, to the coordinator itself). Each builder takes a customer id.
+TOOL_GROUPS: dict[str, Any] = {
+    "account": create_account_specialist_tools,
+    "product": create_product_specialist_tools,
+    "service": create_service_specialist_tools,
+}
+DIRECT_TOOL_NAMES = (
+    "list_customers",
+    "select_customer",
+    "get_branch_opening_hours",
+    "list_branch_locations",
+    "get_general_conditions",
+)
+
+
+def group_tool_names(group: str) -> tuple[str, ...]:
+    """Names of the tools in one group (the dummy customer id is never used:
+    the tools only close over it)."""
+    return tuple(t.name for t in TOOL_GROUPS[group](""))
+
+
+@dataclass(frozen=True)
+class SpecialistBinding:
+    """One specialist the coordinator can delegate to: the wrapper tool is
+    ``ask_<id>``, the specialist agent is built per call from ``factory`` with
+    the ``group`` tools scoped to the selected customer."""
+
+    id: str
+    group: str
+    description: str
+    factory: AgentFactory
+
+
+def _make_specialist_tool(binding: SpecialistBinding) -> Any:
+    """Wrapper tool that runs one specialist for the customer selected now."""
+
+    def ask(question: str, runtime: ToolRuntime[BranchContext, BranchState]) -> str:
+        if (blocked := _specialist_gate(runtime.state)) is not None:
+            return blocked
+        customer_id = runtime.state["current_customer_id"]
+        agent = binding.factory.build(TOOL_GROUPS[binding.group](customer_id))
+        return _run_specialist(agent, question)
+
+    return StructuredTool.from_function(
+        func=ask,
+        name=f"ask_{binding.id}",
+        description=binding.description,
+    )
+
+
+def _make_flat_tool(group: str, template: Any) -> Any:
+    """A group tool the coordinator calls directly: same name, description and
+    arguments as ``template``, but built per call for the customer selected
+    now (the group tools close over one customer id)."""
+
+    schema = create_model(
+        f"{template.name}_args",
+        __base__=template.args_schema,
+        runtime=(ToolRuntime[BranchContext, BranchState], None),
+    )
+
+    def run(runtime: ToolRuntime[BranchContext, BranchState], **kwargs: Any) -> str:
+        if (blocked := _specialist_gate(runtime.state)) is not None:
+            return blocked
+        customer_id = runtime.state["current_customer_id"]
+        scoped = {t.name: t for t in TOOL_GROUPS[group](customer_id)}[template.name]
+        return scoped.invoke(kwargs)
+
+    return StructuredTool.from_function(
+        func=run,
+        name=template.name,
+        description=template.description,
+        args_schema=schema,
+    )
+
+
 def create_branch_tools(
-    account_factory: AgentFactory,
-    product_factory: AgentFactory,
-    service_factory: AgentFactory,
+    specialists: Sequence[SpecialistBinding] = (), flat: bool = False
 ) -> list[Any]:
-    """Create the coordinator's own tools: customer lookup plus three specialist
-    wrappers. Unlike ``create_offsite_tools`` (whose specialists have static
-    tools because the data - the candidate images - is fixed ahead of time),
-    the account/product specialists here must be scoped to whichever customer
-    is currently selected, so each wrapper tool builds a fresh specialist
-    agent with customer-scoped tools on every call, from the agent's own
-    Markdown definition (``AgentFactory``, model built once at startup).
+    """Create the coordinator's own tools: customer lookup, branch info and -
+    by the architecture profile - either one ``ask_<id>`` wrapper per
+    specialist (``flat=False``) or every customer-scoped data tool directly
+    (``flat=True``, the single-agent baseline).
+
+    The customer-scoped tools can't be static (the customer is selected
+    mid-session), so each wrapper builds a fresh specialist agent with
+    customer-scoped tools on every call, from the agent's own Markdown
+    definition (``AgentFactory``, model built once per pipeline).
     """
 
     @tool
@@ -492,43 +572,6 @@ def create_branch_tools(
                 ],
             }
         )
-
-    @tool
-    def ask_account_specialist(
-        question: str, runtime: ToolRuntime[BranchContext, BranchState]
-    ) -> str:
-        """Ask the account/transactions specialist about the selected customer's
-        balances or transaction history."""
-        if (blocked := _specialist_gate(runtime.state)) is not None:
-            return blocked
-        customer_id = runtime.state["current_customer_id"]
-        account_agent = account_factory.build(create_account_specialist_tools(customer_id))
-        return _run_specialist(account_agent, question)
-
-    @tool
-    def ask_product_specialist(
-        question: str, runtime: ToolRuntime[BranchContext, BranchState]
-    ) -> str:
-        """Ask the product/offers specialist about the catalog or the selected
-        customer's personalized discounts."""
-        if (blocked := _specialist_gate(runtime.state)) is not None:
-            return blocked
-        customer_id = runtime.state["current_customer_id"]
-        product_agent = product_factory.build(create_product_specialist_tools(customer_id))
-        return _run_specialist(product_agent, question)
-
-    @tool
-    def ask_service_specialist(
-        question: str, runtime: ToolRuntime[BranchContext, BranchState]
-    ) -> str:
-        """Ask the customer-service specialist about the selected customer's
-        cards and card limits, loan-application status, profile/contact data
-        or support tickets."""
-        if (blocked := _specialist_gate(runtime.state)) is not None:
-            return blocked
-        customer_id = runtime.state["current_customer_id"]
-        service_agent = service_factory.build(create_service_specialist_tools(customer_id))
-        return _run_specialist(service_agent, question)
 
     @tool
     def get_branch_opening_hours(when: str = "today", branch: str = "") -> str:
@@ -593,13 +636,19 @@ def create_branch_tools(
             return "No conditions found for that product."
         return "\n".join(f"- {p} / {item}: {fee} ({note})" for p, item, fee, note in rows)
 
-    return [
+    direct = [
         list_customers,
         select_customer,
-        ask_account_specialist,
-        ask_product_specialist,
-        ask_service_specialist,
         get_branch_opening_hours,
         list_branch_locations,
         get_general_conditions,
     ]
+    if flat:
+        scoped = [
+            _make_flat_tool(group, t)
+            for group, builder in TOOL_GROUPS.items()
+            for t in builder("")
+        ]
+    else:
+        scoped = [_make_specialist_tool(b) for b in specialists]
+    return direct + scoped

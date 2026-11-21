@@ -1,8 +1,9 @@
 """Bank branch officer chat assistant - a multi-agent, query-only example.
 
 An officer serving a walk-in customer chats with an assistant backed by a
-coordinator agent (``create_agent()``) that delegates to three specialists,
-mirroring the pattern in ``corporate_offsite_planner_agent.py``:
+coordinator agent (``create_agent()``) that - in the default ``baseline``
+architecture profile - delegates to three specialists (other profiles in
+``architectures/`` rearrange or drop the router, coordinator and specialists):
 
 - Account/transactions specialist: balances and transaction history.
 - Product/offers specialist: product catalog, personalized discounts, existing loans.
@@ -10,7 +11,7 @@ mirroring the pattern in ``corporate_offsite_planner_agent.py``:
 
 Before the coordinator sees each message, an endpoint router runs first:
 not a chat agent but a TypeSafe Jev decision model on OpenRouter's Decisions
-API (``utils.decision_router.EndpointRouter``), which picks the best REST
+API (``decision_router.EndpointRouter``), which picks the best REST
 endpoint in a mock web banking app catalog; code then flags whether the
 selected customer's entitlement tier covers it. The access rule
 is enforced in code, never by a prompt: when the verdict is "denied", the
@@ -20,7 +21,7 @@ mid-turn. Otherwise the coordinator reads the router's result
 (``matched_endpoint`` in ``BranchState``) to help choose a specialist.
 
 Every reply reaches the officer through ``BranchSession._deliver()``
-(``utils.branch_session``, shared with the web chat in
+(``branch_session``, shared with the web chat in
 ``main.py``), a deterministic response gateway (no LLM), and
 the coordinator's conversation thread is reset whenever the officer switches to a different customer, so one
 customer's data never stays in context while serving the next one.
@@ -31,25 +32,18 @@ mock customers in one session. This example is query-only: no tool mutates
 account or product data, and no human-approval gate is needed since the
 officer is already the human in the loop.
 
-Run with: uv run python src/bank_officer_agent.py
+Run with: uv run python src/bank_officer/terminal.py [--arch <profile id>]
 """
 
+import argparse
 import logging
 import os
 from pathlib import Path
-from typing import Any
 
-from langgraph.checkpoint.memory import InMemorySaver
-
-from config import load_config
-from agent_spec import load_agent_factories, load_agent_specs
+from architecture import PipelineRegistry
 from branch_session import BranchSession
-from decision_router import EndpointRouter
-from tools import (
-    BranchContext,
-    BranchState,
-    create_branch_tools,
-)
+from config import load_config
+from tools import BranchContext
 
 SEPARATOR = "-" * 80
 CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "conversations"
@@ -66,44 +60,27 @@ openrouter_api_key = config.openrouter_api_key
 # stack and system prompt). None need vision, so the TEXT_* config is the
 # shared base that each file's model directives override.
 BASE_CONFIG = config.text
-AGENTS_EXAMPLE = "bank_officer"
+DEFAULT_ARCHITECTURE = os.environ.get("BANK_ARCH", "baseline")
+
+# Every architecture (router or not, coordinator, specialists, per-agent
+# overrides) is a profile in src/bank_officer/architectures/; the registry
+# builds a profile's agents on first use and caches them. One coordinator can
+# serve several sessions as long as each uses its own thread id prefix.
+REGISTRY = PipelineRegistry(BASE_CONFIG, openrouter_api_key)
 
 
-def build_agents() -> tuple[EndpointRouter, Any]:
-    """Build the endpoint router and the coordinator (with its three specialist
-    tools) from their agent definition files. The coordinator's in-memory
-    checkpointer keys threads by id, so one coordinator can serve several
-    sessions as long as each uses its own thread id prefix."""
-    factories = load_agent_factories(AGENTS_EXAMPLE, BASE_CONFIG, openrouter_api_key)
-    branch_tools = create_branch_tools(
-        factories["account_specialist"],
-        factories["product_specialist"],
-        factories["service_specialist"],
-    )
-    coordinator = factories["branch_coordinator"].build(
-        branch_tools,
-        state_schema=BranchState,
-        context_schema=BranchContext,
-        checkpointer=InMemorySaver(),
-    )
-    # The router is a decision model (kind: decision), not a chat agent, and
-    # is stateless across turns: it sees only the current question.
-    endpoint_router = EndpointRouter(
-        load_agent_specs(AGENTS_EXAMPLE)["endpoint_router"], openrouter_api_key
-    )
-    return endpoint_router, coordinator
-
-
-def run_officer_chat() -> None:
+def run_officer_chat(architecture: str = DEFAULT_ARCHITECTURE) -> None:
     """Run the interactive officer chat loop until an exit word is typed."""
-    endpoint_router, coordinator = build_agents()
+    pipeline = REGISTRY.get(architecture)
     session = BranchSession(
-        endpoint_router,
-        coordinator,
+        pipeline.router,
+        pipeline.coordinator,
         BranchContext(officer_id="officer-demo", branch_id="branch-buda"),
+        architecture=architecture,
     )
 
     print(SEPARATOR)
+    print(f"Architecture: {architecture} - {pipeline.profile.label}")
     print("Bank Branch Officer Assistant - type 'exit', 'quit', or 'kilépés' to quit.")
     print(SEPARATOR)
 
@@ -141,5 +118,12 @@ if __name__ == "__main__":
             logging.StreamHandler(),
         ],
     )
+    parser = argparse.ArgumentParser(description="Bank branch officer terminal chat")
+    parser.add_argument(
+        "--arch",
+        default=DEFAULT_ARCHITECTURE,
+        help="architecture profile id (src/bank_officer/architectures/<id>.yaml)",
+    )
+    args = parser.parse_args()
     print("Bank Branch Officer Assistant is running...")
-    run_officer_chat()
+    run_officer_chat(args.arch)

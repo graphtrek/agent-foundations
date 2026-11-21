@@ -103,15 +103,17 @@ class BranchSession:
 
     def __init__(
         self,
-        endpoint_router: EndpointRouter,
+        endpoint_router: EndpointRouter | None,
         coordinator: Any,
         context: BranchContext,
         thread_id_prefix: str = "branch-visit",
+        architecture: str | None = None,
     ) -> None:
         self.endpoint_router = endpoint_router
         self.coordinator = coordinator
         self.context = context
         self.thread_id_prefix = thread_id_prefix
+        self.architecture = architecture
         self.current_customer_id: str | None = None
         self.transcript: list[Any] = []
         self.first_prompt: str | None = None
@@ -151,20 +153,33 @@ class BranchSession:
         def now_ms() -> int:
             return round((time.perf_counter() - t0) * 1000)
 
-        try:
-            matched = self.endpoint_router.route(user_input, self.current_customer_id)
-        except EndpointRouterError:
-            # Fail closed: an untrusted routing result must not let the
-            # question through without its entitlement check.
-            logger.exception("Endpoint router failed")
-            yield self._deliver(FAILURE_REPLY, user_input)
-            return
-        logger.info("Matched endpoint: %s", matched)
-        yield "route", {
-            "endpoint": matched,
-            "at_ms": now_ms(),
-            "elapsed_ms": now_ms(),
-        }
+        matched = None
+        if self.endpoint_router is None:
+            # This architecture has no router step: nothing is matched, so
+            # there is no code-level short-circuit either. The entitlement
+            # rule still holds in the specialist gate and the tier-restricted
+            # tools.
+            yield "route", {
+                "endpoint": None,
+                "skipped": True,
+                "at_ms": now_ms(),
+                "elapsed_ms": now_ms(),
+            }
+        else:
+            try:
+                matched = self.endpoint_router.route(user_input, self.current_customer_id)
+            except EndpointRouterError:
+                # Fail closed: an untrusted routing result must not let the
+                # question through without its entitlement check.
+                logger.exception("Endpoint router failed")
+                yield self._deliver(FAILURE_REPLY, user_input)
+                return
+            logger.info("Matched endpoint: %s", matched)
+            yield "route", {
+                "endpoint": matched,
+                "at_ms": now_ms(),
+                "elapsed_ms": now_ms(),
+            }
         mark = time.perf_counter()
 
         # Code-level short-circuit: a denied endpoint never reaches the

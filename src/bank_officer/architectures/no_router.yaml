@@ -1,0 +1,23 @@
+id: no_router
+label: Koordinátor + 3 specialista (router nélkül)
+description: Nincs Jev router. A koordinátor önállóan választ specialistát, és nincs kódszintű rövidre zárás a hozzáférés-elutasításnál (a tool-ok védelme marad).
+router:
+  enabled: false
+  agent: endpoint_router
+coordinator:
+  agent: branch_coordinator
+  mode: delegate
+  specialists:
+  - id: account_specialist
+    tool_group: account
+    description: Ask the account/transactions specialist about the selected customer's balances,
+      transaction history, statements, spending totals or scheduled payments.
+  - id: product_specialist
+    tool_group: product
+    description: Ask the product/offers specialist about the catalog or the selected customer's
+      personalized discounts and existing loans.
+  - id: service_specialist
+    tool_group: service
+    description: Ask the customer-service specialist about the selected customer's cards and card
+      limits, loan-application status, profile/contact data or support tickets.
+agents: {}
