@@ -69,22 +69,26 @@ class ArchitectureProfile:
     coordinator_agent: str
     mode: str
     specialists: tuple[SpecialistSpec, ...]
+    synthesizer_agent: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The profile as the plain mapping stored in the YAML file."""
+        coordinator: dict[str, Any] = {
+            "agent": self.coordinator_agent,
+            "mode": self.mode,
+            "specialists": [
+                {"id": s.id, "tool_group": s.tool_group, "description": s.description}
+                for s in self.specialists
+            ],
+        }
+        if self.synthesizer_agent:
+            coordinator["synthesizer"] = self.synthesizer_agent
         return {
             "id": self.id,
             "label": self.label,
             "description": self.description,
             "router": {"enabled": self.router_enabled, "agent": self.router_agent},
-            "coordinator": {
-                "agent": self.coordinator_agent,
-                "mode": self.mode,
-                "specialists": [
-                    {"id": s.id, "tool_group": s.tool_group, "description": s.description}
-                    for s in self.specialists
-                ],
-            },
+            "coordinator": coordinator,
         }
 
 
@@ -141,6 +145,16 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
     _require(
         len({s.id for s in specialists}) == len(specialists), "duplicate specialist ids"
     )
+    synthesizer = coordinator.get("synthesizer")
+    _require(
+        synthesizer is None
+        or (isinstance(synthesizer, str) and ID_RE.match(synthesizer) is not None),
+        "coordinator.synthesizer must be an agent id",
+    )
+    _require(
+        synthesizer is None or mode == "delegate",
+        "only delegate mode can have a synthesizer",
+    )
     if mode == "delegate":
         _require(bool(specialists), "delegate mode needs at least one specialist")
     else:
@@ -157,6 +171,7 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
         coordinator_agent=str(coordinator.get("agent", "branch_coordinator")),
         mode=mode,
         specialists=tuple(specialists),
+        synthesizer_agent=synthesizer,
     )
 
 
@@ -164,6 +179,8 @@ def _agent_ids(profile: ArchitectureProfile) -> set[str]:
     ids = {profile.coordinator_agent} | {s.id for s in profile.specialists}
     if profile.router_enabled:
         ids.add(profile.router_agent)
+    if profile.synthesizer_agent:
+        ids.add(profile.synthesizer_agent)
     return ids
 
 
@@ -204,11 +221,20 @@ def effective_specs(profile: ArchitectureProfile) -> dict[str, AgentSpec]:
             allowed |= set(group_tool_names(group))
     else:
         allowed = set(DIRECT_TOOL_NAMES) | {f"ask_{s.id}" for s in profile.specialists}
+        if profile.synthesizer_agent:
+            allowed.add("ask_answer_synthesizer")
     _check_tools(coordinator, allowed)
     for specialist in profile.specialists:
         spec = specs[specialist.id]
         _require(spec.kind == "agent", f"specialist '{spec.id}' must be a chat agent")
         _check_tools(spec, set(group_tool_names(specialist.tool_group)))
+    if profile.synthesizer_agent:
+        synthesizer = specs[profile.synthesizer_agent]
+        _require(synthesizer.kind == "agent", "the synthesizer must be a chat agent")
+        _require(
+            not synthesizer.tools,
+            f"synthesizer '{synthesizer.id}' reads the specialists' answers itself and gets no tools",
+        )
     return {agent_id: specs[agent_id] for agent_id in used}
 
 
@@ -305,8 +331,11 @@ class PipelineRegistry:
             SpecialistBinding(s.id, s.tool_group, s.description, factories[s.id])
             for s in profile.specialists
         ]
+        synthesizer = (
+            factories[profile.synthesizer_agent] if profile.synthesizer_agent else None
+        )
         coordinator = factories[profile.coordinator_agent].build(
-            create_branch_tools(bindings, flat=profile.mode == "flat"),
+            create_branch_tools(bindings, flat=profile.mode == "flat", synthesizer=synthesizer),
             state_schema=BranchState,
             context_schema=BranchContext,
             checkpointer=InMemorySaver(),

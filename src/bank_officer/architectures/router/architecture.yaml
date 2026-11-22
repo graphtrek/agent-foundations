@@ -1,6 +1,6 @@
-id: baseline
-label: Router + koordinátor + 3 specialista
-description: A jelenlegi felépítés. Jev endpoint router, koordinátor és három specialista subagent.
+id: router
+label: Router + koordinátor + specialisták + összeállító
+description: A bank-officer-agent-architecture-hu.html szerinti felépítés. Jev endpoint router, koordinátor (Luna), három domain specialista (párhuzamosan hívhatók), nyilvános infó subagent és válasz-összeállító subagent.
 router:
   enabled: true
   agent: endpoint_router
@@ -20,3 +20,9 @@ coordinator:
     tool_group: service
     description: Ask the customer-service specialist about the selected customer's cards and card
       limits, loan-application status, profile/contact data or support tickets.
+  - id: public_info_specialist
+    tool_group: public
+    description: Ask the public-information specialist about anything that is the same for every
+      customer - branch opening hours, branch locations/addresses, standard fees and general
+      conditions. Needs no selected customer.
+  synthesizer: answer_synthesizer

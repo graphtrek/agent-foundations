@@ -21,7 +21,7 @@ LangGraph, using OpenRouter as the model provider.
   `uv run python src/bank_officer/terminal.py [--arch <profile id>]`
   (`BANK_ARCH` sets the default profile).
 - Compare architectures on the same questions:
-  `uv run python src/bank_officer/evals/run.py --arch baseline,no_router,single_agent [--repeat 3]`
+  `uv run python src/bank_officer/evals/run.py --arch router,no_router,single_agent [--repeat 3]`
   (cases in `src/bank_officer/evals/cases.yaml`, results in `logs/evals/`).
   The same runner (`src/bank_officer/eval_runner.py`) backs the web page
   http://127.0.0.1:8050/eval.html (`GET /api/evals/options`, `POST /api/evals`,
@@ -86,7 +86,7 @@ entitlement tier is below the matched endpoint's `required_entitlement`,
 ### Architecture profiles (bank officer)
 
 The pipeline's shape is data: `src/bank_officer/architectures/<id>/architecture.yaml`
-(`baseline`, `no_router`, `single_agent`, `alt_model_specialists`) says whether
+(`router`, `no_router`, `single_agent`, `alt_model_specialists`) says whether
 the Jev router runs, whether the coordinator delegates to specialist
 sub-agents (`mode: delegate`) or gets every data tool itself (`mode: flat`),
 and each architecture folder holds its own complete copy of the agent files
@@ -101,6 +101,16 @@ tools (only the code-level short-circuit is absent). The web chat has an
 architecture picker (`GET /api/architectures`, `GET /api/architectures/{id}`;
 `POST /api/chats` takes `{architecture}`); profiles are edited as YAML files.
 Specialists are agent files in the architecture's folder; a new one needs a new file.
+The `router` profile follows `bank-officer-agent-architecture-hu.html`: Luna coordinator
+(`openai/gpt-6-luna`), three domain specialists the coordinator can call in
+parallel, a `public_info_specialist` (tool group `public`, no customer needed: opening
+hours, locations, conditions) and an `answer_synthesizer` (`coordinator.synthesizer` in
+the YAML, no tools). The `ask_answer_synthesizer` tool reads the turn's specialist
+answers from the graph state in code (the coordinator does not retype them); with fewer
+than two answers it passes the single answer on, and an `ACCESS DENIED` answer is
+returned verbatim, never merged. `alt_model_specialists` keeps the earlier simple
+shape (no public-info specialist, no synthesizer). `no_router` and `single_agent` still
+give the coordinator the general tools directly.
 
 ## Validation
 
@@ -180,16 +190,6 @@ requires them.
   reply is sent whole, never as raw model tokens, because the PII and
   query-only guardrails act on the finished model message; tool-result
   previews go through `redact_pii()`. Sessions are in-process: one worker.
-- `src/bank_officer/webapp_mockup/mobile.html` is a customer-facing, Hungarian,
-  phone-style mobile banking simulation implementing all 31 catalog endpoints
-  (reads and the POST/PATCH/DELETE writes) as screens and actions. It is fully
-  client-side: a mock `api(method, url, body)` layer with one route per
-  endpoint (including the entitlement-tier 403 rule) runs over a copy of the
-  `catalog.html` fixtures, and write state lives in `localStorage` ("Demó
-  visszaállítása" resets it). The fixtures are copied by hand from
-  `catalog.html`, so update `bank_data.py`, `catalog.html` and `mobile.html`
-  together. It is served at http://127.0.0.1:8050/mobile.html and linked from
-  `index.html`, `catalog.html` and `chat.html`.
 - `src/bank_officer/guardrails.py` holds the before/after LLM-call guardrail
   middleware (`build_guardrail_middleware()`) used by the branch officer
   example; attach it via `create_agent(..., middleware=...)` on every agent

@@ -1,6 +1,6 @@
 id: alt_model_specialists
 label: Baseline, más modell a specialistáknak
-description: Ugyanaz, mint a baseline, de a specialisták másik modellt használnak (a modell a YAML-ban átírható).
+description: A korábbi (egyszerű) router profil: router, koordinátor és három specialista, nyilvános infó és összeállító subagent nélkül. A a specialisták másik modellt használnak (a modell a YAML-ban átírható).
 router:
   enabled: true
   agent: endpoint_router

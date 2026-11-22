@@ -97,6 +97,22 @@ def customer_info(customer_id: str | None) -> dict[str, Any] | None:
     }
 
 
+def names_other_customer(question: str, current_customer_id: str | None) -> bool:
+    """Whether the question names a customer other than the selected one.
+
+    Hungarian suffixes ("Bencével") rule out exact matching, so each name part
+    is compared by its stem (the part minus its last letter).
+    """
+    text = question.lower()
+    for customer in bank_data.list_customers():
+        if customer.customer_id == current_customer_id:
+            continue
+        parts = [p for p in customer.full_name.lower().split() if len(p) >= 4]
+        if any(p[:-1] in text for p in parts):
+            return True
+    return False
+
+
 class BranchSession:
     """State of one officer's conversation: selected customer, coordinator
     thread and the transcript saved to ``conversations/`` at the end."""
@@ -174,6 +190,13 @@ class BranchSession:
                 logger.exception("Endpoint router failed")
                 yield self._deliver(FAILURE_REPLY, user_input)
                 return
+            if matched and names_other_customer(user_input, self.current_customer_id):
+                # The officer is switching customers in this very question, so
+                # the router's verdict used the previous customer's tier and is
+                # stale. Leave it undecided: select_customer runs first, and the
+                # specialist gate / tier-restricted tools re-check access with
+                # the newly selected customer.
+                matched["access_denied"] = None
             logger.info("Matched endpoint: %s", matched)
             yield "route", {
                 "endpoint": matched,

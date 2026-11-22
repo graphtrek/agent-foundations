@@ -230,7 +230,7 @@
   });
 
   api("/api/evals/options").then(function (o) {
-    o.architectures.forEach(function (a) { option(archsEl, a.id, a.label, a.id, a.id === "baseline" || a.id === "single_agent" || a.id === "no_router"); });
+    o.architectures.forEach(function (a) { option(archsEl, a.id, a.label, a.id, a.id === "router" || a.id === "single_agent" || a.id === "no_router"); });
     o.cases.forEach(function (c) { option(casesEl, c.id, c.id, c.question + (c.customer ? " (" + c.customer + ")" : ""), true); });
     for (var i = 1; i <= o.max_repeat; i++) { var op = el("option", null, String(i)); op.value = i; repeatEl.appendChild(op); }
     poll();  /* picks up a run that is already going (or the last finished one) */

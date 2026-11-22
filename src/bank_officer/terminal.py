@@ -1,7 +1,7 @@
 """Bank branch officer chat assistant - a multi-agent, query-only example.
 
 An officer serving a walk-in customer chats with an assistant backed by a
-coordinator agent (``create_agent()``) that - in the default ``baseline``
+coordinator agent (``create_agent()``) that - in the default ``router``
 architecture profile - delegates to three specialists (other profiles in
 ``architectures/`` rearrange or drop the router, coordinator and specialists):
 
@@ -60,7 +60,7 @@ openrouter_api_key = config.openrouter_api_key
 # stack and system prompt). None need vision, so the TEXT_* config is the
 # shared base that each file's model directives override.
 BASE_CONFIG = config.text
-DEFAULT_ARCHITECTURE = os.environ.get("BANK_ARCH", "baseline")
+DEFAULT_ARCHITECTURE = os.environ.get("BANK_ARCH", "router")
 
 # Every architecture (router or not, coordinator, specialists) is a folder in
 # src/bank_officer/architectures/ with architecture.yaml and its agent files; the registry

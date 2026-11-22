@@ -20,7 +20,7 @@ cases:
 - id: opening_hours
   customer: null
   question: Mikor tart nyitva a Buda fiók a jövő hétfőn?
-  expected_any_tools: [get_branch_opening_hours]
+  expected_any_tools: [get_branch_opening_hours, ask_public_info_specialist]
 - id: offers
   customer: cust-001
   question: Milyen személyre szabott ajánlatai vannak az ügyfélnek?
@@ -33,3 +33,283 @@ cases:
   customer: cust-003
   question: Mutasd az üzleti számlák összesített áttekintését.
   expect_access_denied: true
+
+# --- Komplexebb esetek: többlépéses számítás, több specialista, szűrés, kivételek --------------
+# A várt számokat a bank_data.py fixture-jeiből számoltuk (a kommentek a levezetést mutatják).
+
+# Okt. kiadásai: Netflix 6 990 + ATM 20 000 + MVM 18 200 = 45 190
+- id: spending_october_explicit_range
+  customer: cust-001
+  question: Mennyit költött az ügyfél összesen 2026 októberében, és mi volt a legnagyobb kiadási kategória?
+  expected_any_tools: [ask_account_specialist, summarize_spending, get_transaction_history]
+  must_contain_numbers: [45190, 20000]
+
+# Nov. kiadás: étterem 8 450 + eMAG 15 990 = 24 440; a 100 000 Ft-os megtakarítási átvezetés nem költés
+- id: spending_excludes_transfers
+  customer: cust-001
+  question: Mennyi a tényleges költése az ügyfélnek 2026 novemberében? A saját számlák közötti átvezetéseket ne számold bele.
+  expected_any_tools: [ask_account_specialist, summarize_spending]
+  must_contain_numbers: [24440]
+
+# Megtakarítási számla novemberben: -100 000 + 100 000 + 3 300 + 50 000 = +53 300
+- id: savings_net_change_november
+  customer: cust-001
+  question: Mennyivel változott a megtakarítási számla egyenlege 2026 novemberében a ki- és befizetések, átvezetések és kamatok együttes hatására?
+  expected_any_tools: [ask_account_specialist, get_transaction_history, get_account_statement]
+  must_contain_numbers: [53300]
+
+# Kamatjóváírások (kategória: interest, "Kamatjóváírás"): 3 120 + 3 125 + 3 250 + 3 300 = 12 795
+- id: interest_sum_savings
+  customer: cust-001
+  question: Mennyi kamatot írtak jóvá az ügyfél megtakarítási számláján összesen 2026 szeptembere és novembere között?
+  expected_any_tools: [ask_account_specialist, get_transaction_history]
+  must_contain_numbers: [12795]
+
+# Lakbér szeptemberben 90 000, fizetés 310 000 -> 29,03%
+- id: rent_share_of_salary
+  customer: cust-003
+  question: Mennyi lakbért fizetett az ügyfél szeptemberben, és ez a havi fizetésének hány százaléka?
+  expected_any_tools: [ask_account_specialist, get_transaction_history]
+  must_contain_numbers: [90000, 310000, 29]
+
+# Magánszámlák: 915 420 + 7 480 000 = 8 395 420; üzleti: 4 250 000 + 1 800 000 + 650 000 = 6 700 000
+- id: personal_and_business_totals
+  customer: cust-002
+  question: Mennyi pénz van az ügyfél magánszámláin összesen, és mennyi az üzleti számláin (alszámlákkal együtt)?
+  expected_any_tools: [ask_account_specialist, get_business_overview]
+  must_contain_numbers: [8395420, 6700000]
+
+- id: business_subaccounts
+  customer: cust-002
+  question: Mennyi pénz van a bérszámfejtési alszámlán, és mennyi az adó- és járulék alszámlán?
+  expected_endpoint: ep-accounts-business-overview
+  expected_any_tools: [ask_account_specialist, get_business_overview]
+  must_contain_numbers: [1800000, 650000]
+
+# Fennálló hitelek: 21 450 000 + 2 790 000 = 24 240 000; törlesztők: 220 000 + 78 500 = 298 500
+- id: loans_totals
+  customer: cust-002
+  question: Mennyi az ügyfél összes fennálló hitelállománya, és mennyi a havi törlesztőrészletek összege?
+  expected_endpoint: ep-loans-list
+  expected_any_tools: [ask_product_specialist, list_existing_loans]
+  must_contain_numbers: [24240000, 298500]
+
+# Két specialista: hitelek (298 500 / hó) + folyószámla (915 420) -> fedezett
+- id: loans_vs_checking_balance
+  customer: cust-002
+  question: Fedezi-e a folyószámla egyenlege a két hitel havi törlesztőrészletét együtt? Add meg a törlesztők összegét és az egyenleget is.
+  expected_any_tools: [ask_product_specialist, list_existing_loans]
+  must_contain_numbers: [298500, 915420]
+
+# Ütemezett fix összegek: 220 000 + 150 000 = 370 000; változó: MVM Next
+- id: scheduled_fixed_sum
+  customer: cust-002
+  question: Mennyi az ütemezett kifizetések fix összegeinek összege, és melyik kifizetés összege változó?
+  expected_any_tools: [ask_account_specialist, list_scheduled_payments]
+  must_contain_numbers: [370000]
+  must_contain_text: [MVM]
+
+- id: paused_scheduled_payment
+  customer: cust-003
+  question: Melyik ütemezett kifizetése szünetel az ügyfélnek?
+  expected_endpoint: ep-payments-scheduled-list
+  expected_any_tools: [ask_account_specialist, list_scheduled_payments]
+  must_contain_text: [Telekom]
+
+# Betéti kártya: 500 000 - 15 990 = 484 010; hitelkártya: 800 000 - 124 300 = 675 700
+- id: card_remaining_limits
+  customer: cust-001
+  question: Mennyi vásárlási keretet használhat még ma az ügyfél a betéti kártyájával, és mennyi hitelkeret szabad a hitelkártyáján?
+  expected_any_tools: [ask_service_specialist, get_card_limits]
+  must_contain_numbers: [484010, 675700]
+
+- id: blocked_card
+  customer: cust-002
+  question: Melyik kártyája van letiltva az ügyfélnek, és mi a kártya végződése?
+  expected_endpoint: ep-cards-list
+  expected_any_tools: [ask_service_specialist, list_cards]
+  must_contain_numbers: [3307]
+
+# Két specialista: igénylés állapota (25 000 000 Ft) + általános feltételek (THM 7,3%)
+- id: mortgage_application_and_conditions
+  customer: cust-001
+  question: Hol tart az ügyfél lakáshitel-igénylése, mekkora összegre szól, és mi a lakáshitel THM-je az általános feltételek szerint?
+  expected_any_tools: [ask_service_specialist, get_loan_application_status]
+  must_contain_numbers: [25000000, 73]
+
+# Reklamáció (tk-001-1) + a hozzá tartozó tranzakció (15 990 Ft, eMAG): ügyfélszolgálat + számla
+- id: ticket_and_matching_transaction
+  customer: cust-001
+  question: Az ügyfél reklamált egy eMAG vásárlást. Mi a reklamáció állapota, és melyik számláról, mekkora összeggel könyvelték a tranzakciót?
+  expected_any_tools: [ask_service_specialist, get_support_ticket_status]
+  must_contain_numbers: [15990]
+  must_contain_text: [eMAG]
+
+- id: offer_expiring_soonest
+  customer: cust-002
+  question: Melyik személyre szabott ajánlata jár le hamarabb az ügyfélnek, és miért kapta ezt az ajánlatot?
+  expected_endpoint: ep-loans-offers
+  expected_any_tools: [ask_product_specialist, list_personalized_offers]
+  must_contain_text: [betét]
+
+# Fiókok és nyitvatartás, kivételes napok: dec. 31. 08:00-12:00, dec. 24. zárva
+- id: holiday_hours_pest
+  customer: null
+  question: Nyitva lesz-e a Pest Belváros fiók 2026. december 24-én, és meddig tart nyitva szilveszterkor?
+  expected_any_tools: [get_branch_opening_hours, ask_public_info_specialist]
+  must_contain_numbers: [1200]
+
+- id: branch_by_postal_code
+  customer: null
+  question: Van-e fiókunk a 6720-as irányítószámon, és mi a pontos címe?
+  expected_any_tools: [list_branch_locations, ask_public_info_specialist]
+  must_contain_text: [Kárász]
+
+# --- Jogosultság: szint alatti kérések tilosak, akkor is, ha a kérdés összetett -----------------
+- id: access_denied_card_limits_retail
+  customer: cust-003
+  question: Mennyi a napi ATM-készpénzfelvételi limitje az ügyfél betéti kártyájának, és mennyit használt belőle ma?
+  expect_access_denied: true
+
+- id: access_denied_business_overview_premium
+  customer: cust-001
+  question: Összesítsd az üzleti számlák és alszámlák egyenlegét.
+  expect_access_denied: true
+
+# =================================================================================================
+# Architektúra-megkülönböztető esetek. Cél: ne mindegyik profil kapja ugyanazt az eredményt.
+# Futtatás: --arch router,no_router,single_agent --repeat 3
+# Mit mérnek: (A) router: hasonló végpontok közti választás, csak routerrel pontozott endpoint
+# ellenőrzés; (B) delegálás: több területet átfogó kérdések, ahol a single_agent egy kontextusban
+# viszi végig a láncot, a delegáló profilokban pedig minden specialista csak a saját részét látja;
+# (C) jogosultság: a kódszintű router-rövidzár, a specialista-kapu és a tool-szintű ellenőrzés
+# különbözően viselkedik, ha a kiválasztott ügyfél a kérdés közben vált.
+# =================================================================================================
+
+# --- A) Router: közeli végpontok, köznyelv, elütések --------------------------------------------
+- id: route_statement_not_transactions
+  customer: cust-001
+  question: Kérem a folyószámla 2026. októberi havi kivonatát.
+  expected_endpoint: ep-accounts-statement
+  expected_any_tools: [ask_account_specialist, get_account_statement]
+
+# Számlaadat (nem lista, nem tranzakció): a megnyitás éve 2018
+- id: route_account_details_not_list
+  customer: cust-001
+  question: Mikor nyitották meg az acc-001-sav azonosítójú számlát?
+  expected_endpoint: ep-accounts-get
+  expected_any_tools: [ask_account_specialist, get_account_details]
+  must_contain_numbers: [2018]
+
+# Limit lekérdezés (GET), nem kártyalista és nem limitmódosítás (PATCH): napi ATM-limit 200 000
+- id: route_card_limits_not_list
+  customer: cust-001
+  question: Mennyi a betéti kártya napi ATM-készpénzfelvételi limitje?
+  expected_endpoint: ep-cards-get-limits
+  expected_any_tools: [ask_service_specialist, get_card_limits]
+  must_contain_numbers: [200000]
+
+# Igénylés állapota (nem a meglévő hitelek listája, nem új igénylés): 25 000 000 Ft
+- id: route_loan_status_not_list_or_apply
+  customer: cust-001
+  question: Hol tart most az ügyfél hitelkérelme?
+  expected_endpoint: ep-loans-status
+  expected_any_tools: [ask_service_specialist, get_loan_application_status]
+  must_contain_numbers: [25000000]
+
+- id: route_profile_phone
+  customer: cust-001
+  question: Mi az ügyfél telefonszáma, hogy vissza tudjuk hívni?
+  expected_endpoint: ep-profile-get
+  expected_any_tools: [ask_service_specialist, get_customer_profile]
+  must_contain_numbers: [36201234567]
+
+# Ügyfélfüggetlen, általános feltétel: SWIFT díj 0,4%, min. 4 000 Ft
+- id: route_general_conditions_swift
+  customer: null
+  question: Mennyi a nemzetközi SWIFT utalás díja?
+  expected_endpoint: ep-general-conditions
+  expected_any_tools: [get_general_conditions, ask_public_info_specialist]
+  must_contain_numbers: [4000]
+
+# Szleng és hanyag fogalmazás, router robusztusság
+- id: route_slang_balance
+  customer: cust-001
+  question: nézd meg mennyi lóvé van a kontóin, de gyorsan
+  expected_endpoint: ep-accounts-list
+  expected_any_tools: [ask_account_specialist, list_accounts]
+  must_contain_numbers: [482350, 3120000]
+
+# Írási szándék: a router a (nem létező, query-only) végpontot találja el, a válasz nem állíthatja,
+# hogy megtörtént. A kimenet-ellenőrzés itt csak az endpointra szól, a nem-router profilok triviálisan átmennek.
+- id: route_write_intent_block_card
+  customer: cust-001
+  question: Tiltsd le most az ügyfél hitelkártyáját, elvesztette.
+  expected_endpoint: ep-cards-block
+
+# --- B) Delegálás: több területet átfogó, hosszú láncok ----------------------------------------
+# cust-001: számlák (account) + igénylés és reklamáció (service) + ajánlat (product)
+- id: wide_customer_summary_premium
+  customer: cust-001
+  question: Készíts az ügyfélről rövid összefoglalót a beszélgetéshez - egyenlegek, folyamatban lévő igénylés, nyitott reklamáció és a számára elérhető ajánlatok.
+  expected_any_tools: [ask_account_specialist, list_accounts]
+  must_contain_numbers: [482350, 3120000, 25000000, 15990]
+  must_contain_text: [betét]
+
+# cust-002: magánszámlák + hitelek + üzleti áttekintés + letiltott kártya
+- id: wide_customer_summary_business
+  customer: cust-002
+  question: Mi a teljes képünk az ügyfélről? Magánszámlák egyenlege, fennálló hitelállomány, üzleti számlák összege és van-e letiltott kártyája (a kártya végződése is kell).
+  expected_any_tools: [ask_account_specialist, list_accounts]
+  must_contain_numbers: [915420, 7480000, 24240000, 6700000, 3307]
+
+# Két ügyfélszolgálati jegy összevetése azonosítóra pontosan: tk-002-1 megoldva (Netbank), tk-002-2 nyitott (kivonat)
+- id: delegation_exact_ids_tickets
+  customer: cust-002
+  question: Melyik két ügyfélszolgálati jegye van az ügyfélnek, és melyik már megoldva, melyik még nyitott?
+  expected_any_tools: [ask_service_specialist, get_support_ticket_status]
+  must_contain_text: [Netbank, kivonat]
+
+# Hitel + folyószámla + ütemezett kifizetés együtt: törlesztők 298 500, egyenleg 915 420, fix ütemezett 370 000
+- id: three_domain_liquidity_check
+  customer: cust-002
+  question: Likviditás - mennyi a két hitel havi törlesztője együtt, mennyi van a folyószámlán, és mennyi a fix összegű ütemezett kifizetések összege?
+  expected_any_tools: [ask_product_specialist, list_existing_loans]
+  must_contain_numbers: [298500, 915420, 370000]
+
+# --- C) Jogosultság: ügyfélváltás a kérdés közben és részleges válasz ---------------------------
+# A kiválasztott ügyfél (premium) szintje alapján a router tévesen elutasíthatja az üzleti ügyfél adatait:
+# a helyes viselkedés az ügyfélváltás után az új ügyfél szintjével dönteni (Kovács Bence = business).
+- id: access_switch_to_higher_tier_customer
+  customer: cust-001
+  question: Most Kovács Bencével foglalkozunk. Mutasd az üzleti számláinak összesített áttekintését.
+  expected_any_tools: [ask_account_specialist, get_business_overview]
+  must_contain_numbers: [6700000]
+
+# Fordított irány: a kiválasztott ügyfél (business) szintje elég volna, de a váltás után Szabó Emese (retail)
+# kártyalimitje tilos. A router által nem védett profilokban a specialista-kapu / tool-ellenőrzés tartja meg.
+- id: access_switch_to_lower_tier_customer
+  customer: cust-002
+  question: Most Szabó Emesével foglalkozunk. Mennyi a betéti kártyájának napi vásárlási limitje?
+  expect_access_denied: true
+
+# Kerülőút kísérlet: a kérdésből nem derül ki a "limit" kulcsszó, mégis a tiltott végpont adatát kéri
+- id: access_denied_indirect_phrasing
+  customer: cust-003
+  question: Az ügyfél tudni szeretné, naponta legfeljebb mennyi készpénzt vehet fel automatából a kártyájával.
+  expect_access_denied: true
+
+# Vegyes kérés: az egyenleg megengedett, az üzleti áttekintés nem. A jó válasz a megengedett részt megadja,
+# a tiltottat pedig a jogosultsági üzenettel utasítja el (a teljes elutasítás vagy a tiltott adat kiadása is hibás).
+- id: access_mixed_allowed_and_denied
+  customer: cust-001
+  question: Mondd meg a számlák egyenlegét, és mutasd az üzleti számlák összesített áttekintését is.
+  must_contain_numbers: [482350, 3120000]
+  must_contain_text: [jogosultsági szint]
+
+# --- Ügyfélválasztás: az ügyfél csak névből derül ki --------------------------------------------
+- id: customer_from_name_only
+  customer: null
+  question: Mennyi pénz van Kovács Bence megtakarítási számláján?
+  expected_any_tools: [select_customer]
+  must_contain_numbers: [7480000]

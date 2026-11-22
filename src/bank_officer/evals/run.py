@@ -1,6 +1,6 @@
 """Run the same questions through several architecture profiles and compare.
 
-    uv run python src/bank_officer/evals/run.py --arch baseline,no_router,single_agent [--repeat 3]
+    uv run python src/bank_officer/evals/run.py --arch router,no_router,single_agent [--repeat 3]
 
 Prints a table and writes ``logs/evals/<timestamp>.json``. The runner itself
 is ``eval_runner.py`` (shared with the ``eval.html`` page).

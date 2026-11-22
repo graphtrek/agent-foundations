@@ -13,6 +13,7 @@ from langgraph.types import Command
 
 import bank_data
 from agent_spec import AgentFactory
+from conversation_util import message_text
 from endpoint_catalog import get_endpoint
 from guardrails import (
     access_denied_reply,
@@ -397,181 +398,10 @@ def create_service_specialist_tools(customer_id: str) -> list[Any]:
     ]
 
 
-SPECIALIST_RECURSION_LIMIT = 60
-SPECIALIST_FAILURE_REPLY = (
-    "The specialist could not answer this question right now. Do not guess - "
-    "tell the officer the information is temporarily unavailable."
-)
-_logger = logging.getLogger(__name__)
-
-
-def _specialist_gate(state: BranchState) -> str | None:
-    """Deterministic pre-checks shared by both specialist wrapper tools.
-
-    Returns a fixed reply when the specialist must not run: no customer is
-    selected, or the customer selected *now* (possibly earlier in this same
-    turn) is not entitled to the endpoint the router matched. Re-checking
-    here, instead of trusting the router's annotation or the coordinator's
-    prompt, keeps the entitlement rule enforced in code even when the
-    customer is selected mid-turn.
-    """
-    customer_id = state.get("current_customer_id")
-    if not customer_id:
-        return "No customer is currently selected. Call select_customer first."
-    matched = state.get("matched_endpoint")
-    if matched is not None and check_endpoint_access(customer_id, matched):
-        return f"ACCESS DENIED - relay this verbatim and stop: {access_denied_reply(matched)}"
-    return None
-
-
-def _run_specialist(agent: Any, question: str) -> str:
-    """Invoke a specialist with a bounded loop; fall back to a fixed reply on
-    any failure (recursion limit, provider error, timeout) instead of letting
-    the coordinator improvise."""
-    try:
-        response = agent.invoke(
-            {"messages": [HumanMessage(content=question)]},
-            config={"recursion_limit": SPECIALIST_RECURSION_LIMIT},
-        )
-    except Exception:
-        _logger.exception("Specialist call failed")
-        return SPECIALIST_FAILURE_REPLY
-    return response["messages"][-1].content
-
-
-# Customer-scoped tool groups a profile can hand to a specialist (or, in
-# ``flat`` mode, to the coordinator itself). Each builder takes a customer id.
-TOOL_GROUPS: dict[str, Any] = {
-    "account": create_account_specialist_tools,
-    "product": create_product_specialist_tools,
-    "service": create_service_specialist_tools,
-}
-DIRECT_TOOL_NAMES = (
-    "list_customers",
-    "select_customer",
-    "get_branch_opening_hours",
-    "list_branch_locations",
-    "get_general_conditions",
-)
-
-
-def group_tool_names(group: str) -> tuple[str, ...]:
-    """Names of the tools in one group (the dummy customer id is never used:
-    the tools only close over it)."""
-    return tuple(t.name for t in TOOL_GROUPS[group](""))
-
-
-@dataclass(frozen=True)
-class SpecialistBinding:
-    """One specialist the coordinator can delegate to: the wrapper tool is
-    ``ask_<id>``, the specialist agent is built per call from ``factory`` with
-    the ``group`` tools scoped to the selected customer."""
-
-    id: str
-    group: str
-    description: str
-    factory: AgentFactory
-
-
-def _make_specialist_tool(binding: SpecialistBinding) -> Any:
-    """Wrapper tool that runs one specialist for the customer selected now."""
-
-    def ask(question: str, runtime: ToolRuntime[BranchContext, BranchState]) -> str:
-        if (blocked := _specialist_gate(runtime.state)) is not None:
-            return blocked
-        customer_id = runtime.state["current_customer_id"]
-        agent = binding.factory.build(TOOL_GROUPS[binding.group](customer_id))
-        return _run_specialist(agent, question)
-
-    return StructuredTool.from_function(
-        func=ask,
-        name=f"ask_{binding.id}",
-        description=binding.description,
-    )
-
-
-def _make_flat_tool(group: str, template: Any) -> Any:
-    """A group tool the coordinator calls directly: same name, description and
-    arguments as ``template``, but built per call for the customer selected
-    now (the group tools close over one customer id)."""
-
-    schema = create_model(
-        f"{template.name}_args",
-        __base__=template.args_schema,
-        runtime=(ToolRuntime[BranchContext, BranchState], None),
-    )
-
-    def run(runtime: ToolRuntime[BranchContext, BranchState], **kwargs: Any) -> str:
-        if (blocked := _specialist_gate(runtime.state)) is not None:
-            return blocked
-        customer_id = runtime.state["current_customer_id"]
-        scoped = {t.name: t for t in TOOL_GROUPS[group](customer_id)}[template.name]
-        return scoped.invoke(kwargs)
-
-    return StructuredTool.from_function(
-        func=run,
-        name=template.name,
-        description=template.description,
-        args_schema=schema,
-    )
-
-
-def create_branch_tools(
-    specialists: Sequence[SpecialistBinding] = (), flat: bool = False
-) -> list[Any]:
-    """Create the coordinator's own tools: customer lookup, branch info and -
-    by the architecture profile - either one ``ask_<id>`` wrapper per
-    specialist (``flat=False``) or every customer-scoped data tool directly
-    (``flat=True``, the single-agent baseline).
-
-    The customer-scoped tools can't be static (the customer is selected
-    mid-session), so each wrapper builds a fresh specialist agent with
-    customer-scoped tools on every call, from the agent's own Markdown
-    definition (``AgentFactory``, model built once per pipeline).
-    """
-
-    @tool
-    def list_customers() -> str:
-        """List every customer available to select in this demo branch session."""
-        return "\n".join(
-            f"- {c.customer_id}: {c.full_name} (born {c.date_of_birth.isoformat()})"
-            for c in bank_data.list_customers()
-        )
-
-    @tool
-    def select_customer(
-        name_or_id: str, runtime: ToolRuntime[BranchContext, BranchState]
-    ) -> Command:
-        """Select the customer currently at the branch desk, by name or id."""
-        customer = bank_data.find_customer(name_or_id)
-        if customer is None:
-            return Command(
-                update={
-                    "messages": [
-                        ToolMessage(
-                            content=(
-                                f"No customer matches '{name_or_id}'. "
-                                "Use list_customers to see available customers."
-                            ),
-                            tool_call_id=runtime.tool_call_id,
-                        )
-                    ]
-                }
-            )
-        return Command(
-            update={
-                "current_customer_id": customer.customer_id,
-                "messages": [
-                    ToolMessage(
-                        content=(
-                            f"Selected customer {customer.full_name} "
-                            f"({customer.customer_id})."
-                        ),
-                        tool_call_id=runtime.tool_call_id,
-                    )
-                ],
-            }
-        )
+def create_public_info_tools(customer_id: str = "") -> list[Any]:
+    """Customer-independent tools (branch hours, locations, general
+    conditions). ``customer_id`` is unused: the tools answer the same for
+    everyone, so no customer has to be selected."""
 
     @tool
     def get_branch_opening_hours(when: str = "today", branch: str = "") -> str:
@@ -636,19 +466,270 @@ def create_branch_tools(
             return "No conditions found for that product."
         return "\n".join(f"- {p} / {item}: {fee} ({note})" for p, item, fee, note in rows)
 
-    direct = [
-        list_customers,
-        select_customer,
-        get_branch_opening_hours,
-        list_branch_locations,
-        get_general_conditions,
+    return [get_branch_opening_hours, list_branch_locations, get_general_conditions]
+
+
+SPECIALIST_RECURSION_LIMIT = 60
+SPECIALIST_FAILURE_REPLY = (
+    "The specialist could not answer this question right now. Do not guess - "
+    "tell the officer the information is temporarily unavailable."
+)
+_logger = logging.getLogger(__name__)
+
+
+def _specialist_gate(state: BranchState) -> str | None:
+    """Deterministic pre-checks shared by both specialist wrapper tools.
+
+    Returns a fixed reply when the specialist must not run: no customer is
+    selected, or the customer selected *now* (possibly earlier in this same
+    turn) is not entitled to the endpoint the router matched. Re-checking
+    here, instead of trusting the router's annotation or the coordinator's
+    prompt, keeps the entitlement rule enforced in code even when the
+    customer is selected mid-turn.
+    """
+    customer_id = state.get("current_customer_id")
+    if not customer_id:
+        return "No customer is currently selected. Call select_customer first."
+    matched = state.get("matched_endpoint")
+    if matched is not None and check_endpoint_access(customer_id, matched):
+        return f"ACCESS DENIED - relay this verbatim and stop: {access_denied_reply(matched)}"
+    return None
+
+
+def _run_specialist(agent: Any, question: str) -> str:
+    """Invoke a specialist with a bounded loop; fall back to a fixed reply on
+    any failure (recursion limit, provider error, timeout) instead of letting
+    the coordinator improvise."""
+    try:
+        response = agent.invoke(
+            {"messages": [HumanMessage(content=question)]},
+            config={"recursion_limit": SPECIALIST_RECURSION_LIMIT},
+        )
+    except Exception:
+        _logger.exception("Specialist call failed")
+        return SPECIALIST_FAILURE_REPLY
+    return response["messages"][-1].content
+
+
+# Customer-scoped tool groups a profile can hand to a specialist (or, in
+# ``flat`` mode, to the coordinator itself). Each builder takes a customer id.
+TOOL_GROUPS: dict[str, Any] = {
+    "account": create_account_specialist_tools,
+    "product": create_product_specialist_tools,
+    "service": create_service_specialist_tools,
+    "public": create_public_info_tools,
+}
+# Groups whose tools answer the same for everyone: their specialist needs no
+# selected customer, and in ``flat`` mode they are the coordinator's direct tools.
+CUSTOMER_FREE_GROUPS = frozenset({"public"})
+DIRECT_TOOL_NAMES = (
+    "list_customers",
+    "select_customer",
+    "get_branch_opening_hours",
+    "list_branch_locations",
+    "get_general_conditions",
+)
+
+
+# Endpoint categories each tool group serves (for the router hint).
+GROUP_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "account": ("accounts", "payments"),
+    "product": ("loans",),
+    "service": ("cards", "profile", "support"),
+    "public": ("general",),
+}
+
+
+def group_tool_names(group: str) -> tuple[str, ...]:
+    """Names of the tools in one group (the dummy customer id is never used:
+    the tools only close over it)."""
+    return tuple(t.name for t in TOOL_GROUPS[group](""))
+
+
+@dataclass(frozen=True)
+class SpecialistBinding:
+    """One specialist the coordinator can delegate to: the wrapper tool is
+    ``ask_<id>``, the specialist agent is built per call from ``factory`` with
+    the ``group`` tools scoped to the selected customer."""
+
+    id: str
+    group: str
+    description: str
+    factory: AgentFactory
+
+
+def _make_specialist_tool(binding: SpecialistBinding) -> Any:
+    """Wrapper tool that runs one specialist for the customer selected now."""
+
+    def ask(question: str, runtime: ToolRuntime[BranchContext, BranchState]) -> str:
+        customer_free = binding.group in CUSTOMER_FREE_GROUPS
+        if not customer_free and (blocked := _specialist_gate(runtime.state)) is not None:
+            return blocked
+        customer_id = "" if customer_free else runtime.state["current_customer_id"]
+        agent = binding.factory.build(TOOL_GROUPS[binding.group](customer_id))
+        matched = runtime.state.get("matched_endpoint")
+        if matched is not None and matched.get("category") in GROUP_CATEGORIES[binding.group]:
+            # Pass the router's pick on, so the specialist starts from the
+            # endpoint that best fits the question instead of re-deriving it.
+            question = (
+                f"{question}\n\n(Endpoint-router hint: the best-matching endpoint is "
+                f"{matched['method']} {matched['path']} - {matched['description']}. "
+                "Prefer the tool that backs it.)"
+            )
+        return _run_specialist(agent, question)
+
+    return StructuredTool.from_function(
+        func=ask,
+        name=f"ask_{binding.id}",
+        description=binding.description,
+    )
+
+
+def _make_flat_tool(group: str, template: Any) -> Any:
+    """A group tool the coordinator calls directly: same name, description and
+    arguments as ``template``, but built per call for the customer selected
+    now (the group tools close over one customer id)."""
+
+    schema = create_model(
+        f"{template.name}_args",
+        __base__=template.args_schema,
+        runtime=(ToolRuntime[BranchContext, BranchState], None),
+    )
+
+    def run(runtime: ToolRuntime[BranchContext, BranchState], **kwargs: Any) -> str:
+        if (blocked := _specialist_gate(runtime.state)) is not None:
+            return blocked
+        customer_id = runtime.state["current_customer_id"]
+        scoped = {t.name: t for t in TOOL_GROUPS[group](customer_id)}[template.name]
+        return scoped.invoke(kwargs)
+
+    return StructuredTool.from_function(
+        func=run,
+        name=template.name,
+        description=template.description,
+        args_schema=schema,
+    )
+
+
+SYNTHESIZER_TOOL = "ask_answer_synthesizer"
+
+
+def _current_turn_specialist_answers(messages: Sequence[Any]) -> list[tuple[str, str]]:
+    """``(specialist tool name, answer)`` of every specialist that answered
+    in the current turn (after the last officer message), in call order."""
+    last_human = max(
+        (i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=-1
+    )
+    return [
+        (m.name, message_text(m.content))
+        for m in messages[last_human + 1 :]
+        if isinstance(m, ToolMessage)
+        and (m.name or "").startswith("ask_")
+        and m.name != SYNTHESIZER_TOOL
     ]
+
+
+def _make_synthesizer_tool(factory: AgentFactory) -> Any:
+    """Wrapper tool for the answer-synthesizer subagent. The specialists'
+    answers are read from the turn's own tool results in code, not retyped by
+    the coordinator, so nothing is lost or reworded on the way. With fewer
+    than two answers there is nothing to reconcile and the answer is passed on
+    unchanged."""
+
+    def ask(question: str, runtime: ToolRuntime[BranchContext, BranchState]) -> str:
+        answers = _current_turn_specialist_answers(runtime.state["messages"])
+        if len(answers) < 2:
+            only = answers[0][1] if answers else ""
+            return f"Only one specialist answered; relay this answer as is:\n{only}"
+        if any(text.startswith("ACCESS DENIED") for _, text in answers):
+            # A refusal is final text from code; it is never merged or rephrased.
+            return next(t for _, t in answers if t.startswith("ACCESS DENIED"))
+        briefing = "\n\n".join(f"### {name}\n{text}" for name, text in answers)
+        agent = factory.build([])
+        return _run_specialist(
+            agent, f"Officer question: {question}\n\nSpecialist answers:\n{briefing}"
+        )
+
+    return StructuredTool.from_function(
+        func=ask,
+        name=SYNTHESIZER_TOOL,
+        description=(
+            "Merge the answers of two or more specialists into one consistent answer. "
+            "Call it, with the officer's question only, after more than one specialist "
+            "answered in this turn; it reads their answers itself."
+        ),
+    )
+
+
+def create_branch_tools(
+    specialists: Sequence[SpecialistBinding] = (),
+    flat: bool = False,
+    synthesizer: AgentFactory | None = None,
+) -> list[Any]:
+    """Create the coordinator's own tools: customer lookup, branch info and -
+    by the architecture profile - either one ``ask_<id>`` wrapper per
+    specialist (``flat=False``) or every customer-scoped data tool directly
+    (``flat=True``, the single-agent baseline).
+
+    The customer-scoped tools can't be static (the customer is selected
+    mid-session), so each wrapper builds a fresh specialist agent with
+    customer-scoped tools on every call, from the agent's own Markdown
+    definition (``AgentFactory``, model built once per pipeline).
+    """
+
+    @tool
+    def list_customers() -> str:
+        """List every customer available to select in this demo branch session."""
+        return "\n".join(
+            f"- {c.customer_id}: {c.full_name} (born {c.date_of_birth.isoformat()})"
+            for c in bank_data.list_customers()
+        )
+
+    @tool
+    def select_customer(
+        name_or_id: str, runtime: ToolRuntime[BranchContext, BranchState]
+    ) -> Command:
+        """Select the customer currently at the branch desk, by name or id."""
+        customer = bank_data.find_customer(name_or_id)
+        if customer is None:
+            return Command(
+                update={
+                    "messages": [
+                        ToolMessage(
+                            content=(
+                                f"No customer matches '{name_or_id}'. "
+                                "Use list_customers to see available customers."
+                            ),
+                            tool_call_id=runtime.tool_call_id,
+                        )
+                    ]
+                }
+            )
+        return Command(
+            update={
+                "current_customer_id": customer.customer_id,
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            f"Selected customer {customer.full_name} "
+                            f"({customer.customer_id})."
+                        ),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ],
+            }
+        )
+
+    direct = [list_customers, select_customer, *create_public_info_tools()]
     if flat:
         scoped = [
             _make_flat_tool(group, t)
             for group, builder in TOOL_GROUPS.items()
+            if group not in CUSTOMER_FREE_GROUPS
             for t in builder("")
         ]
     else:
         scoped = [_make_specialist_tool(b) for b in specialists]
+        if synthesizer is not None:
+            scoped.append(_make_synthesizer_tool(synthesizer))
     return direct + scoped
