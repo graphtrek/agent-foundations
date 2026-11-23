@@ -19,6 +19,8 @@
     :root { --bg: #15171a; --panel: #1e2125; --text: #e7e9ec; --muted: #9aa3ad; --border: #30343a;
             --accent: #7aa2f7; --ok: #5cc77f; --ok-bg: #173323; --error: #ff8a7d; --err-bg: #3a1a17; }
   }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  .blink { animation: blink 1s ease-in-out infinite; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
   main { width: min(1100px, calc(100% - 32px)); margin: 0 auto; padding: 20px 0 60px; }
@@ -266,7 +268,8 @@
       statusEl.textContent = running
         ? snap.finished + " / " + snap.total + (snap.current ? " · most: " + snap.current : "") + (snap.cancelled ? " · leállítás az aktuális eset után" : "")
         : (snap.cancelled ? "Leállítva. " : "Kész. ") + snap.finished + " / " + snap.total + " futás.";
-      if (running && snap.report_pending) statusEl.textContent = "Szöveges kiértékelés készül (Luna)…";
+      if (running && snap.report_pending) statusEl.textContent = "Szöveges kiértékelés készül…";
+      statusEl.classList.toggle("blink", !!(running && snap.report_pending));
       reportBtn.hidden = !snap.report;
     }
     renderSummary();

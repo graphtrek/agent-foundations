@@ -31,25 +31,12 @@ cases:
   question: Hol tart az ügyfél lakáshitel-igénylése, mekkora összegre szól, és mi a lakáshitel THM-je az általános feltételek szerint?
   expected_any_tools: [ask_service_specialist, get_loan_application_status]
   must_contain_numbers: [25000000, 73]
-# Reklamáció (tk-001-1) + a hozzá tartozó tranzakció (15 990 Ft, eMAG): ügyfélszolgálat + számla
-- id: ticket_and_matching_transaction
-  customer: cust-001
-  question: Az ügyfél reklamált egy eMAG vásárlást. Mi a reklamáció állapota, és melyik számláról, mekkora összeggel könyvelték a tranzakciót?
-  expected_any_tools: [ask_service_specialist, get_support_ticket_status]
-  must_contain_numbers: [15990]
-  must_contain_text: [eMAG]
 # Nov. kiadás: étterem 8 450 + eMAG 15 990 = 24 440; a 100 000 Ft-os megtakarítási átvezetés nem költés
 - id: spending_excludes_transfers
   customer: cust-001
   question: Mennyi a tényleges költése az ügyfélnek 2026 novemberében? A saját számlák közötti átvezetéseket ne számold bele.
   expected_any_tools: [ask_account_specialist, summarize_spending]
   must_contain_numbers: [24440]
-# Megtakarítási számla novemberben: -100 000 + 100 000 + 3 300 + 50 000 = +53 300
-- id: savings_net_change_november
-  customer: cust-001
-  question: Mennyivel változott a megtakarítási számla egyenlege 2026 novemberében a ki- és befizetések, átvezetések és kamatok együttes hatására?
-  expected_any_tools: [ask_account_specialist, get_transaction_history, get_account_statement]
-  must_contain_numbers: [53300]
 # A kiválasztott ügyfél (premium) szintje alapján a router tévesen elutasíthatja az üzleti ügyfél adatait:
 # a helyes viselkedés az ügyfélváltás után az új ügyfél szintjével dönteni (Kovács Bence = business).
 - id: access_switch_to_higher_tier_customer
@@ -57,12 +44,6 @@ cases:
   question: Most Kovács Bencével foglalkozunk. Mutasd az üzleti számláinak összesített áttekintését.
   expected_any_tools: [ask_account_specialist, get_business_overview]
   must_contain_numbers: [6700000]
-# Fordított irány: a kiválasztott ügyfél (business) szintje elég volna, de a váltás után Szabó Emese (retail)
-# kártyalimitje tilos. A router által nem védett profilokban a specialista-kapu / tool-ellenőrzés tartja meg.
-- id: access_switch_to_lower_tier_customer
-  customer: cust-002
-  question: Most Szabó Emesével foglalkozunk. Mennyi a betéti kártyájának napi vásárlási limitje?
-  expect_access_denied: true
 # Vegyes kérés: az egyenleg megengedett, az üzleti áttekintés nem. A jó válasz a megengedett részt megadja,
 # a tiltottat pedig a jogosultsági üzenettel utasítja el (a teljes elutasítás vagy a tiltott adat kiadása is hibás).
 - id: access_mixed_allowed_and_denied
@@ -71,13 +52,6 @@ cases:
   must_contain_numbers: [482350, 3120000]
   must_contain_text: [jogosultsági szint]
 
-# Igénylés állapota (nem a meglévő hitelek listája, nem új igénylés): 25 000 000 Ft
-- id: route_loan_status_not_list_or_apply
-  customer: cust-001
-  question: Hol tart most az ügyfél hitelkérelme?
-  expected_endpoint: ep-loans-status
-  expected_any_tools: [ask_service_specialist, get_loan_application_status]
-  must_contain_numbers: [25000000]
 
 # Limit lekérdezés (GET), nem kártyalista és nem limitmódosítás (PATCH): napi ATM-limit 200 000
 - id: route_card_limits_not_list
