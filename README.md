@@ -118,10 +118,10 @@ officer's questions about a walk-in customer by delegating to an
 account/transactions specialist and a product/offers specialist, each given
 their own tools scoped to the currently selected customer. Use
 `list_customers` and `select_customer` to switch between the mock customers
-defined in `src/bank_officer/bank_data.py`. This is a query-only demo — no tool
+defined in `src/bank_officer/data/bank_data.py`. This is a query-only demo — no tool
 mutates account or product data. Every LLM call (coordinator and both
 specialists) runs through the guardrail middleware in
-`src/bank_officer/guardrails.py`, which blocks prompt-injection attempts before the
+`src/bank_officer/guardrails/ (`middleware_stacks.py` builds the stacks)`, which blocks prompt-injection attempts before the
 model is called, redacts/masks PII on both input and output, and rewrites
 any reply that claims to have performed a mutating action. Type `exit`,
 `quit`, or `kilépés` to end the session; the transcript is saved under
@@ -148,10 +148,9 @@ src/                          # every app is a fully self-contained folder; no s
 ├── offsite_planner/          # main.py, config.py, tools.py, model_util.py, conversation_util.py,
 │                             #   offsite_images.py, prompts/, images/
 ├── mcp_server/               # search.py, main.py
-└── bank_officer/             # main.py (web chat), terminal.py (terminal chat), config.py, tools.py,
-                              #   bank_data.py, endpoint_catalog.py, decision_router.py,
-                              #   branch_session.py, guardrails.py, agent_spec.py, live_run.py,
-                              #   model_util.py, conversation_util.py, architectures/, webapp_mockup/
+└── bank_officer/             # main.py (web chat), terminal.py (terminal chat), app_context.py,
+                              #   config.py, model_util.py, agents/, data/, guardrails/, routing/,
+                              #   session/, tools/, evals/, architectures/, webapp_mockup/
 ```
 
 Apps never import from each other. When two apps need the same helper (for
@@ -395,10 +394,10 @@ coordinator always knows which customer is currently being served; a tool
 sets it with `Command(update=...)` when the officer selects a customer.
 
 The coordinator's own tools, built by `create_branch_tools()` in
-`src/bank_officer/tools.py`, are:
+`src/bank_officer/tools/`, are:
 
 - `list_customers()`: lists the mock customers defined in
-   `src/bank_officer/bank_data.py`.
+   `src/bank_officer/data/bank_data.py`.
 - `select_customer(name_or_id)`: looks up a customer and writes
    `current_customer_id` into state.
 - `ask_account_specialist(question)`: builds a fresh account/transactions
@@ -424,7 +423,7 @@ planner (with a different title and heading), and logs are written to
 Every `create_agent()` call in this example - the coordinator and both
 specialists built inside `ask_account_specialist`/`ask_product_specialist` -
 passes `middleware=build_guardrail_middleware()` from
-`src/bank_officer/guardrails.py`. That stack applies deterministic checks around
+`src/bank_officer/guardrails/ (`middleware_stacks.py` builds the stacks)`. That stack applies deterministic checks around
 every LLM call, independent of what the prompt says:
 
 - `PromptInjectionGuardMiddleware.before_model`: blocks messages that try to

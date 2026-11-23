@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from eval_runner import (  # noqa: E402
+from evals.eval_runner import (  # noqa: E402
     _safe_run,
     load_cases,
     save_results,

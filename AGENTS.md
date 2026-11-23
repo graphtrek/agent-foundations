@@ -23,10 +23,10 @@ LangGraph, using OpenRouter as the model provider.
 - Compare architectures on the same questions:
   `uv run python src/bank_officer/evals/run.py --arch router,no_router,single_agent [--repeat 3]`
   (cases in `src/bank_officer/evals/cases.yaml`, results in `logs/evals/`).
-  The same runner (`src/bank_officer/eval_runner.py`) backs the web page
+  The same runner (`src/bank_officer/evals/eval_runner.py`) backs the web page
   http://127.0.0.1:8050/eval.html (`GET /api/evals/options`, `POST /api/evals`,
   `GET /api/evals/current`, `POST /api/evals/cancel`); one eval runs at a time.
-  After a web run, `src/bank_officer/eval_report.py` has the Luna model
+  After a web run, `src/bank_officer/evals/eval_report.py` has the Luna model
   (`EVAL_REPORT_MODEL`, default `openai/gpt-6-luna`) write a Hungarian text evaluation of
   the failed cases: which agent file of the architecture to fix and the exact change. It
   is saved as `logs/evals/<stamp>.md` and shown in a popup (button "Kiértékelés").
@@ -49,20 +49,20 @@ its architecture's folder `src/bank_officer/architectures/<id>/` (`00_endpoint_r
 `03_product_specialist.md`, `04_service_specialist.md`), following the `dev-vault/data/agents` persona
 convention: a `# Label` heading, `<!-- key: value -->` directives for model
 settings, the `tools` list and the `middleware` stack, then the system prompt
-body. `src/bank_officer/agent_spec.py` loads them; see that directory's `README.md`
+body. `src/bank_officer/agents/agent_spec.py` loads them; see that directory's `README.md`
 for the format. The `TEXT_*` defaults (`config.text`) are the base model
 config the files' directives override, since none of the agents need vision. It is an interactive, query-only demo (type `exit`, `quit`,
 or `kilépés` to end the session) with three mock customers defined in
-`src/bank_officer/bank_data.py`, each with an `entitlement_tier`
+`src/bank_officer/data/bank_data.py`, each with an `entitlement_tier`
 (`retail`/`premium`/`business`); conversations are saved in `conversations/`
 and logs are written to `logs/bank_officer_agent.log`. On every officer turn,
 an endpoint router runs before the coordinator, matching the question to the
-best REST endpoint in the mock catalog in `src/bank_officer/endpoint_catalog.py` and
+best REST endpoint in the mock catalog in `src/bank_officer/data/endpoint_catalog.py` and
 recording the result as `matched_endpoint` in `BranchState`. The router is
 not a chat agent: it is the TypeSafe Jev decision model
 (`~typesafe/jev-latest`), which OpenRouter serves only through the alpha
 Decisions API (`POST /api/alpha/decisions`, not `/chat/completions`), called
-by `EndpointRouter` in `src/bank_officer/decision_router.py` with one `choice`
+by `EndpointRouter` in `src/bank_officer/routing/decision_router.py` with one `choice`
 question over the catalog (plus `none`). Below its file's `min_probability`
 the answer counts as no match; a refusal, malformed answer or request error
 fails closed with a fixed reply. The coordinator's prompt uses the result the coordinator's prompt uses
@@ -76,7 +76,7 @@ a fixed reply, and the coordinator thread is reset when the officer switches
 to a different customer so the previous customer's data leaves the context. Every chat-model
 call this example makes (coordinator and all three specialists) runs through the
 guardrail middleware stack from
-`src/bank_officer/guardrails.py`: a `before_model` check blocks prompt-injection/
+`src/bank_officer/guardrails/ (`middleware_stacks.py` builds the stacks)`: a `before_model` check blocks prompt-injection/
 instruction-override attempts, `PIIMiddleware` redacts emails and masks
 credit card numbers on both input and output, and an `after_model` check
 rewrites any reply that claims to have performed a mutating action, since
@@ -96,7 +96,7 @@ the Jev router runs, whether the coordinator delegates to specialist
 sub-agents (`mode: delegate`) or gets every data tool itself (`mode: flat`),
 and each architecture folder holds its own complete copy of the agent files
 (`<id>/NN_<agent>.md`), used as is - the YAML never overrides them, so a
-change for one architecture is made in that folder's file. `src/bank_officer/architecture.py` validates profiles
+change for one architecture is made in that folder's file. `src/bank_officer/agents/ (`profile.py`, `profile_loader.py`, `pipeline.py`)` validates profiles
 (`validate_profile()`) and builds/caches pipelines
 (`PipelineRegistry`); `tools.py` generates the `ask_<id>` wrappers from the
 profile (`SpecialistBinding`, `TOOL_GROUPS`). What is mandatory stays in code:
@@ -130,6 +130,14 @@ requires them.
 
 ## Architecture
 
+`src/bank_officer/` is organised Java-style, one package per concern with one
+class or topic per file: `agents/` (agent files loader, profile, pipeline registry),
+`data/` (mock bank data, endpoint catalog), `guardrails/`, `routing/` (Jev router),
+`session/` (branch session, live run, transcripts), `tools/` (one file per tool
+group plus the coordinator/specialist wrappers) and `evals/`. `main.py` (web) and
+`terminal.py` are the entry points; `app_context.py` holds the shared config,
+paths and `REGISTRY`. Imports are package-qualified (`from tools.branch_context import ...`).
+
 - Each folder under `src/` is a fully self-contained example (`simple_agent/`,
   `advanced_agent/`, `offsite_planner/`, `mcp_server/`, `bank_officer/`) run as
   `uv run python src/<app>/main.py` (bank officer: `main.py` web chat, `terminal.py` terminal chat). There is
@@ -158,14 +166,14 @@ requires them.
   middleware nodes count as graph steps.
 - Keep prompts in `src/offsite_planner/prompts/` (agent definition files for the
   bank officer example in `src/bank_officer/architectures/<id>/`, loaded by
-  `src/bank_officer/agent_spec.py`) and planner image handling in
+  `src/bank_officer/agents/agent_spec.py`) and planner image handling in
   `src/offsite_planner/offsite_images.py`; avoid embedding those assets in the runnable
   scripts.
-- `src/bank_officer/bank_data.py` holds static, dependency-free mock bank data
+- `src/bank_officer/data/bank_data.py` holds static, dependency-free mock bank data
   (customers, accounts, transactions, products, offers) for the branch
   officer example, following the same "no business logic in the runnable
   script" split as `offsite_planner/offsite_images.py`.
-- `src/bank_officer/endpoint_catalog.py` holds the branch officer example's static
+- `src/bank_officer/data/endpoint_catalog.py` holds the branch officer example's static
   mock REST endpoint catalog (method, path, description, category,
   menu location, required entitlement tier) for the endpoint-router
   specialist, following the same split as `bank_data.py`. A static HTML
@@ -180,13 +188,13 @@ requires them.
   exist only in the page.
 - The branch officer turn pipeline (endpoint router, code-level access
   short-circuit, coordinator, `_deliver()` reply gateway, customer-switch
-  thread reset) lives in `BranchSession` in `src/bank_officer/branch_session.py`,
+  thread reset) lives in `BranchSession` in `src/bank_officer/session/branch_session.py`,
   shared by the terminal loop in `bank_officer/terminal.py` and the web chat in
   `bank_officer/main.py`. `stream_turn()` yields `route`, `tool_call`,
   `tool_result`, `customer` and `reply` events. The web chat is a FastAPI
   JSON/SSE API modelled on the dev-vault chat service: `POST
   /api/chats/{id}/messages` starts the turn in a worker thread, `GET
-  /api/chats/{id}/live` replays then streams its events (`src/bank_officer/live_run.py`),
+  /api/chats/{id}/live` replays then streams its events (`src/bank_officer/session/live_run.py`),
   `POST .../cancel` stops it after the current step and resets the
   coordinator thread, and `DELETE /api/chats/{id}` saves the transcript to
   `conversations/`. It also serves `src/bank_officer/webapp_mockup/`, whose
@@ -194,7 +202,7 @@ requires them.
   reply is sent whole, never as raw model tokens, because the PII and
   query-only guardrails act on the finished model message; tool-result
   previews go through `redact_pii()`. Sessions are in-process: one worker.
-- `src/bank_officer/guardrails.py` holds the before/after LLM-call guardrail
+- `src/bank_officer/guardrails/ (`middleware_stacks.py` builds the stacks)` holds the before/after LLM-call guardrail
   middleware (`build_guardrail_middleware()`) used by the branch officer
   example; attach it via `create_agent(..., middleware=...)` on every agent
   a new example adds, the same way `bank_officer/terminal.py` and

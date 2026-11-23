@@ -21,9 +21,11 @@ from typing import Any
 
 import httpx
 
-import endpoint_catalog
-from agent_spec import AgentSpec
-from guardrails import check_endpoint_access, is_prompt_injection, redact_pii
+from agents.agent_spec import AgentSpec
+from data import endpoint_catalog
+from guardrails.endpoint_access import check_endpoint_access
+from guardrails.pii import redact_pii
+from guardrails.prompt_injection import is_prompt_injection
 
 DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 NO_MATCH_KEY = "none"

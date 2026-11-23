@@ -35,15 +35,16 @@ persona-file convention as ``dev-vault/data/agents``:
 """
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import yaml
 from langchain.agents import create_agent
 from langchain.chat_models import BaseChatModel
 
-from guardrails import (
+from guardrails.middleware_stacks import (
     build_coordinator_middleware,
     build_guardrail_middleware,
 )

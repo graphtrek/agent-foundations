@@ -11,7 +11,7 @@ architecture profile - delegates to three specialists (other profiles in
 
 Before the coordinator sees each message, an endpoint router runs first:
 not a chat agent but a TypeSafe Jev decision model on OpenRouter's Decisions
-API (``decision_router.EndpointRouter``), which picks the best REST
+API (``routing.decision_router.EndpointRouter``), which picks the best REST
 endpoint in a mock web banking app catalog; code then flags whether the
 selected customer's entitlement tier covers it. The access rule
 is enforced in code, never by a prompt: when the verdict is "denied", the
@@ -21,7 +21,7 @@ mid-turn. Otherwise the coordinator reads the router's result
 (``matched_endpoint`` in ``BranchState``) to help choose a specialist.
 
 Every reply reaches the officer through ``BranchSession._deliver()``
-(``branch_session``, shared with the web chat in
+(``session.branch_session``, shared with the web chat in
 ``main.py``), a deterministic response gateway (no LLM), and
 the coordinator's conversation thread is reset whenever the officer switches to a different customer, so one
 customer's data never stays in context while serving the next one.
@@ -38,36 +38,15 @@ Run with: uv run python src/bank_officer/terminal.py [--arch <profile id>]
 import argparse
 import logging
 import os
-from pathlib import Path
 
-from architecture import PipelineRegistry
-from branch_session import BranchSession
-from config import load_config
-from tools import BranchContext
+from app_context import CONVERSATIONS_DIR, DEFAULT_ARCHITECTURE, LOGS_DIR, REGISTRY
+from session.branch_session import BranchSession
+from tools.branch_context import BranchContext
 
 SEPARATOR = "-" * 80
-CONVERSATIONS_DIR = Path(__file__).resolve().parent.parent.parent / "conversations"
-LOGS_DIR = Path(__file__).resolve().parent.parent.parent / "logs"
 LOG_FILE = LOGS_DIR / "bank_officer_agent.log"
 EXIT_WORDS = {"exit", "quit", "kilépés"}
 logger = logging.getLogger(__name__)
-
-config = load_config()
-openrouter_api_key = config.openrouter_api_key
-
-# Every agent is defined by its own Markdown file in its architecture's folder,
-# src/bank_officer/architectures/<id>/ (model settings, tool list, guardrail
-# stack and system prompt). None need vision, so the TEXT_* config is the
-# shared base that each file's model directives override.
-BASE_CONFIG = config.text
-DEFAULT_ARCHITECTURE = os.environ.get("BANK_ARCH", "router")
-
-# Every architecture (router or not, coordinator, specialists) is a folder in
-# src/bank_officer/architectures/ with architecture.yaml and its agent files; the registry
-# builds a profile's agents on first use and caches them. One coordinator can
-# serve several sessions as long as each uses its own thread id prefix.
-REGISTRY = PipelineRegistry(BASE_CONFIG, openrouter_api_key)
-
 
 def run_officer_chat(architecture: str = DEFAULT_ARCHITECTURE) -> None:
     """Run the interactive officer chat loop until an exit word is typed."""

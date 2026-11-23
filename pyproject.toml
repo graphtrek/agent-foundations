@@ -25,3 +25,14 @@ dependencies = [
 dev = [
     "types-pyyaml>=6.0.12.20260815",
 ]
+
+[tool.ruff]
+# Each app under src/ imports its own modules as plain siblings (`from config import ...`),
+# so every app folder is a first-party source root for import sorting.
+src = [
+    "src/simple_agent",
+    "src/advanced_agent",
+    "src/offsite_planner",
+    "src/mcp_server",
+    "src/bank_officer",
+]

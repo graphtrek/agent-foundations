@@ -8,7 +8,7 @@ menu listing in sync by hand when this catalog changes.
 
 from dataclasses import dataclass
 
-from bank_data import EntitlementTier
+from data.bank_data import EntitlementTier
 
 
 @dataclass

@@ -1,7 +1,7 @@
 """One bank branch officer chat session, shared by the CLI and the web chat.
 
 ``BranchSession.stream_turn()`` runs a single officer turn and yields
-progress events as they happen, so ``bank_officer_agent.py`` (terminal) and
+progress events as they happen, so ``terminal.py`` and
 ``main.py`` (browser, over SSE) run the exact same pipeline:
 
 1. The endpoint router (Jev decision model) matches the question to a
@@ -34,11 +34,12 @@ from langchain.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-import bank_data
-from conversation_util import message_text, save_conversation
-from decision_router import EndpointRouter, EndpointRouterError
-from guardrails import access_denied_reply, redact_pii
-from tools import BranchContext
+from data import bank_data
+from guardrails.endpoint_access import access_denied_reply
+from guardrails.pii import redact_pii
+from routing.decision_router import EndpointRouter, EndpointRouterError
+from session.conversation_util import message_text, save_conversation
+from tools.branch_context import BranchContext
 
 logger = logging.getLogger(__name__)
 

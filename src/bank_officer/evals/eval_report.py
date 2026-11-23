@@ -14,7 +14,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-from architecture import profile_dir
+from agents.profile_loader import profile_dir
+from app_context import BASE_CONFIG, OPENROUTER_API_KEY
+from model_util import get_openrouter_model
 
 REPORT_MODEL = os.environ.get("EVAL_REPORT_MODEL", "openai/gpt-6-luna")
 REPORT_MAX_TOKENS = 3000
@@ -103,14 +105,10 @@ def generate_report(results: list[dict[str, Any]], cases: list[dict[str, Any]]) 
     if prompt is None:
         return "## Összegzés\n\nMinden futás sikeres volt, nincs javítandó agent leíró."
     try:
-        # Imported here: terminal loads the config (and may prompt for the API key).
-        from model_util import get_openrouter_model
-        from terminal import BASE_CONFIG, openrouter_api_key
-
         config = dataclasses.replace(
             BASE_CONFIG, name=REPORT_MODEL, temperature=0.2, max_tokens=REPORT_MAX_TOKENS
         )
-        model = get_openrouter_model(config, openrouter_api_key)
+        model = get_openrouter_model(config, OPENROUTER_API_KEY)
         answer = model.invoke([("system", SYSTEM_PROMPT), ("human", prompt)])
         text = answer.content
         if isinstance(text, list):

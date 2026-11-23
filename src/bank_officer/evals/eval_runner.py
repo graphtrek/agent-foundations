@@ -20,14 +20,14 @@ from typing import Any
 
 import yaml
 
-import bank_data
-from architecture import list_profiles
-from branch_session import BranchSession
-from eval_report import generate_report, save_report
-from terminal import LOGS_DIR, REGISTRY
-from tools import BranchContext
+from agents.profile_loader import list_profiles
+from app_context import LOGS_DIR, REGISTRY
+from data import bank_data
+from evals.eval_report import generate_report, save_report
+from session.branch_session import BranchSession
+from tools.branch_context import BranchContext
 
-CASES_FILE = Path(__file__).resolve().parent / "evals" / "cases.yaml"
+CASES_FILE = Path(__file__).resolve().parent / "cases.yaml"
 EVALS_DIR = LOGS_DIR / "evals"
 DENIED_MARKER = "jogosultsági szint"
 MAX_REPEAT = 5

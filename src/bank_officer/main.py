@@ -1,7 +1,7 @@
 """Bank branch officer assistant - browser chat with live (SSE) progress.
 
-The same pipeline as the terminal example (``bank_officer_agent.py``), shared
-through ``utils.branch_session.BranchSession``, served over a small JSON/SSE
+The same pipeline as the terminal example (``terminal.py``), shared
+through ``session.branch_session.BranchSession``, served over a small JSON/SSE
 API modelled on the dev-vault chat service:
 
 - ``POST /api/chats/{id}/messages`` starts the turn as a background task
@@ -23,7 +23,7 @@ The page itself is ``src/bank_officer/webapp_mockup/chat.html``, served together
 with ``catalog.html`` from that directory. Sessions live in process memory:
 run a single worker, and a restart ends every session.
 
-Run with: uv run python src/main.py   (then open http://127.0.0.1:8050/)
+Run with: uv run python src/bank_officer/main.py   (then open http://127.0.0.1:8050/)
 """
 
 from __future__ import annotations
@@ -38,15 +38,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import eval_runner
-import live_run
 import uvicorn
-from architecture import (
-    ProfileError,
-    list_profiles,
-    load_profile,
-)
-from branch_session import FAILURE_REPLY, BranchSession, customer_info
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import (
     FileResponse,
@@ -56,8 +48,14 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from terminal import CONVERSATIONS_DIR, DEFAULT_ARCHITECTURE, LOGS_DIR, REGISTRY
-from tools import BranchContext
+
+from agents.profile import ProfileError
+from agents.profile_loader import list_profiles, load_profile
+from app_context import CONVERSATIONS_DIR, DEFAULT_ARCHITECTURE, LOGS_DIR, REGISTRY
+from evals import eval_runner
+from session import live_run
+from session.branch_session import FAILURE_REPLY, BranchSession, customer_info
+from tools.branch_context import BranchContext
 
 MOCKUP_DIR = Path(__file__).resolve().parent / "webapp_mockup"
 ARCHITECTURE_PAGE = (
