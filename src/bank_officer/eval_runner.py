@@ -23,6 +23,7 @@ import yaml
 import bank_data
 from architecture import list_profiles
 from branch_session import BranchSession
+from eval_report import generate_report, save_report
 from terminal import LOGS_DIR, REGISTRY
 from tools import BranchContext
 
@@ -33,7 +34,21 @@ MAX_REPEAT = 5
 
 
 def load_cases() -> list[dict[str, Any]]:
-    return yaml.safe_load(CASES_FILE.read_text(encoding="utf-8"))["cases"]
+    """Cases ordered by ascending complexity (stable: ties keep the file order); the
+    page, the web runner and the CLI all run and list them in this order."""
+    cases = yaml.safe_load(CASES_FILE.read_text(encoding="utf-8"))["cases"]
+    return sorted(cases, key=case_complexity)
+
+
+def case_complexity(case: dict[str, Any]) -> int:
+    """Complexity = number of deterministic checks the case scores: required numbers,
+    required text fragments, the expected endpoint and the access-denied expectation."""
+    return (
+        len(case.get("must_contain_numbers") or [])
+        + len(case.get("must_contain_text") or [])
+        + (1 if case.get("expected_endpoint") else 0)
+        + (1 if case.get("expect_access_denied") else 0)
+    )
 
 
 def _digits(text: str) -> str:
@@ -57,11 +72,14 @@ def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
         if session.current_customer_id != case["customer"]:
             raise RuntimeError(f"setup turn did not select {case['customer']}")
     tools: list[str] = []
+    outputs: list[str] = []
     endpoint: str | None = None
     reply, total_ms = "", 0
     for event, data in session.stream_turn(case["question"]):
         if event == "tool_call":
             tools.append(data["name"])
+        elif event == "tool_result":
+            outputs.append(f"{data['name']}: {data.get('preview', '')[:400]}")
         elif event == "route" and data.get("endpoint"):
             endpoint = data["endpoint"].get("endpoint_id")
         elif event == "reply":
@@ -86,6 +104,7 @@ def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
         "passed": all(checks.values()),
         "checks": checks,
         "tools": tools,
+        "tool_outputs": outputs,
         "endpoint": endpoint,
         "ms": total_ms,
         "reply": reply,
@@ -143,6 +162,8 @@ class EvalRun:
         self.current: str | None = None
         self.done = False
         self.saved: str | None = None
+        self.report: str | None = None
+        self.report_pending = False
         self.cancelled = threading.Event()
         self._lock = threading.Lock()
 
@@ -151,20 +172,30 @@ class EvalRun:
 
     def _work(self) -> None:
         try:
-            for arch in self.archs:
-                for case in self.cases:
-                    for _ in range(self.repeat):
-                        if self.cancelled.is_set():
-                            return
-                        self.current = f"{arch} / {case['id']}"
-                        result = _safe_run(arch, case)
-                        with self._lock:
-                            self.results.append(result)
-        finally:
+            self._run_all()
             self.current = None
             if self.results:
                 self.saved = str(save_results(self.archs, self.results))
+                # Luna's text evaluation of the failures; `done` stays false until it
+                # is written, so the page keeps polling and then offers the popup.
+                self.report_pending = True
+                self.report = generate_report(self.results, self.cases)
+                save_report(self.saved, self.report)
+        finally:
+            self.current = None
+            self.report_pending = False
             self.done = True
+
+    def _run_all(self) -> None:
+        for arch in self.archs:
+            for case in self.cases:
+                for _ in range(self.repeat):
+                    if self.cancelled.is_set():
+                        return
+                    self.current = f"{arch} / {case['id']}"
+                    result = _safe_run(arch, case)
+                    with self._lock:
+                        self.results.append(result)
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
@@ -180,6 +211,8 @@ class EvalRun:
             "done": self.done,
             "cancelled": self.cancelled.is_set(),
             "saved": self.saved,
+            "report": self.report,
+            "report_pending": self.report_pending,
             "results": results,
             "summary": summarize(self.archs, results),
         }

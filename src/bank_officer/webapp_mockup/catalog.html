@@ -16,11 +16,11 @@
   The header links to chat.html, the branch officer web chat; both pages
   are served by src/bank_officer_web.py (http://127.0.0.1:8050/).
 -->
-<html lang="en">
+<html lang="hu">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Web Banking App — Menu &amp; Endpoint Catalog</title>
+<title>Teszt katalógus — Web Banking App menü és végpontok</title>
 <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
@@ -190,258 +190,259 @@
 <body>
 <main>
   <nav class="top-nav">
-    <a data-home href="index.html">← Home</a> <a href="chat.html">Branch officer chat →</a>
+    <a data-home href="index.html">← Kezdőlap</a> <a data-arch href="architecture.html">← Architektúra</a> <a href="chat.html">Bank Chat →</a> <a href="eval.html">Eval →</a>
   </nav>
-  <h1>Web Banking App — Menu &amp; Endpoint Catalog</h1>
+  <h1>Teszt katalógus</h1>
   <p class="subtitle">
-    Visual reference for <code>src/utils/endpoint_catalog.py</code>, used by
-    the endpoint-router specialist in the bank branch officer demo. Each
-    menu item below is backed by the REST endpoint shown. Open a GET item's
-    <em>Show test data</em> panel to see its mock response for the selected
-    customer.
+    A Web Banking App menüje és a mögötte lévő REST végpontok vizuális
+    referenciája (<code>src/bank_officer/endpoint_catalog.py</code>), amelyet a
+    bank branch officer demóban az endpoint router használ. Minden alábbi
+    menüpont a mellette látható végponthoz tartozik. A GET elemek
+    <em>Teszt adatok megjelenítése</em> paneljén látható a végpont mock válasza a
+    kiválasztott ügyfélhez.
   </p>
 
   <div class="customer-bar">
-    <label for="customer-select">Customer</label>
+    <label for="customer-select">Ügyfél</label>
     <select id="customer-select"></select>
     <span id="customer-tier" class="tier"></span>
   </div>
 
   <details>
-    <summary>Accounts</summary>
+    <summary>Számlák</summary>
     <ul>
       <li class="row" data-endpoint="ep-accounts-list">
         <span class="method get">GET</span>
         <span class="path">/accounts</span>
         <span class="tier retail">retail</span>
-        <p class="description">List the current customer's accounts with type and balance.</p>
-        <p class="menu">Accounts &gt; Overview</p>
+        <p class="description">Az ügyfél számláinak listája típussal és egyenleggel.</p>
+        <p class="menu">Számlák &gt; Áttekintés</p>
       </li>
       <li class="row" data-endpoint="ep-accounts-get">
         <span class="method get">GET</span>
         <span class="path">/accounts/{id}</span>
         <span class="tier retail">retail</span>
-        <p class="description">Get the details of a single account.</p>
-        <p class="menu">Accounts &gt; Overview &gt; Account details</p>
+        <p class="description">Egy számla részletes adatai.</p>
+        <p class="menu">Számlák &gt; Áttekintés &gt; Számla részletei</p>
       </li>
       <li class="row" data-endpoint="ep-accounts-transactions">
         <span class="method get">GET</span>
         <span class="path">/accounts/{id}/transactions</span>
         <span class="tier retail">retail</span>
-        <p class="description">List recent transactions for one account, with amount/date filters.</p>
-        <p class="menu">Accounts &gt; Transactions &gt; Search</p>
+        <p class="description">Egy számla legutóbbi tranzakciói, összeg- és dátumszűrővel.</p>
+        <p class="menu">Számlák &gt; Tranzakciók &gt; Keresés</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/accounts/{id}/transactions/{txn_id}/dispute</span>
         <span class="tier retail">retail</span>
-        <p class="description">File a dispute on a single transaction.</p>
-        <p class="menu">Accounts &gt; Transactions &gt; Dispute a charge</p>
+        <p class="description">Egy tranzakció vitatása (reklamáció benyújtása).</p>
+        <p class="menu">Számlák &gt; Tranzakciók &gt; Tranzakció vitatása</p>
       </li>
       <li class="row" data-endpoint="ep-accounts-statement">
         <span class="method get">GET</span>
         <span class="path">/accounts/{id}/statements/{period}</span>
         <span class="tier retail">retail</span>
-        <p class="description">Download a monthly account statement.</p>
-        <p class="menu">Accounts &gt; Statements</p>
+        <p class="description">Havi számlakivonat letöltése.</p>
+        <p class="menu">Számlák &gt; Kivonatok</p>
       </li>
       <li class="row" data-endpoint="ep-accounts-business-overview">
         <span class="method get">GET</span>
         <span class="path">/accounts/business/overview</span>
         <span class="tier business">business</span>
-        <p class="description">View a consolidated overview of all business accounts and sub-accounts.</p>
-        <p class="menu">Accounts &gt; Business &gt; Consolidated overview</p>
+        <p class="description">Az összes üzleti számla és alszámla összesített áttekintése.</p>
+        <p class="menu">Számlák &gt; Üzleti &gt; Összesített áttekintés</p>
       </li>
     </ul>
   </details>
 
   <details>
-    <summary>Payments</summary>
+    <summary>Fizetések</summary>
     <ul>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/payments/transfer</span>
         <span class="tier retail">retail</span>
-        <p class="description">Make a domestic transfer between the customer's own or saved accounts.</p>
-        <p class="menu">Payments &gt; Transfer money</p>
+        <p class="description">Belföldi átutalás az ügyfél saját vagy mentett számlái között.</p>
+        <p class="menu">Fizetések &gt; Pénz átutalása</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/payments/utility-bill</span>
         <span class="tier retail">retail</span>
-        <p class="description">Pay a utility bill by biller code and reference number.</p>
-        <p class="menu">Payments &gt; Pay a bill</p>
+        <p class="description">Közműszámla befizetése számlakibocsátó-kóddal és hivatkozási számmal.</p>
+        <p class="menu">Fizetések &gt; Számla befizetése</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/payments/external-transfer</span>
         <span class="tier premium">premium</span>
-        <p class="description">Send an international or external-bank wire transfer.</p>
-        <p class="menu">Payments &gt; International transfer</p>
+        <p class="description">Nemzetközi vagy más bankba irányuló utalás indítása.</p>
+        <p class="menu">Fizetések &gt; Nemzetközi átutalás</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/payments/batch</span>
         <span class="tier business">business</span>
-        <p class="description">Upload a batch payment file, e.g. monthly payroll.</p>
-        <p class="menu">Payments &gt; Batch / payroll upload</p>
+        <p class="description">Csoportos fizetési fájl feltöltése, pl. havi bérszámfejtés.</p>
+        <p class="menu">Fizetések &gt; Csoportos / bérszámfejtési feltöltés</p>
       </li>
       <li class="row" data-endpoint="ep-payments-scheduled-list">
         <span class="method get">GET</span>
         <span class="path">/payments/scheduled</span>
         <span class="tier retail">retail</span>
-        <p class="description">List scheduled and recurring payments.</p>
-        <p class="menu">Payments &gt; Scheduled payments</p>
+        <p class="description">Ütemezett és ismétlődő fizetések listája.</p>
+        <p class="menu">Fizetések &gt; Ütemezett fizetések</p>
       </li>
       <li class="row">
         <span class="method delete">DELETE</span>
         <span class="path">/payments/scheduled/{id}</span>
         <span class="tier retail">retail</span>
-        <p class="description">Cancel a scheduled or recurring payment.</p>
-        <p class="menu">Payments &gt; Scheduled payments &gt; Cancel</p>
+        <p class="description">Ütemezett vagy ismétlődő fizetés törlése.</p>
+        <p class="menu">Fizetések &gt; Ütemezett fizetések &gt; Törlés</p>
       </li>
     </ul>
   </details>
 
   <details>
-    <summary>Cards</summary>
+    <summary>Kártyák</summary>
     <ul>
       <li class="row" data-endpoint="ep-cards-list">
         <span class="method get">GET</span>
         <span class="path">/cards</span>
         <span class="tier retail">retail</span>
-        <p class="description">List the customer's debit and credit cards.</p>
-        <p class="menu">Cards &gt; Overview</p>
+        <p class="description">Az ügyfél bankkártyáinak és hitelkártyáinak listája.</p>
+        <p class="menu">Kártyák &gt; Áttekintés</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/cards/{id}/block</span>
         <span class="tier retail">retail</span>
-        <p class="description">Block a lost or stolen card.</p>
-        <p class="menu">Cards &gt; Overview &gt; Block card</p>
+        <p class="description">Elveszett vagy ellopott kártya letiltása.</p>
+        <p class="menu">Kártyák &gt; Áttekintés &gt; Kártya letiltása</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/cards/{id}/unblock</span>
         <span class="tier retail">retail</span>
-        <p class="description">Unblock a previously blocked card.</p>
-        <p class="menu">Cards &gt; Overview &gt; Unblock card</p>
+        <p class="description">Korábban letiltott kártya feloldása.</p>
+        <p class="menu">Kártyák &gt; Áttekintés &gt; Kártya feloldása</p>
       </li>
       <li class="row" data-endpoint="ep-cards-get-limits">
         <span class="method get">GET</span>
         <span class="path">/cards/{id}/limits</span>
         <span class="tier premium">premium</span>
-        <p class="description">View a card's current daily spending and withdrawal limit.</p>
-        <p class="menu">Cards &gt; Overview &gt; View limits</p>
+        <p class="description">A kártya aktuális napi vásárlási és készpénzfelvételi limitje.</p>
+        <p class="menu">Kártyák &gt; Áttekintés &gt; Limitek megtekintése</p>
       </li>
       <li class="row">
         <span class="method patch">PATCH</span>
         <span class="path">/cards/{id}/limits</span>
         <span class="tier premium">premium</span>
-        <p class="description">Raise or lower a card's daily spending/withdrawal limit.</p>
-        <p class="menu">Cards &gt; Overview &gt; Change limits</p>
+        <p class="description">A kártya napi vásárlási/készpénzfelvételi limitjének emelése vagy csökkentése.</p>
+        <p class="menu">Kártyák &gt; Áttekintés &gt; Limitek módosítása</p>
       </li>
     </ul>
   </details>
 
   <details>
-    <summary>Loans</summary>
+    <summary>Hitelek</summary>
     <ul>
       <li class="row" data-endpoint="ep-loans-offers">
         <span class="method get">GET</span>
         <span class="path">/loans/offers</span>
         <span class="tier retail">retail</span>
-        <p class="description">List the loan products and headline rates available to the customer.</p>
-        <p class="menu">Loans &gt; Offers</p>
+        <p class="description">Az ügyfél számára elérhető hiteltermékek és hirdetett kamatok.</p>
+        <p class="menu">Hitelek &gt; Ajánlatok</p>
       </li>
       <li class="row" data-endpoint="ep-loans-list">
         <span class="method get">GET</span>
         <span class="path">/loans</span>
         <span class="tier retail">retail</span>
-        <p class="description">List the customer's existing loans with balance, installment and maturity.</p>
-        <p class="menu">Loans &gt; My loans</p>
+        <p class="description">Az ügyfél meglévő hitelei egyenleggel, törlesztőrészlettel és lejárattal.</p>
+        <p class="menu">Hitelek &gt; Hiteleim</p>
       </li>
       <li class="row" data-endpoint="ep-loans-status">
         <span class="method get">GET</span>
         <span class="path">/loans/applications/{id}/status</span>
         <span class="tier retail">retail</span>
-        <p class="description">Check the status of a submitted loan application.</p>
-        <p class="menu">Loans &gt; My applications &gt; Status</p>
+        <p class="description">Beadott hitelkérelem állapotának lekérdezése.</p>
+        <p class="menu">Hitelek &gt; Igényléseim &gt; Állapot</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/loans/applications</span>
         <span class="tier premium">premium</span>
-        <p class="description">Submit a new personal loan or mortgage application.</p>
-        <p class="menu">Loans &gt; Apply</p>
+        <p class="description">Új személyi kölcsön vagy lakáshitel igénylése.</p>
+        <p class="menu">Hitelek &gt; Igénylés</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/loans/business/credit-line</span>
         <span class="tier business">business</span>
-        <p class="description">Apply for a revolving business credit line.</p>
-        <p class="menu">Loans &gt; Business &gt; Credit line</p>
+        <p class="description">Megújuló üzleti hitelkeret igénylése.</p>
+        <p class="menu">Hitelek &gt; Üzleti &gt; Hitelkeret</p>
       </li>
     </ul>
   </details>
 
   <details>
-    <summary>Profile &amp; support</summary>
+    <summary>Profil és támogatás</summary>
     <ul>
       <li class="row" data-endpoint="ep-profile-get">
         <span class="method get">GET</span>
         <span class="path">/profile</span>
         <span class="tier retail">retail</span>
-        <p class="description">Get the customer's profile and contact information.</p>
-        <p class="menu">Profile &gt; My details</p>
+        <p class="description">Az ügyfél profilja és elérhetőségei.</p>
+        <p class="menu">Profil &gt; Adataim</p>
       </li>
       <li class="row">
         <span class="method patch">PATCH</span>
         <span class="path">/profile/contact-info</span>
         <span class="tier retail">retail</span>
-        <p class="description">Update the customer's phone number or email address.</p>
-        <p class="menu">Profile &gt; My details &gt; Edit contact info</p>
+        <p class="description">Az ügyfél telefonszámának vagy e-mail-címének módosítása.</p>
+        <p class="menu">Profil &gt; Adataim &gt; Elérhetőségek szerkesztése</p>
       </li>
       <li class="row">
         <span class="method post">POST</span>
         <span class="path">/support/tickets</span>
         <span class="tier retail">retail</span>
-        <p class="description">Open a new customer support ticket.</p>
-        <p class="menu">Support &gt; New request</p>
+        <p class="description">Új ügyfélszolgálati kérés indítása.</p>
+        <p class="menu">Támogatás &gt; Új kérés</p>
       </li>
       <li class="row" data-endpoint="ep-support-ticket-status">
         <span class="method get">GET</span>
         <span class="path">/support/tickets/{id}</span>
         <span class="tier retail">retail</span>
-        <p class="description">Check the status of an existing support ticket.</p>
-        <p class="menu">Support &gt; My requests</p>
+        <p class="description">Meglévő ügyfélszolgálati kérés állapota.</p>
+        <p class="menu">Támogatás &gt; Kéréseim</p>
       </li>
     </ul>
   </details>
 
   <details>
-    <summary>General</summary>
+    <summary>Általános</summary>
     <ul>
       <li class="row" data-endpoint="ep-general-conditions">
         <span class="method get">GET</span>
         <span class="path">/general/conditions</span>
         <span class="tier retail">retail</span>
-        <p class="description">List standard account and product terms, fees, and interest conditions.</p>
-        <p class="menu">General &gt; Terms &amp; conditions</p>
+        <p class="description">Általános számla- és termékfeltételek, díjak és kamatfeltételek.</p>
+        <p class="menu">Általános &gt; Feltételek és díjak</p>
       </li>
       <li class="row" data-endpoint="ep-general-branches">
         <span class="method get">GET</span>
         <span class="path">/general/branches</span>
         <span class="tier retail">retail</span>
-        <p class="description">List branch locations with address and map coordinates, optionally filtered by city or postal code.</p>
-        <p class="menu">General &gt; Branch locator</p>
+        <p class="description">Fiókok listája címmel és térképkoordinátákkal, városra vagy irányítószámra szűrhetően.</p>
+        <p class="menu">Általános &gt; Fiókkereső</p>
       </li>
       <li class="row" data-endpoint="ep-general-branch-hours">
         <span class="method get">GET</span>
         <span class="path">/general/branches/{id}/hours</span>
         <span class="tier retail">retail</span>
-        <p class="description">Get a branch's opening hours for the week, including holiday exceptions.</p>
-        <p class="menu">General &gt; Branch locator &gt; Opening hours</p>
+        <p class="description">A fiók heti nyitvatartása, az ünnepnapi eltérésekkel.</p>
+        <p class="menu">Általános &gt; Fiókkereső &gt; Nyitvatartás</p>
       </li>
     </ul>
   </details>
@@ -561,13 +562,13 @@ const MOCK = {
     { id: "acc-002-biz-tax", customer: "cust-002", type: "sub_account", product: "Adó- és járulék alszámla", balance: 650000, currency: "HUF" },
   ],
   scheduled: [
-    { id: "sp-001-1", customer: "cust-001", from: "acc-001-chk", beneficiary: "Lakbér - Kiss Péter", amount: 180000, frequency: "monthly (20th)", next: "2026-11-20", status: "active" },
-    { id: "sp-001-2", customer: "cust-001", from: "acc-001-chk", beneficiary: "Saját megtakarítás (acc-001-sav)", amount: 50000, frequency: "monthly (15th)", next: "2026-12-15", status: "active" },
-    { id: "sp-002-1", customer: "cust-002", from: "acc-002-chk", beneficiary: "Jelzáloghitel törlesztés", amount: 220000, frequency: "monthly (19th)", next: "2026-12-19", status: "active" },
-    { id: "sp-002-2", customer: "cust-002", from: "acc-002-chk", beneficiary: "MVM Next - csoportos beszedés", amount: null, frequency: "monthly (direct debit)", next: "2026-11-25", status: "active" },
-    { id: "sp-002-3", customer: "cust-002", from: "acc-002-chk", beneficiary: "Iskolai tandíj", amount: 150000, frequency: "one-off", next: "2026-12-01", status: "active" },
-    { id: "sp-003-1", customer: "cust-003", from: "acc-003-chk", beneficiary: "Albérlet - Tóth Anna", amount: 90000, frequency: "monthly (14th)", next: "2026-12-14", status: "active" },
-    { id: "sp-003-2", customer: "cust-003", from: "acc-003-chk", beneficiary: "Telekom - csoportos beszedés", amount: null, frequency: "monthly (direct debit)", next: "2026-12-02", status: "paused" },
+    { id: "sp-001-1", customer: "cust-001", from: "acc-001-chk", beneficiary: "Lakbér - Kiss Péter", amount: 180000, frequency: "havonta (20.)", next: "2026-11-20", status: "active" },
+    { id: "sp-001-2", customer: "cust-001", from: "acc-001-chk", beneficiary: "Saját megtakarítás (acc-001-sav)", amount: 50000, frequency: "havonta (15.)", next: "2026-12-15", status: "active" },
+    { id: "sp-002-1", customer: "cust-002", from: "acc-002-chk", beneficiary: "Jelzáloghitel törlesztés", amount: 220000, frequency: "havonta (19.)", next: "2026-12-19", status: "active" },
+    { id: "sp-002-2", customer: "cust-002", from: "acc-002-chk", beneficiary: "MVM Next - csoportos beszedés", amount: null, frequency: "havonta (csoportos beszedés)", next: "2026-11-25", status: "active" },
+    { id: "sp-002-3", customer: "cust-002", from: "acc-002-chk", beneficiary: "Iskolai tandíj", amount: 150000, frequency: "egyszeri", next: "2026-12-01", status: "active" },
+    { id: "sp-003-1", customer: "cust-003", from: "acc-003-chk", beneficiary: "Albérlet - Tóth Anna", amount: 90000, frequency: "havonta (14.)", next: "2026-12-14", status: "active" },
+    { id: "sp-003-2", customer: "cust-003", from: "acc-003-chk", beneficiary: "Telekom - csoportos beszedés", amount: null, frequency: "havonta (csoportos beszedés)", next: "2026-12-02", status: "paused" },
   ],
   cards: [
     { id: "card-001-deb", customer: "cust-001", kind: "debit", brand: "Visa Debit", number: "**** 4821", account: "acc-001-chk", expires: "2028-05", status: "active" },
@@ -579,12 +580,12 @@ const MOCK = {
   ],
   // [limit type, limit, used today]
   cardLimits: {
-    "card-001-deb": [["Daily purchase", 500000, 15990], ["Daily ATM withdrawal", 200000, 0], ["Daily online", 300000, 15990]],
-    "card-001-cc": [["Credit limit", 800000, 124300], ["Daily purchase", 400000, 0], ["Daily ATM withdrawal", 100000, 0]],
-    "card-002-deb": [["Daily purchase", 1000000, 62300], ["Daily ATM withdrawal", 400000, 45000], ["Daily online", 600000, 0]],
-    "card-002-cc": [["Credit limit", 2500000, 410000], ["Daily purchase", 1000000, 0], ["Daily ATM withdrawal", 200000, 0]],
-    "card-002-old": [["Daily purchase", 0, 0], ["Daily ATM withdrawal", 0, 0], ["Daily online", 0, 0]],
-    "card-003-deb": [["Daily purchase", 250000, 3490], ["Daily ATM withdrawal", 100000, 0], ["Daily online", 150000, 0]],
+    "card-001-deb": [["Napi vásárlás", 500000, 15990], ["Napi ATM készpénzfelvétel", 200000, 0], ["Napi online", 300000, 15990]],
+    "card-001-cc": [["Hitelkeret", 800000, 124300], ["Napi vásárlás", 400000, 0], ["Napi ATM készpénzfelvétel", 100000, 0]],
+    "card-002-deb": [["Napi vásárlás", 1000000, 62300], ["Napi ATM készpénzfelvétel", 400000, 45000], ["Napi online", 600000, 0]],
+    "card-002-cc": [["Hitelkeret", 2500000, 410000], ["Napi vásárlás", 1000000, 0], ["Napi ATM készpénzfelvétel", 200000, 0]],
+    "card-002-old": [["Napi vásárlás", 0, 0], ["Napi ATM készpénzfelvétel", 0, 0], ["Napi online", 0, 0]],
+    "card-003-deb": [["Napi vásárlás", 250000, 3490], ["Napi ATM készpénzfelvétel", 100000, 0], ["Napi online", 150000, 0]],
   },
   loans: [
     { id: "loan-002-1", customer: "cust-002", name: "Otthon Lakáshitel", original: 28000000,
@@ -596,16 +597,16 @@ const MOCK = {
   ],
   loanApplications: [
     { id: "la-001-1", customer: "cust-001", product: "prod-mortgage", amount: 25000000, history: [
-      ["2026-10-28", "submitted", "Online application received."],
-      ["2026-10-30", "documents_received", "Income certificate and property documents uploaded."],
-      ["2026-11-06", "under_review", "Property valuation scheduled for 2026-11-24."] ] },
+      ["2026-10-28", "submitted", "Az online igénylés megérkezett."],
+      ["2026-10-30", "documents_received", "A jövedelemigazolás és az ingatlan dokumentumai feltöltve."],
+      ["2026-11-06", "under_review", "Az ingatlan értékbecslése 2026-11-24-re ütemezve."] ] },
     { id: "la-002-1", customer: "cust-002", product: "prod-loan", amount: 3000000, history: [
-      ["2026-09-12", "submitted", "Application submitted at branch-buda."],
-      ["2026-09-15", "approved", "Approved at 11.9% THM, 48 months."],
-      ["2026-09-17", "disbursed", "Amount credited to acc-002-chk."] ] },
+      ["2026-09-12", "submitted", "Az igénylést a branch-buda fiókban adták be."],
+      ["2026-09-15", "approved", "Jóváhagyva 11,9% THM-mel, 48 hónapra."],
+      ["2026-09-17", "disbursed", "Az összeg jóváírva az acc-002-chk számlára."] ] },
     { id: "la-003-1", customer: "cust-003", product: "prod-loan", amount: 1500000, history: [
-      ["2026-11-11", "submitted", "Online application received."],
-      ["2026-11-13", "documents_requested", "Last 3 months' payslips requested."] ] },
+      ["2026-11-11", "submitted", "Az online igénylés megérkezett."],
+      ["2026-11-13", "documents_requested", "Az utolsó 3 havi bérjegyzék bekérve."] ] },
   ],
   tickets: [
     { id: "tk-001-1", customer: "cust-001", subject: "Kártyás vásárlás reklamáció (eMAG, 15 990 Ft)", history: [
@@ -621,18 +622,18 @@ const MOCK = {
       ["2026-10-21 09:30", "resolved", "branch-pest", "Személyes azonosítás után módosítva."] ] },
   ],
   conditions: [
-    ["Lakossági Folyószámla", "Monthly account fee", "990 Ft", "Waived above 250 000 Ft monthly income"],
-    ["Lakossági Folyószámla", "Domestic transfer (online)", "0.3%, min. 150 Ft", "First 2 transfers per month free"],
-    ["Lakossági Folyószámla", "ATM withdrawal (own ATM)", "0.6% + 200 Ft", "First 2 withdrawals per month free"],
-    ["Megtakarítási Számla", "Interest", "4.5% éves hozam", "Credited monthly"],
-    ["Megtakarítási Számla", "Withdrawal", "0 Ft", "Up to 2 per month, then 300 Ft"],
-    ["Lekötött Betét Plusz", "Interest", "5.2% éves hozam", "12-month term, fixed"],
-    ["Lekötött Betét Plusz", "Early termination", "Interest forfeited", "Principal fully returned"],
-    ["Mindennapi Hitelkártya", "Annual fee", "8 900 Ft", "1% cashback on grocery and fuel"],
-    ["Mindennapi Hitelkártya", "THM", "24.9%", "Interest-free period up to 45 days"],
-    ["Rugalmas Személyi Kölcsön", "THM", "from 11.9%", "1-10 million Ft, 12-84 months"],
-    ["Otthon Lakáshitel", "THM", "from 7.3%", "Up to 30 years, property valuation 45 000 Ft"],
-    ["International transfer", "SWIFT fee", "0.4%, min. 4 000 Ft", "Premium tier and above"],
+    ["Lakossági Folyószámla", "Havi számlavezetési díj", "990 Ft", "250 000 Ft havi jövedelem felett elengedve"],
+    ["Lakossági Folyószámla", "Belföldi átutalás (online)", "0,3%, min. 150 Ft", "Havonta az első 2 átutalás ingyenes"],
+    ["Lakossági Folyószámla", "ATM készpénzfelvétel (saját ATM)", "0,6% + 200 Ft", "Havonta az első 2 felvétel ingyenes"],
+    ["Megtakarítási Számla", "Kamat", "4.5% éves hozam", "Havonta jóváírva"],
+    ["Megtakarítási Számla", "Készpénzfelvétel", "0 Ft", "Havonta 2-ig ingyenes, utána 300 Ft"],
+    ["Lekötött Betét Plusz", "Kamat", "5.2% éves hozam", "12 hónapos futamidő, fix"],
+    ["Lekötött Betét Plusz", "Idő előtti felmondás", "A kamat elvész", "A tőke teljes egészében visszajár"],
+    ["Mindennapi Hitelkártya", "Éves díj", "8 900 Ft", "1% cashback élelmiszerre és üzemanyagra"],
+    ["Mindennapi Hitelkártya", "THM", "24.9%", "Kamatmentes időszak legfeljebb 45 napig"],
+    ["Rugalmas Személyi Kölcsön", "THM", "11,9%-tól", "1-10 millió Ft, 12-84 hónap"],
+    ["Otthon Lakáshitel", "THM", "7,3%-tól", "Legfeljebb 30 év, ingatlan-értékbecslés 45 000 Ft"],
+    ["Nemzetközi átutalás", "SWIFT fee", "0,4%, min. 4 000 Ft", "Premium szinttől"],
   ],
   branches: [
     { id: "branch-buda", name: "Buda Központ", postal: "1012", city: "Budapest", address: "Attila út 12.", lat: 47.4979, lon: 19.0336 },
@@ -644,18 +645,18 @@ const MOCK = {
   // [day, opens, closes, note]; branches without an entry use the default.
   hours: {
     default: [
-      ["Monday", "08:00", "17:00", ""], ["Tuesday", "08:00", "16:00", ""],
-      ["Wednesday", "08:00", "16:00", ""], ["Thursday", "08:00", "18:00", "Late opening"],
-      ["Friday", "08:00", "14:00", ""], ["Saturday", "-", "-", "Closed"], ["Sunday", "-", "-", "Closed"],
-      ["2026-12-24", "-", "-", "Holiday exception: closed"],
-      ["2026-12-31", "08:00", "12:00", "Holiday exception: short day"],
+      ["Hétfő", "08:00", "17:00", ""], ["Kedd", "08:00", "16:00", ""],
+      ["Szerda", "08:00", "16:00", ""], ["Csütörtök", "08:00", "18:00", "Késői nyitvatartás"],
+      ["Péntek", "08:00", "14:00", ""], ["Szombat", "-", "-", "Zárva"], ["Vasárnap", "-", "-", "Zárva"],
+      ["2026-12-24", "-", "-", "Ünnepnapi eltérés: zárva"],
+      ["2026-12-31", "08:00", "12:00", "Ünnepnapi eltérés: rövidített nap"],
     ],
     "branch-buda": [
-      ["Monday", "08:00", "18:00", ""], ["Tuesday", "08:00", "18:00", ""],
-      ["Wednesday", "08:00", "18:00", ""], ["Thursday", "08:00", "19:00", "Late opening"],
-      ["Friday", "08:00", "15:00", ""], ["Saturday", "09:00", "12:00", "Cash desk closed"], ["Sunday", "-", "-", "Closed"],
-      ["2026-12-24", "-", "-", "Holiday exception: closed"],
-      ["2026-12-31", "08:00", "12:00", "Holiday exception: short day"],
+      ["Hétfő", "08:00", "18:00", ""], ["Kedd", "08:00", "18:00", ""],
+      ["Szerda", "08:00", "18:00", ""], ["Csütörtök", "08:00", "19:00", "Késői nyitvatartás"],
+      ["Péntek", "08:00", "15:00", ""], ["Szombat", "09:00", "12:00", "A pénztár zárva"], ["Vasárnap", "-", "-", "Zárva"],
+      ["2026-12-24", "-", "-", "Ünnepnapi eltérés: zárva"],
+      ["2026-12-31", "08:00", "12:00", "Ünnepnapi eltérés: rövidített nap"],
     ],
   },
 };
@@ -678,7 +679,7 @@ function esc(value) {
 }
 const text = (d, type) => (type === "display" ? esc(d) : d);
 const huf = (d, type) => {
-  if (d === null || d === undefined) return type === "display" ? "variable" : -1;
+  if (d === null || d === undefined) return type === "display" ? "változó" : -1;
   return type === "display" ? hufFormat.format(d) : d;
 };
 const signedHuf = (d, type) => type === "display"
@@ -689,14 +690,14 @@ const accountsOf = c => MOCK.accounts.filter(a => a.customer === c.id);
 const txnsOf = accountId => MOCK.transactions.filter(t => t.account === accountId);
 const product = id => MOCK.products.find(p => p.id === id);
 const kv = obj => Object.entries(obj).map(([field, value]) => ({ field, value }));
-const KV_COLUMNS = [{ title: "Field", data: "field" }, { title: "Value", data: "value" }];
+const KV_COLUMNS = [{ title: "Mező", data: "field" }, { title: "Érték", data: "value" }];
 
 const TXN_COLUMNS = [
-  { title: "Transaction ID", data: "id" },
-  { title: "Booking date", data: "date" },
-  { title: "Description", data: "description" },
-  { title: "Category", data: "category" },
-  { title: "Amount", data: "amount", render: signedHuf, className: "dt-right" },
+  { title: "Tranzakció azonosító", data: "id" },
+  { title: "Könyvelés dátuma", data: "date" },
+  { title: "Leírás", data: "description" },
+  { title: "Kategória", data: "category" },
+  { title: "Összeg", data: "amount", render: signedHuf, className: "dt-right" },
 ];
 
 /*
@@ -707,32 +708,32 @@ const TXN_COLUMNS = [
 const VIEWS = {
   "ep-accounts-list": {
     columns: [
-      { title: "Account ID", data: "id" }, { title: "Type", data: "type" },
-      { title: "Product", data: "product" },
-      { title: "Balance", data: "balance", render: huf, className: "dt-right" },
-      { title: "Currency", data: "currency" }, { title: "Opened", data: "opened" },
+      { title: "Számla azonosító", data: "id" }, { title: "Típus", data: "type" },
+      { title: "Termék", data: "product" },
+      { title: "Egyenleg", data: "balance", render: huf, className: "dt-right" },
+      { title: "Pénznem", data: "currency" }, { title: "Nyitva", data: "opened" },
     ],
     rows: c => accountsOf(c),
   },
   "ep-accounts-get": {
-    params: [{ name: "id", label: "Account", options: c => accountsOf(c).map(a => a.id) }],
+    params: [{ name: "id", label: "Számla", options: c => accountsOf(c).map(a => a.id) }],
     kv: true,
     rows: (c, p) => {
       const a = MOCK.accounts.find(x => x.id === p.id);
       const txns = txnsOf(a.id).sort((x, y) => y.date.localeCompare(x.date));
       return kv({
-        "Account ID": a.id, "Customer": `${c.name} (${c.id})`, "Type": a.type,
-        "Product": a.product, "Balance": hufFormat.format(a.balance), "Currency": a.currency,
-        "Opened on": a.opened, "Transactions on file": txns.length,
-        "Last booking": txns.length ? `${txns[0].date} - ${txns[0].description}` : "-",
+        "Számla azonosító": a.id, "Ügyfél": `${c.name} (${c.id})`, "Típus": a.type,
+        "Termék": a.product, "Egyenleg": hufFormat.format(a.balance), "Pénznem": a.currency,
+        "Nyitás dátuma": a.opened, "Nyilvántartott tranzakciók": txns.length,
+        "Utolsó könyvelés": txns.length ? `${txns[0].date} - ${txns[0].description}` : "-",
       });
     },
   },
   "ep-accounts-transactions": {
     params: [
-      { name: "id", label: "Account", options: c => accountsOf(c).map(a => a.id) },
-      { name: "min_amount", label: "Min. amount", type: "number", query: true },
-      { name: "since", label: "Since", type: "date", query: true },
+      { name: "id", label: "Számla", options: c => accountsOf(c).map(a => a.id) },
+      { name: "min_amount", label: "Min. összeg", type: "number", query: true },
+      { name: "since", label: "Ettől", type: "date", query: true },
     ],
     columns: TXN_COLUMNS,
     order: [[1, "desc"]],
@@ -742,8 +743,8 @@ const VIEWS = {
   },
   "ep-accounts-statement": {
     params: [
-      { name: "id", label: "Account", options: c => accountsOf(c).map(a => a.id) },
-      { name: "period", label: "Period", options: (c, p) =>
+      { name: "id", label: "Számla", options: c => accountsOf(c).map(a => a.id) },
+      { name: "period", label: "Időszak", options: (c, p) =>
           [...new Set(txnsOf(p.id).map(t => t.date.slice(0, 7)))].sort().reverse() },
     ],
     columns: TXN_COLUMNS,
@@ -752,53 +753,53 @@ const VIEWS = {
       const rows = txnsOf(p.id).filter(t => t.date.startsWith(p.period));
       const credits = rows.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
       const debits = rows.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
-      return { rows, note: `Statement ${p.period}: ${rows.length} items, credits ${hufFormat.format(credits)}, ` +
-        `debits ${hufFormat.format(debits)}, net ${hufFormat.format(credits + debits)}.` };
+      return { rows, note: `Kivonat ${p.period}: ${rows.length} tétel, jóváírás ${hufFormat.format(credits)}, ` +
+        `terhelés ${hufFormat.format(debits)}, egyenleg ${hufFormat.format(credits + debits)}.` };
     },
   },
   "ep-accounts-business-overview": {
     columns: [
-      { title: "Account ID", data: "id" }, { title: "Type", data: "type" },
-      { title: "Name", data: "product" },
-      { title: "Balance", data: "balance", render: huf, className: "dt-right" },
-      { title: "Share", data: "share", render: percent, className: "dt-right" },
+      { title: "Számla azonosító", data: "id" }, { title: "Típus", data: "type" },
+      { title: "Név", data: "product" },
+      { title: "Egyenleg", data: "balance", render: huf, className: "dt-right" },
+      { title: "Arány", data: "share", render: percent, className: "dt-right" },
     ],
     order: [[3, "desc"]],
     rows: c => {
       const all = [...accountsOf(c), ...MOCK.businessAccounts.filter(a => a.customer === c.id)];
       const total = all.reduce((s, a) => s + a.balance, 0);
       return { rows: all.map(a => ({ ...a, share: total ? (100 * a.balance) / total : 0 })),
-               note: `Consolidated balance: ${hufFormat.format(total)} across ${all.length} accounts.` };
+               note: `Összesített egyenleg: ${hufFormat.format(total)}, ${all.length} számlán.` };
     },
   },
   "ep-payments-scheduled-list": {
     columns: [
-      { title: "ID", data: "id" }, { title: "From account", data: "from" },
-      { title: "Beneficiary", data: "beneficiary" },
-      { title: "Amount", data: "amount", render: huf, className: "dt-right" },
-      { title: "Frequency", data: "frequency" }, { title: "Next execution", data: "next" },
-      { title: "Status", data: "status" },
+      { title: "Azonosító", data: "id" }, { title: "Forrásszámla", data: "from" },
+      { title: "Kedvezményezett", data: "beneficiary" },
+      { title: "Összeg", data: "amount", render: huf, className: "dt-right" },
+      { title: "Gyakoriság", data: "frequency" }, { title: "Következő teljesítés", data: "next" },
+      { title: "Állapot", data: "status" },
     ],
     order: [[5, "asc"]],
     rows: c => MOCK.scheduled.filter(s => s.customer === c.id),
   },
   "ep-cards-list": {
     columns: [
-      { title: "Card ID", data: "id" }, { title: "Kind", data: "kind" },
-      { title: "Brand", data: "brand" }, { title: "Number", data: "number" },
-      { title: "Linked account", data: "account" }, { title: "Expires", data: "expires" },
-      { title: "Status", data: "status" },
+      { title: "Kártya azonosító", data: "id" }, { title: "Fajta", data: "kind" },
+      { title: "Márka", data: "brand" }, { title: "Szám", data: "number" },
+      { title: "Kapcsolt számla", data: "account" }, { title: "Lejár", data: "expires" },
+      { title: "Állapot", data: "status" },
     ],
     rows: c => MOCK.cards.filter(card => card.customer === c.id),
   },
   "ep-cards-get-limits": {
-    params: [{ name: "id", label: "Card", options: c =>
+    params: [{ name: "id", label: "Kártya", options: c =>
       MOCK.cards.filter(card => card.customer === c.id).map(card => card.id) }],
     columns: [
-      { title: "Limit type", data: "type" },
+      { title: "Limit típusa", data: "type" },
       { title: "Limit", data: "limit", render: huf, className: "dt-right" },
-      { title: "Used today", data: "used", render: huf, className: "dt-right" },
-      { title: "Remaining", data: "remaining", render: huf, className: "dt-right" },
+      { title: "Ma felhasznált", data: "used", render: huf, className: "dt-right" },
+      { title: "Hátralévő", data: "remaining", render: huf, className: "dt-right" },
     ],
     simple: true,
     rows: (c, p) => (MOCK.cardLimits[p.id] || []).map(([type, limit, used]) =>
@@ -806,36 +807,36 @@ const VIEWS = {
   },
   "ep-loans-offers": {
     columns: [
-      { title: "Product ID", data: "id" }, { title: "Name", data: "name" },
-      { title: "Category", data: "category" }, { title: "Rate label", data: "rateLabel" },
-      { title: "Headline rate", data: "rate", render: percent, className: "dt-right" },
-      { title: "Personal offer", data: "offer" },
+      { title: "Termék azonosító", data: "id" }, { title: "Név", data: "name" },
+      { title: "Kategória", data: "category" }, { title: "Kamat megnevezése", data: "rateLabel" },
+      { title: "Hirdetett kamat", data: "rate", render: percent, className: "dt-right" },
+      { title: "Személyes ajánlat", data: "offer" },
     ],
     order: [[4, "asc"]],
     rows: c => MOCK.products
       .filter(p => ["loan", "mortgage", "credit_card"].includes(p.category))
       .map(p => {
         const offer = MOCK.offers.find(o => o.customer === c.id && o.product === p.id);
-        return { ...p, offer: offer ? `${offer.detail} (until ${offer.validUntil})` : "-" };
+        return { ...p, offer: offer ? `${offer.detail} (érvényes: ${offer.validUntil}-ig)` : "-" };
       }),
   },
   "ep-loans-list": {
     columns: [
-      { title: "Loan ID", data: "id" }, { title: "Name", data: "name" },
-      { title: "Original", data: "original", render: huf, className: "dt-right" },
-      { title: "Outstanding", data: "balance", render: huf, className: "dt-right" },
-      { title: "Installment", data: "payment", render: huf, className: "dt-right" },
-      { title: "Rate", data: "rate", render: percent, className: "dt-right" },
-      { title: "Next payment", data: "next" }, { title: "Matures", data: "maturity" },
-      { title: "Repayment account", data: "account" },
+      { title: "Hitel azonosító", data: "id" }, { title: "Név", data: "name" },
+      { title: "Eredeti összeg", data: "original", render: huf, className: "dt-right" },
+      { title: "Fennálló tartozás", data: "balance", render: huf, className: "dt-right" },
+      { title: "Törlesztőrészlet", data: "payment", render: huf, className: "dt-right" },
+      { title: "Kamat", data: "rate", render: percent, className: "dt-right" },
+      { title: "Következő fizetés", data: "next" }, { title: "Lejárat", data: "maturity" },
+      { title: "Törlesztő számla", data: "account" },
     ],
     rows: c => MOCK.loans.filter(l => l.customer === c.id),
   },
   "ep-loans-status": {
-    params: [{ name: "id", label: "Application", options: c =>
+    params: [{ name: "id", label: "Igénylés", options: c =>
       MOCK.loanApplications.filter(a => a.customer === c.id).map(a => a.id) }],
     columns: [
-      { title: "Date", data: "date" }, { title: "Status", data: "status" }, { title: "Note", data: "note" },
+      { title: "Dátum", data: "date" }, { title: "Állapot", data: "status" }, { title: "Megjegyzés", data: "note" },
     ],
     order: [[0, "desc"]],
     simple: true,
@@ -843,56 +844,56 @@ const VIEWS = {
       const app = MOCK.loanApplications.find(a => a.id === p.id);
       const rows = app.history.map(([date, status, note]) => ({ date, status, note }));
       return { rows, note: `${product(app.product).name}, ${hufFormat.format(app.amount)} - ` +
-        `current status: ${rows[rows.length - 1].status}.` };
+        `aktuális állapot: ${rows[rows.length - 1].status}.` };
     },
   },
   "ep-profile-get": {
     kv: true,
     rows: c => kv({
-      "Customer ID": c.id, "Full name": c.name, "Date of birth": c.dob, "Phone": c.phone,
-      "Email": c.email, "Home branch": c.branch, "Entitlement tier": c.tier,
+      "Ügyfél azonosító": c.id, "Teljes név": c.name, "Születési dátum": c.dob, "Telefon": c.phone,
+      "E-mail": c.email, "Számlavezető fiók": c.branch, "Jogosultsági szint": c.tier,
     }),
   },
   "ep-support-ticket-status": {
-    params: [{ name: "id", label: "Ticket", options: c =>
+    params: [{ name: "id", label: "Kérés", options: c =>
       MOCK.tickets.filter(t => t.customer === c.id).map(t => t.id) }],
     columns: [
-      { title: "Time", data: "time" }, { title: "Status", data: "status" },
-      { title: "By", data: "by" }, { title: "Message", data: "message" },
+      { title: "Időpont", data: "time" }, { title: "Állapot", data: "status" },
+      { title: "Ki", data: "by" }, { title: "Üzenet", data: "message" },
     ],
     order: [[0, "desc"]],
     simple: true,
     rows: (c, p) => {
       const ticket = MOCK.tickets.find(t => t.id === p.id);
       const rows = ticket.history.map(([time, status, by, message]) => ({ time, status, by, message }));
-      return { rows, note: `${ticket.subject} - current status: ${rows[rows.length - 1].status}.` };
+      return { rows, note: `${ticket.subject} - aktuális állapot: ${rows[rows.length - 1].status}.` };
     },
   },
   "ep-general-conditions": {
     columns: [
-      { title: "Product", data: 0 }, { title: "Item", data: 1 },
-      { title: "Fee / rate", data: 2 }, { title: "Note", data: 3 },
+      { title: "Termék", data: 0 }, { title: "Tétel", data: 1 },
+      { title: "Díj / kamat", data: 2 }, { title: "Megjegyzés", data: 3 },
     ],
     rows: () => MOCK.conditions,
   },
   "ep-general-branches": {
-    params: [{ name: "city", label: "City", query: true, options: () =>
+    params: [{ name: "city", label: "Város", query: true, options: () =>
       ["", ...new Set(MOCK.branches.map(b => b.city))] }],
     columns: [
-      { title: "Branch ID", data: "id" }, { title: "Name", data: "name" },
-      { title: "Postal code", data: "postal" }, { title: "City", data: "city" },
-      { title: "Address", data: "address" },
-      { title: "Map", data: null, orderable: false, render: (d, type, b) => type === "display"
+      { title: "Fiók azonosító", data: "id" }, { title: "Név", data: "name" },
+      { title: "Irányítószám", data: "postal" }, { title: "Város", data: "city" },
+      { title: "Cím", data: "address" },
+      { title: "Térkép", data: null, orderable: false, render: (d, type, b) => type === "display"
           ? `<a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=17/${b.lat}/${b.lon}" ` +
             `target="_blank" rel="noopener">${b.lat.toFixed(4)}, ${b.lon.toFixed(4)}</a>` : "" },
     ],
     rows: (c, p) => MOCK.branches.filter(b => !p.city || b.city === p.city),
   },
   "ep-general-branch-hours": {
-    params: [{ name: "id", label: "Branch", options: () => MOCK.branches.map(b => b.id) }],
+    params: [{ name: "id", label: "Fiók", options: () => MOCK.branches.map(b => b.id) }],
     columns: [
-      { title: "Day / date", data: 0 }, { title: "Opens", data: 1 },
-      { title: "Closes", data: 2 }, { title: "Note", data: 3 },
+      { title: "Nap / dátum", data: 0 }, { title: "Nyit", data: 1 },
+      { title: "Zár", data: 2 }, { title: "Megjegyzés", data: 3 },
     ],
     ordering: false,
     simple: true,
@@ -929,8 +930,8 @@ function renderPanel(li) {
     requestLine.innerHTML = `GET ${esc(path)} <span class="status denied">403 Forbidden</span>`;
     const denied = document.createElement("p");
     denied.className = "denied";
-    denied.textContent = `${customer.name} (${customer.tier}) is not entitled to this endpoint: ` +
-      `it requires the ${requiredTier} tier or above.`;
+    denied.textContent = `${customer.name} (${customer.tier}) nem jogosult erre a végpontra: ` +
+      `legalább ${requiredTier} szint szükséges hozzá.`;
     panel.appendChild(denied);
     return;
   }
@@ -950,13 +951,13 @@ function renderPanel(li) {
         if (state[param.name] === undefined) missingParam = param;
         control = document.createElement("select");
         for (const value of options) {
-          control.add(new Option(value === "" ? "(all)" : value, value));
+          control.add(new Option(value === "" ? "(mind)" : value, value));
         }
         control.value = state[param.name] ?? "";
       } else {
         control = document.createElement("input");
         control.type = param.type;
-        if (param.type === "number") { control.min = "0"; control.step = "1000"; control.placeholder = "any"; }
+        if (param.type === "number") { control.min = "0"; control.step = "1000"; control.placeholder = "bármely"; }
         control.value = state[param.name] ?? "";
       }
       control.addEventListener("change", () => {
@@ -982,7 +983,7 @@ function renderPanel(li) {
     requestLine.innerHTML = `GET ${esc(url)} <span class="status denied">404 Not Found</span>`;
     const note = document.createElement("p");
     note.className = "note";
-    note.textContent = `${customer.name} has no ${missingParam.label.toLowerCase()} for this endpoint.`;
+    note.textContent = `Ennél az ügyfélnél (${customer.name}) nincs elérhető „${missingParam.label}” ehhez a végponthez.`;
     panel.appendChild(note);
     return;
   }
@@ -1012,7 +1013,16 @@ function renderPanel(li) {
     searching: !simple,
     info: !simple,
     scrollX: true,
-    language: { emptyTable: "No records match this request." },
+    language: {
+      emptyTable: "Nincs a kéréshez illő adat.",
+      zeroRecords: "Nincs találat.",
+      search: "Keresés:",
+      info: "_START_–_END_ / _TOTAL_ tétel",
+      infoEmpty: "Nincs tétel",
+      infoFiltered: "(szűrve _MAX_ tételből)",
+      lengthMenu: "_MENU_ tétel/oldal",
+      paginate: { first: "Első", last: "Utolsó", next: "Következő", previous: "Előző" },
+    },
   });
 }
 
@@ -1039,7 +1049,7 @@ for (const li of document.querySelectorAll("li[data-endpoint]")) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "toggle-data";
-  button.textContent = "Show test data";
+  button.textContent = "Teszt adatok megjelenítése";
   button.setAttribute("aria-expanded", "false");
   li.querySelector(".tier").after(button);
 
@@ -1052,7 +1062,7 @@ for (const li of document.querySelectorAll("li[data-endpoint]")) {
     const open = panel.hidden;
     panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
-    button.textContent = open ? "Hide test data" : "Show test data";
+    button.textContent = open ? "Teszt adatok elrejtése" : "Teszt adatok megjelenítése";
     if (open) renderPanel(li);
     else if (li._table) { li._table.destroy(); li._table = null; panel.innerHTML = ""; }
   });
@@ -1066,6 +1076,6 @@ darkQuery.addEventListener("change", syncDark);
 
 selectCustomer(customer.id);
 </script>
-<script>if (location.protocol === 'file:') document.querySelectorAll('a[data-home]').forEach(a => a.href = '../../../index.html');</script>
+<script>document.querySelectorAll('a[data-home]').forEach(a => a.href = location.protocol === 'file:' ? '../../../index.html' : '/');document.querySelectorAll('a[data-arch]').forEach(a => a.href = location.protocol === 'file:' ? '../../../bank-officer-agent-architecture-hu.html' : '/architecture.html');</script>
 </body>
 </html>

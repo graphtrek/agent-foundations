@@ -1,15 +1,9 @@
 <!doctype html>
-<!--
-  Landing page of the repository. Served at / by src/bank_officer/main.py
-  (uv run python src/bank_officer/main.py -> http://127.0.0.1:8050/), but it
-  also opens straight from disk: the links then point at the files in the repo,
-  and only the chat needs the running server.
--->
 <html lang="hu">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agent architektúra: alapelvek és gyors kipróbálás | agent-foundations</title>
+    <title>Eval-driven development · K+F Harness Agent — a fix pipeline-tól a mérésvezérelt architektúráig | agent-foundations</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
       :root {
@@ -21,6 +15,8 @@
         --coral: #ff765c;
         --blue: #7bb9d8;
         --line: #d9d6cc;
+        --grid: rgba(23, 33, 43, 0.04);
+        --codebg: rgba(23, 33, 43, 0.07);
         --shadow: 0 18px 50px rgba(23, 33, 43, 0.13);
       }
       @media (prefers-color-scheme: dark) {
@@ -30,357 +26,347 @@
           --paper: #12181e;
           --white: #1a222a;
           --line: #2f3a44;
-          --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+          --grid: rgba(238, 240, 234, 0.04);
+          --codebg: rgba(238, 240, 234, 0.09);
+          --shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
         }
       }
-      * { box-sizing: border-box; }
-      html, body { margin: 0; }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
       body {
         background: var(--paper);
         color: var(--ink);
-        font-family: Manrope, system-ui, sans-serif;
-        line-height: 1.6;
+        font-family: Manrope, sans-serif;
+        background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 28px 28px;
       }
-      code, .eyebrow, .tag, .num { font-family: 'DM Mono', ui-monospace, monospace; }
-      code {
-        font-size: 0.88em;
-        background: rgba(123, 185, 216, 0.2);
-        padding: 1px 6px;
-        border-radius: 5px;
+      main {
+        width: min(880px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: clamp(40px, 8vw, 80px) 0 100px;
       }
-      .wrap { width: min(1000px, calc(100% - 32px)); margin: 0 auto; }
-      header.hero { padding: clamp(40px, 8vw, 88px) 0 40px; }
+      code,
+      .eyebrow,
+      .tag {
+        font-family: 'DM Mono', monospace;
+      }
       .eyebrow {
         color: var(--coral);
         font-size: 13px;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        margin: 0 0 16px;
+        margin-bottom: 16px;
       }
       h1 {
         font-weight: 800;
         letter-spacing: -2px;
         line-height: 1.02;
-        margin: 0 0 20px;
-        font-size: clamp(34px, 6vw, 60px);
+        margin: 0;
+        font-size: clamp(34px, 6vw, 58px);
       }
       h2 {
         font-weight: 800;
         letter-spacing: -1px;
-        margin: 0 0 12px;
-        font-size: clamp(24px, 3.4vw, 34px);
+        margin: 0 0 16px;
+        font-size: clamp(24px, 3.4vw, 32px);
       }
-      h3 { margin: 0 0 6px; font-size: 18px; }
-      .lead { font-size: clamp(17px, 2vw, 20px); color: var(--muted); max-width: 760px; margin: 0; }
-      ul.gives { color: var(--muted); font-size: clamp(17px, 2vw, 20px); max-width: 760px; margin: 12px 0; padding-left: 24px; }
-      ul.gives li { margin-bottom: 4px; }
-      section { padding: 36px 0; }
-      .three {
+      h3 {
+        margin: 0 0 6px;
+        font-size: 19px;
+        letter-spacing: -0.2px;
+      }
+      p {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0;
+      }
+      strong {
+        color: var(--ink);
+      }
+      .lede {
+        margin-top: 20px;
+        max-width: 700px;
+        font-size: 18px;
+      }
+      code {
+        background: var(--codebg);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.86em;
+      }
+      section {
+        margin-top: 56px;
+      }
+      .why {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-        gap: 16px;
-        margin-top: 22px;
+        gap: 12px;
+      }
+      .why div {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 18px;
+        font-size: 15.5px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .why strong {
+        color: var(--ink);
       }
       .card {
         background: var(--white);
         border: 1px solid var(--line);
         border-radius: 16px;
-        padding: 22px;
         box-shadow: var(--shadow);
+        padding: 22px 24px;
         display: flex;
         flex-direction: column;
+        gap: 8px;
       }
-      .card p { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
-      .card .spacer { flex: 1; }
-      .tag {
-        display: inline-block;
-        align-self: flex-start;
-        font-size: 12px;
-        background: var(--lime);
-        color: #17212b;
-        padding: 2px 10px;
-        border-radius: 99px;
-        margin-bottom: 12px;
-      }
-      .tag.coral { background: var(--coral); }
-      .tag.blue { background: var(--blue); }
-      a.btn {
-        display: inline-block;
-        text-decoration: none;
-        background: #17212b;
-        color: #fffdf8;
-        font-weight: 700;
-        padding: 10px 18px;
-        border-radius: 10px;
-        align-self: flex-start;
-      }
-      a.btn:hover { background: var(--coral); color: #17212b; }
-      @media (prefers-color-scheme: dark) {
-        a.btn { background: var(--lime); color: #17212b; }
-        a.btn:hover { background: var(--coral); }
-      }
-      .principles { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 12px; }
-      .principles li {
+      .cards {
         display: grid;
-        grid-template-columns: 38px 1fr;
-        gap: 14px;
-        background: var(--white);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 16px 18px;
-      }
-      .num {
-        width: 34px; height: 34px;
-        border-radius: 50%;
-        background: var(--lime);
-        color: #17212b;
-        display: grid; place-items: center;
-        font-weight: 500;
-      }
-      .principles b { display: block; }
-      .principles span { color: var(--muted); font-size: 15px; }
-      .flow { display: grid; gap: 10px; margin-top: 22px; }
-      .step {
-        display: grid;
-        grid-template-columns: 150px 1fr;
         gap: 16px;
-        align-items: start;
+      }
+      .card p {
+        font-size: 15.5px;
+      }
+      .tag {
+        align-self: flex-start;
+        font-size: 11.5px;
+        padding: 3px 9px;
+        border-radius: 99px;
+        background: var(--lime);
+        color: #17212b;
+        letter-spacing: 0.5px;
+      }
+      .tag.coral {
+        background: var(--coral);
+      }
+      .tag.blue {
+        background: var(--blue);
+      }
+      .card ul {
+        margin: 2px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .btn {
+        align-self: flex-start;
+        margin-top: 6px;
+        background: var(--ink);
+        color: var(--paper);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 9px 16px;
+        border-radius: 99px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn {
+          background: var(--lime);
+          color: #17212b;
+        }
+      }
+      ol.steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: s;
+        display: grid;
+        gap: 12px;
+      }
+      ol.steps li {
+        counter-increment: s;
+        position: relative;
         background: var(--white);
         border: 1px solid var(--line);
-        border-left: 6px solid var(--blue);
-        border-radius: 12px;
-        padding: 14px 18px;
+        border-radius: 4px;
+        padding: 14px 18px 14px 58px;
+        font-size: 15.5px;
+        color: var(--muted);
+        line-height: 1.55;
       }
-      .step.code { border-left-color: var(--coral); }
-      .step.llm { border-left-color: var(--lime); }
-      .step strong { font-family: 'DM Mono', monospace; font-size: 14px; }
-      .step span { color: var(--muted); font-size: 15px; }
-      .legend { margin-top: 12px; font-size: 14px; color: var(--muted); }
-      .legend i {
-        display: inline-block; width: 12px; height: 12px; border-radius: 3px;
-        margin: 0 4px 0 12px; vertical-align: -1px;
-      }
-      table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 15px; }
-      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-      th { font-size: 13px; color: var(--muted); font-weight: 600; }
-      .tablewrap { overflow-x: auto; }
-      ol.try { padding-left: 22px; }
-      ol.try li { margin-bottom: 10px; }
-      pre {
-        background: #17212b;
-        color: #eef0ea;
-        padding: 14px 18px;
-        border-radius: 12px;
-        overflow-x: auto;
+      ol.steps li::before {
+        content: counter(s);
+        position: absolute;
+        left: 14px;
+        top: 12px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: var(--paper);
         font-family: 'DM Mono', monospace;
         font-size: 14px;
-        margin: 10px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .asks { display: grid; gap: 8px; padding: 0; list-style: none; margin: 14px 0 0; }
-      .asks li {
-        background: var(--white);
-        border: 1px dashed var(--line);
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-size: 15px;
-      }
-      .asks small { color: var(--muted); display: block; }
       .note {
+        margin-top: 16px;
+        padding: 12px 16px;
+        border-left: 4px solid var(--coral);
         background: var(--white);
-        border: 1px solid var(--line);
-        border-left: 6px solid var(--coral);
-        border-radius: 12px;
-        padding: 14px 18px;
-        margin-top: 18px;
         font-size: 15px;
       }
-      footer a { color: var(--ink); text-decoration-color: var(--coral); text-underline-offset: 3px; }
-      footer a:hover { color: var(--coral); }
-      .sources { padding-left: 20px; margin: 8px 0 14px; }
-      footer { padding: 40px 0 70px; color: var(--muted); font-size: 14px; }
-      @media (max-width: 640px) { .step { grid-template-columns: 1fr; gap: 4px; } }
+      .outro {
+        margin-top: 56px;
+        padding: 26px;
+        background: #17212b;
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .outro h2 {
+        color: var(--lime);
+        margin: 0;
+        font-size: clamp(20px, 3vw, 26px);
+      }
+      .outro p {
+        color: #d7e0d5;
+        margin-top: 10px;
+      }
+      .outro code {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--lime);
+      }
+      footer {
+        margin-top: 24px;
+        padding: 26px;
+        background: #17212b;
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        color: #d7e0d5;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      footer h3 {
+        color: var(--lime);
+        margin: 0 0 8px;
+        font-size: clamp(20px, 3vw, 26px);
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+      footer a {
+        color: #fffdf8;
+        text-decoration-color: var(--coral);
+        text-underline-offset: 3px;
+      }
+      footer a:hover {
+        color: var(--lime);
+      }
+      .sources {
+        padding-left: 20px;
+        margin: 8px 0 14px;
+      }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <header class="hero">
-        <p class="eyebrow">agent-foundations · bank branch officer demo</p>
-        <h1>Nincs „tuti” agent architektúra. Vannak alapelvek, és van gyors kipróbálás.</h1>
-        <p class="lead">
-          Ez az oldal nem árulja el, mit kell megváltoztatni a te architektúrádon, és nem
-          mutat „biztosan jó” irányt. Három dolgot ad:
-        </p>
-        <ul class="gives">
-          <li>az alapelveket, amelyeket érdemes következetesen betartani;</li>
-          <li>egy példát arra, hogyan működik a dokumentációk és jegyzetek alapján összeállított architektúra;</li>
-          <li>egy módszert, amellyel gyorsan ki lehet próbálni egy architektúrát és az orchestrationt.</li>
-        </ul>
-        <p class="lead">
-          Az architektúra alakja vitatható. Az alapelvek (stateless modell, szűk kontextus,
-          guardrail minden hívás előtt és után, ami kötelező, azt a kód kényszeríti ki)
-          a példában az Anthropic dokumentációjára és jegyzeteire épülnek, az OpenAI
-          anyagai több ponton ugyanezt erősítik. Ezeket érdemes komolyan venni, bármilyen
-          felépítést is választasz.
+    <main>
+      <header>
+        <div class="eyebrow">agent-foundations · eval-driven development</div>
+        <h1>Eval Driven Development <span style="white-space:nowrap">· K+F Harness Agent</span></h1>
+        <p class="lede">
+          A bank branch officer példa egy <strong>Bank Agent Harness Chat</strong>
+          alkalmazás architektúrája, amely az <strong>Anthropic és az OpenAI
+          dokumentációja</strong> alapján készült. Ma egy <strong>fix</strong> pipeline: a
+          router, a koordinátor, a specialisták és a guardrailek sorrendjét a kód rögzíti.
+          Ez jó kiindulópont, de abból, hogy „működik a demóban”, nem derül ki, hogy
+          <em>jobb-e</em>, ha megváltoztatjuk. Ezen a példán keresztül mutatjuk be az EDD-t:
+          az agent fejlesztését egy <strong>eval-készlet köré</strong> szervezzük, a már
+          működő mock alkalmazáson, mint POC-n.
         </p>
       </header>
 
       <section>
-        <h2>Miért nincs „tuti” megoldás, biztos recept?</h2>
-        <p class="lead" style="font-size: 16px">
-          <b>Microservice architektúra:</b> az építőelemek jellemzően determinisztikusak.
-          Ugyanarra a bemenetre ugyanazt adják, így a minták viselkedése jóval kevésbé
-          szór, és egy bevált minta viselkedése nagyrészt előre megítélhető (a hálózati
-          hibák, késleltetés és a terhelés persze itt is számítanak).
-        </p>
-        <p class="lead" style="font-size: 16px; margin-top: 12px">
-          <b>Agentic rendszer:</b> az építőeleme az LLM, ami valószínűségi alapon
-          működik. A kimenet függ a modelltől, a prompttól, az adatoktól és a feladattól.
-          Ugyanaz a felépítés az egyik környezetben beválik, a másikban nem, és ezt előre
-          nem lehet kiszámolni, csak megmérni.
-        </p>
-        <p class="lead" style="font-size: 16px; margin-top: 12px">
-          <b>Ezért</b> sem az Anthropic, sem az OpenAI dokumentációja nem ad egyetlen, mindenre
-          érvényes architektúrát. Adnak irányelveket (például: indulj a legegyszerűbb
-          működő megoldással, és csak mérés alapján bonyolítsd), de hogy egy adott
-          feladatra melyik felépítés a jó, azt nem döntik el.
-        </p>
-        <ul class="asks">
-          <li>
-            Nem állítja, hogy a lent bemutatott felépítés (router, koordinátor, három
-            szakértő) a helyes vagy az optimális.
-            <small>Egy lehetséges összeállítás a dokumentációk elveiből, nem ajánlás.</small>
-          </li>
-          <li>
-            Nem mondja meg, mit változtass a saját architektúrádon.
-            <small>Ez a feladattól, az adatoktól, a modellektől és a kockázattól függ, és csak mérésből derül ki.</small>
-          </li>
-          <li>
-            Nem helyettesíti a mérést.
-            <small>Ami itt működik, az nálad másképp is viselkedhet. Az egyetlen megbízható válasz a saját feladatodon futtatott próba.</small>
-          </li>
-        </ul>
+        <h2>Miért érdemes bevezetni?</h2>
+        <div class="why">
+          <div><strong>Mérés nélkül vakon repülünk.</strong> Egy prompt-módosítás javíthat egy
+          kérdéstípust, és észrevétlenül elronthat egy másikat, például a kártyalimit
+          jogosultság-kezelését.</div>
+          <div><strong>Az építőelem valószínűségi.</strong> Ugyanaz a kérdés háromszor futtatva
+          háromszor mást adhat, ezért nem kiszámolni, hanem mérni kell.</div>
+          <div><strong>A változtatás kockázata kiszámítható lesz.</strong> Modellcsere, új
+          specialista vagy átírt prompt előtt-után összevethető ugyanazon a készleten, napok
+          alatt, nem hetek alatt.</div>
+          <div><strong>Definiálni kell, mi a „jó”.</strong> „Megfelelő válasz” helyett: a szám
+          stimmel a teszt adattal, vagy a válasz jogosultság miatt megtagad.</div>
+          <div><strong>A megbízhatóság több, mint az egyszeri siker.</strong> Egy szabály, ami
+          10-ből 9-szer tartja magát, élesben nem szabály, ezért ugyanazt a kérdést többször
+          futtatjuk (<code>--repeat</code>), és az mindegyik futásnak át kell mennie.</div>
+        </div>
       </section>
 
       <section>
-        <h2>Az agentic architektúra akkor meggyőző, ha azonnal kipróbálható</h2>
-        <p class="lead" style="font-size: 16px">
-          Mivel egy agentic rendszer valós viselkedése csak futtatás közben derül ki,
-          egy előre felrajzolt architektúra önmagában nem bizonyít semmit. A leginkább az
-          számít, hogy azonnal ki lehet-e próbálni, és látszik-e, mit csinál.
+        <h2>A POC három lépésben: nézd meg a működő példán</h2>
+        <p style="margin-bottom: 18px">
+          A kezdőlap három kártyája egyben az EDD folyamat három lépése is.
         </p>
-        <p class="lead" style="font-size: 16px; margin-top: 12px">
-          Ezért a példa három darabból áll:
-        </p>
-        <ul class="gives" style="font-size: 16px">
-          <li>az elmélet: az összeállított architektúra;</li>
-          <li>egy mock banki alkalmazás teszt adatokkal;</li>
-          <li>egy chat, amelyben az architektúra működés közben kipróbálható.</li>
-        </ul>
-        <div class="three">
+        <div class="cards">
           <div class="card">
-            <span class="tag">1 · elmélet</span>
-            <h3>Az architektúra</h3>
-            <p>
-              A kérdés útja lépésről lépésre: router, orchestrator, subagentek, guardrailek
-              és a válaszkapu. Az elvek forrása és az agentenkénti modellválasztás is itt van.
-            </p>
-            <div class="spacer"></div>
+            <span class="tag">1 · a fix architektúra</span>
+            <h3>Mi van a kódban rögzítve?</h3>
+            <p>Az architektúra oldalon látszik a kérdés útja: router, orchestrator,
+            subagentek, guardrailek és a válaszkapu. Az EDD itt azt kérdezi:</p>
+            <ul>
+              <li>Mi marad <strong>mindig kódban</strong>? Jogosultság, PII, query-only, hibánál fix válasz.</li>
+              <li>Mi változtatható <strong>mérés alapján</strong>? Kell-e router, delegálás vagy egy agent, melyik modell, melyik prompt.</li>
+            </ul>
             <a class="btn" data-page="architecture" href="bank-officer-agent-architecture-hu.html">Architektúra oldal →</a>
           </div>
           <div class="card">
-            <span class="tag coral">2 · mock alkalmazás</span>
-            <h3>Teszt adatok és a hozzájuk tartozó funkciók</h3>
-            <p>
-              Az a „banki rendszer”, amit az agent lekérdez: három ügyfél teszt adatai, a
-              menüpontok, és a mögöttük lévő REST végpontok. Minden GET-hez látható a
-              válasz, a belépési szint szerinti hozzáféréssel.
-            </p>
-            <div class="spacer"></div>
+            <span class="tag coral">2 · Teszt katalógus</span>
+            <h3>A teszt adat a mérce</h3>
+            <p>A három mock ügyfél adatai és a mögöttük lévő REST végpontok adják a
+            referenciát: ebből számolható ki előre, hogy mi a helyes szám, és mit kell
+            megtagadnia egy retail ügyfélnél. Mock környezetben a kísérlet olcsó és
+            ismételhető, az éles rendszeren drága és kockázatos.</p>
             <a class="btn" data-page="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Teszt adatok megnyitása →</a>
           </div>
           <div class="card">
-            <span class="tag blue">3 · az architektúra kipróbálása</span>
-            <h3>Branch Officer chat</h3>
-            <p>
-              Az előző két kártya alapján itt próbálható ki az architektúra: a chatben
-              kérdezhetsz, és élőben látszik, melyik végpontot találta el a router, mely
-              tooloket hívta az agent, és mit adott vissza a guardrail után. A fejlécben az
-              architektúra kiválasztható (router, subagentek, modellek, promptok a YAML profilokban),
-              az <a href="src/bank_officer/webapp_mockup/eval.html" data-page="eval">eval oldal</a> (vagy az <code>evals/run.py</code>) pedig ugyanazokat a kérdéseket futtatja több profilon.
-            </p>
-            <div class="spacer"></div>
+            <span class="tag blue">3 · kipróbálás és mérés</span>
+            <h3>Chat, majd eval</h3>
+            <p>A chatben egy kérdést élőben végig lehet követni: melyik végpontot találta
+            el a router, mely tooloket hívta az agent, mit adott vissza a guardrail után.
+            Az eval oldal ugyanazokat a kérdéseket futtatja le több architektúra-profilon, így
+            az összehasonlítás szám, nem benyomás.</p>
             <a class="btn" data-page="chat" href="http://127.0.0.1:8050/chat.html">Chat megnyitása →</a>
+            <a class="btn" data-page="eval" href="src/bank_officer/webapp_mockup/eval.html" style="margin-top: 0">Eval oldal →</a>
           </div>
         </div>
         <p class="note" id="file-note" hidden>
-          Ezt az oldalt fájlként nyitottad meg. A chathez el kell indítani a szervert
-          (lásd lent: „Kipróbálás”), a többi oldal szerver nélkül is megnyílik.
-        </p>
-      </section>
-
-      <section>
-        <h2>Egy lehetséges iránymutatás a jelenlegi rendszerhez</h2>
-        <p class="lead" style="font-size: 16px">
-          Ez nem az egyetlen helyes út, csak egy javaslat arra, hogyan lehet a jelenlegi
-          architektúra előzetes, nagy megbontása nélkül haladni. A lényege, hogy előbb
-          mérünk egy mock környezetben, és csak utána döntünk a valódi rendszer
-          változtatásáról.
-        </p>
-        <ol class="try">
-          <li>
-            <b>Mock-oljuk a jelenlegi eval tesztekhez szükséges adatokat és funkciókat.</b>
-            A valódi rendszer helyett teszt adatok és mock végpontok szolgálják ki az
-            agentet, ahogy a példában a <code>bank_data.py</code> és a katalógus.
-          </li>
-          <li>
-            <b>Futtatjuk a jelenlegi teszteket</b> a mock környezeten a mostani
-            architektúrával és orchestrationnel. Ez lesz a kiindulási mérés.
-          </li>
-          <li>
-            <b>Változtatjuk az architektúrát és az orchestrationt</b> (agentek, toolok,
-            modellek, sorrend), egyszerre egy dolgot, és minden változtatás után újra
-            futtatjuk ugyanazokat a teszteket.
-          </li>
-          <li>
-            <b>Addig ismételjük, amíg jobb eredményt nem kapunk</b> a kiindulási mérésnél.
-            A „jobb” a saját eval mutatóidon dől el, nem megérzésen.
-          </li>
-          <li>
-            <b>Ezután határozzuk meg, hogyan lehet a jelenlegi rendszert változtatni</b>
-            a mockon bevált felépítés alapján. A valódi rendszer átalakítása csak ekkor
-            kezdődik.
-          </li>
-        </ol>
-        <p class="note">
-          Ez a sorrend azért ésszerű, mert a mock környezetben olcsó és gyors a kísérlet,
-          a valódi rendszeren drága és kockázatos. Azt viszont nem garantálja, hogy ami a
-          mockon jobb, az élesben is az lesz, ezért a végén érdemes a valódi adatokon is
-          ellenőrizni.
+          Ezt az oldalt fájlként nyitottad meg: a chat és az eval oldal futtatásához el kell
+          indítani a szervert (<code>uv run python src/bank_officer/main.py</code>).
         </p>
       </section>
 
       <footer>
-        <h3 style="color: var(--ink)">Források</h3>
+        <h3>Források</h3>
         <ul class="sources">
-          <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic – Building effective agents</a></li>
-          <li><a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons#end-turn" target="_blank" rel="noopener">Anthropic SDK – stop_reason</a></li>
-          <li><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows" target="_blank" rel="noopener">Anthropic SDK – Context Windows</a></li>
-          <li><a href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf" target="_blank" rel="noopener">OpenAI – A practical guide to building agents</a></li>
-          <li><a href="https://www.anthropic.com/research/demystifying-evals-for-ai-agents" target="_blank" rel="noopener">Anthropic – Demystifying evals for AI agents</a></li>
-          <li><a href="https://www.youtube.com/watch?v=VvKDoV39jAk&amp;list=PLmiDJB5zE0KGwFtDCSqHfQG7SV6VeQ_31" target="_blank" rel="noopener">AIGODMODE AI (YouTube) – Claude Certified Architect (lejátszási lista)</a></li>
-          <li><a href="https://openai.github.io/openai-agents-python/guardrails/" target="_blank" rel="noopener">OpenAI Agents SDK – Guardrails</a></li>
-          <li><a href="https://docs.langchain.com/oss/python/langchain/middleware/overview" target="_blank" rel="noopener">LangChain – Middleware</a></li>
-          <li><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents" target="_blank" rel="noopener">LangChain – Subagents</a></li>
-          <li><a href="https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit" target="_blank" rel="noopener">LangGraph – Recursion limit</a></li>
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic – Building effective agents</a></li>
+        <li><a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons#end-turn" target="_blank" rel="noopener">Anthropic SDK – stop_reason</a></li>
+        <li><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows" target="_blank" rel="noopener">Anthropic SDK – Context Windows</a></li>
+        <li><a href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf" target="_blank" rel="noopener">OpenAI – A practical guide to building agents</a></li>
+        <li><a href="https://www.anthropic.com/research/demystifying-evals-for-ai-agents" target="_blank" rel="noopener">Anthropic – Demystifying evals for AI agents</a></li>
+        <li><a href="https://www.youtube.com/watch?v=VvKDoV39jAk&amp;list=PLmiDJB5zE0KGwFtDCSqHfQG7SV6VeQ_31" target="_blank" rel="noopener">AIGODMODE AI (YouTube) – Claude Certified Architect (lejátszási lista)</a></li>
+        <li><a href="https://openai.github.io/openai-agents-python/guardrails/" target="_blank" rel="noopener">OpenAI Agents SDK – Guardrails</a></li>
+        <li><a href="https://docs.langchain.com/oss/python/langchain/middleware/overview" target="_blank" rel="noopener">LangChain – Middleware</a></li>
+        <li><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents" target="_blank" rel="noopener">LangChain – Subagents</a></li>
+        <li><a href="https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit" target="_blank" rel="noopener">LangGraph – Recursion limit</a></li>
         </ul>
         A teljes lista a megfelelő felhasználási célokkal az architektúra oldal végén van. Ezek a források elveket adnak, nem kész architektúrát.
       </footer>
-    </div>
+    </main>
 
     <script>
-      // Served by the app (http) the pages sit next to each other; opened from
-      // disk (file://) the static pages use their repo paths and the chat needs
-      // the server, so say so.
       (function () {
         if (location.protocol === 'file:') {
           var note = document.getElementById('file-note');
@@ -394,7 +380,7 @@
           eval: '/eval.html'
         };
         document.querySelectorAll('a[data-page]').forEach(function (a) {
-          a.setAttribute('href', map[a.dataset.page]);
+          if (map[a.dataset.page]) a.setAttribute('href', map[a.dataset.page]);
         });
       })();
     </script>

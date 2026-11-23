@@ -456,11 +456,38 @@
         border-color: var(--coral);
         color: var(--white);
       }
+      .pagenav {
+        width: min(880px, calc(100% - 40px));
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .pagenav a {
+        font: 600 14px Manrope, sans-serif;
+        color: var(--ink);
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 8px 16px;
+        text-decoration: none;
+        box-shadow: var(--shadow);
+      }
+      .pagenav.top {
+        padding-top: 20px;
+      }
+      .pagenav.bottom {
+        padding-bottom: 60px;
+      }
     </style>
   </head>
   <body>
-    <a href="index.html" style="position:fixed;top:12px;right:16px;z-index:20;font:600 13px Manrope,sans-serif;color:var(--ink);background:var(--white);border:1px solid var(--line);border-radius:99px;padding:6px 14px;text-decoration:none">← Kezdőlap</a>
     <div class="progress" id="progress"></div>
+    <nav class="pagenav top">
+      <a data-nav="index" href="index.html">← Kezdőlap</a>
+      <a data-nav="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Következő: 2 · Teszt katalógus →</a>
+    </nav>
     <main>
       <section class="narrow intro-proposal">
         <div class="eyebrow">Javaslat</div>
@@ -1205,6 +1232,10 @@ flowchart TD
         </p>
       </div>
     </main>
+    <nav class="pagenav bottom">
+      <a data-nav="index" href="index.html">← Kezdőlap</a>
+      <a data-nav="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Következő: 2 · Teszt katalógus →</a>
+    </nav>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script>
       mermaid.initialize({
@@ -1226,6 +1257,11 @@ flowchart TD
           padding: 16,
         },
       });
+
+      if (location.protocol !== 'file:') {
+        const nav = { index: '/', catalog: '/catalog.html' };
+        document.querySelectorAll('a[data-nav]').forEach((a) => a.setAttribute('href', nav[a.dataset.nav]));
+      }
 
       const progress = document.getElementById('progress');
       function updateProgress() {

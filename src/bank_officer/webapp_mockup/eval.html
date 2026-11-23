@@ -25,7 +25,9 @@
   header { display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline; margin-bottom: 16px; }
   h1 { margin: 0; font-size: 1.25rem; }
   h2 { font-size: 1rem; margin: 22px 0 8px; }
-  nav a { color: var(--accent); text-decoration: none; margin-right: 12px; font-size: 0.85rem; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  nav a { font-size: 0.82rem; font-weight: 600; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 99px; padding: 6px 14px; text-decoration: none; }
+  nav a:hover { border-color: var(--accent); }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
   .opt { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; font-size: 0.85rem; }
@@ -51,28 +53,36 @@
   .tag { font: 600 0.7rem ui-monospace, monospace; padding: 1px 6px; border-radius: 99px; }
   .tag.pass { background: var(--ok-bg); color: var(--ok); }
   .tag.fail { background: var(--err-bg); color: var(--error); }
+  dialog { width: min(820px, calc(100% - 32px)); max-height: 85vh; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); }
+  .dlg-head strong { font-size: 1rem; }
+  #reportBody { padding: 4px 18px 18px; }
+  #reportBody h2, #reportBody h3, #reportBody h4 { margin: 16px 0 6px; font-size: 1rem; }
+  #reportBody h4 { font-size: .9rem; }
+  #reportBody p { margin: 6px 0; }
+  #reportBody ul { margin: 6px 0; padding-left: 22px; }
+  #reportBody pre { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font: 0.8rem/1.45 ui-monospace, monospace; }
+  #reportBody code { font: 0.85em ui-monospace, monospace; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+  #reportBody pre code { background: none; padding: 0; }
 </style>
 </head>
 <body>
 <main>
   <header>
     <h1>Architektúra eval</h1>
-    <nav>
-      <a data-home href="index.html">← Home</a>
-      <a href="chat.html">Chat →</a>
-      <a href="catalog.html">Endpoint catalog →</a>
-    </nav>
+    <nav><a data-home href="index.html">← Kezdőlap</a> <a data-arch href="architecture.html">← Architektúra</a> <a href="catalog.html">← Teszt katalógus</a> <a href="chat.html">← Bank Chat</a></nav>
   </header>
   <p class="muted">Ugyanazokat a kérdéseket futtatja le a kiválasztott architektúra-profilokon. Valódi modellhívások, determinisztikus ellenőrzéssel (elvárt tool, végpont, számok a válaszban, hozzáférés-elutasítás). Egy futás keveset bizonyít: a modell valószínűségi, ezért érdemes többször ismételni.</p>
 
   <div class="cols">
     <section class="panel"><strong>Architektúrák</strong><div id="archs"></div></section>
-    <section class="panel"><strong>Tesztesetek</strong><div id="cases"></div></section>
   </div>
   <div class="bar">
     <label>Ismétlés <select id="repeat"></select></label>
     <button class="primary" id="run" type="button">Futtatás</button>
     <button id="cancel" type="button" hidden>Leállítás</button>
+    <button id="reportBtn" type="button" hidden>Kiértékelés</button>
     <progress id="progress" max="1" value="0" hidden></progress>
     <span class="muted" id="status"></span>
   </div>
@@ -80,19 +90,28 @@
 
   <h2>Összesítés</h2>
   <div class="panel"><div id="summary" class="muted">Még nincs futás.</div></div>
-  <h2>Eredmények esetenként <span class="muted">(kattints egy cellára a részletekért)</span></h2>
-  <div class="panel"><div id="matrix" class="muted">Még nincs futás.</div><div class="detail" id="detail"></div></div>
+  <h2>Eredmények esetenként <span class="muted">(kattints egy cellára a részletekért · komplexitás = az eset ellenőrzéseinek száma: számok, szövegek, végpont, elutasítás)</span></h2>
+  <div class="panel"><div id="matrix"></div><div class="detail" id="detail"></div></div>
 </main>
+<dialog id="reportDlg">
+  <div class="dlg-head"><strong>Szöveges kiértékelés</strong><button id="reportClose" type="button">Bezár</button></div>
+  <div id="reportBody"></div>
+</dialog>
 <script>
 (function () {
   "use strict";
-  var archsEl = document.getElementById("archs"), casesEl = document.getElementById("cases");
+  var archsEl = document.getElementById("archs"), allCases = [], selected = {};
   var repeatEl = document.getElementById("repeat"), runBtn = document.getElementById("run");
   var cancelBtn = document.getElementById("cancel"), progressEl = document.getElementById("progress");
   var statusEl = document.getElementById("status"), errorEl = document.getElementById("error");
   var summaryEl = document.getElementById("summary"), matrixEl = document.getElementById("matrix");
   var detailEl = document.getElementById("detail");
   var snap = null, timer = null;
+  var reportBtn = document.getElementById("reportBtn"), reportDlg = document.getElementById("reportDlg");
+  var reportBody = document.getElementById("reportBody");
+
+  document.querySelectorAll("a[data-home]").forEach(function (a) { if (location.protocol !== "file:") a.href = "/"; });
+  document.querySelectorAll("a[data-arch]").forEach(function (a) { a.href = location.protocol === "file:" ? "../../../bank-officer-agent-architecture-hu.html" : "/architecture.html"; });
 
   if (location.protocol === "file:") {
     errorEl.textContent = "Ehhez a szerver kell: uv run python src/bank_officer/main.py, majd http://127.0.0.1:8050/eval.html";
@@ -137,6 +156,37 @@
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
   }
 
+  /* Minimal, safe Markdown view (headings, lists, code, **bold**, `code`): DOM nodes only, the text is model output. */
+  function inline(parent, text) {
+    text.split(/(\*\*[^*]+\*\*|`[^`]+`)/).forEach(function (part) {
+      if (!part) return;
+      if (part.slice(0, 2) === "**" && part.slice(-2) === "**" && part.length > 4) parent.appendChild(el("strong", null, part.slice(2, -2)));
+      else if (part[0] === "`" && part.slice(-1) === "`" && part.length > 2) parent.appendChild(el("code", null, part.slice(1, -1)));
+      else parent.appendChild(document.createTextNode(part));
+    });
+  }
+  function renderMarkdown(box, md) {
+    box.textContent = "";
+    var list = null, code = null;
+    md.split("\n").forEach(function (line) {
+      if (line.trim().indexOf("```") === 0) {
+        if (code) { box.appendChild(code.pre); code = null; }
+        else { code = { pre: el("pre"), lines: [] }; code.pre.appendChild(el("code")); }
+        return;
+      }
+      if (code) { var c = code.pre.firstChild; c.textContent += (c.textContent ? "\n" : "") + line; return; }
+      var h = /^(#{1,4})\s+(.*)$/.exec(line), li = /^\s*[-*]\s+(.*)$/.exec(line);
+      if (li) {
+        if (!list) { list = el("ul"); box.appendChild(list); }
+        var item = el("li"); inline(item, li[1]); list.appendChild(item); return;
+      }
+      list = null;
+      if (h) { var hn = el("h" + Math.min(h[1].length + 1, 4)); inline(hn, h[2]); box.appendChild(hn); }
+      else if (line.trim()) { var p = el("p"); inline(p, line); box.appendChild(p); }
+    });
+    if (code) box.appendChild(code.pre);
+  }
+
   function renderSummary() {
     summaryEl.textContent = "";
     if (!snap || !snap.results.length) { summaryEl.textContent = "Még nincs futás."; return; }
@@ -157,16 +207,29 @@
 
   function renderMatrix() {
     matrixEl.textContent = "";
-    if (!snap || !snap.results.length) { matrixEl.textContent = "Még nincs futás."; return; }
+    var results = snap ? snap.results : [];
+    var archs = snap && snap.archs.length ? snap.archs : checked(archsEl);
     var t = el("table"), head = el("tr");
+    head.appendChild(el("th", null, "#"));
     head.appendChild(el("th", null, "Eset"));
-    snap.archs.forEach(function (a) { head.appendChild(el("th", null, a)); });
+    head.appendChild(el("th", null, "Komplexitás"));
+    archs.forEach(function (a) { head.appendChild(el("th", null, a)); });
     t.appendChild(head);
-    snap.cases.forEach(function (c) {
-      var tr = el("tr");
-      tr.appendChild(el("td", null, c));
-      snap.archs.forEach(function (a) {
-        var rows = snap.results.filter(function (r) { return r.arch === a && r.case === c; });
+    allCases.forEach(function (cs, idx) {
+      var c = cs.id, tr = el("tr"), first = el("td");
+      tr.appendChild(el("td", "num", String(idx + 1)));
+      var l = el("label", "opt");
+      var cb = el("input"); cb.type = "checkbox"; cb.checked = !!selected[c];
+      cb.addEventListener("change", function () { selected[c] = cb.checked; });
+      l.appendChild(cb);
+      var tt = el("span", null, c);
+      tt.appendChild(el("small", null, cs.question + (cs.customer ? " (" + cs.customer + ")" : "")));
+      l.appendChild(tt);
+      first.appendChild(l);
+      tr.appendChild(first);
+      tr.appendChild(el("td", "num", String(cs.complexity)));
+      archs.forEach(function (a) {
+        var rows = results.filter(function (r) { return r.arch === a && r.case === c; });
         var td = el("td", "cell");
         if (!rows.length) { td.textContent = "–"; tr.appendChild(td); return; }
         var ok = rows.filter(function (r) { return r.passed; }).length;
@@ -185,7 +248,7 @@
     detailEl.appendChild(el("strong", null, arch + " / " + caseId));
     rows.forEach(function (r, i) {
       var head = el("div", "muted", "Futás " + (i + 1) + " · " + fmtMs(r.ms) + " · tool-ok: " + (r.tools.join(", ") || "–") + " · végpont: " + (r.endpoint || "–") + " ");
-      head.appendChild(el("span", "tag " + (r.passed ? "pass" : "fail"), r.passed ? "PASS" : "FAIL"));
+      head.appendChild(el("span", "tag " + (r.passed ? "pass" : "fail"), r.passed ? "SIKERES" : "HIBÁS"));
       detailEl.appendChild(head);
       var checks = Object.keys(r.checks).map(function (k) { return (r.checks[k] ? "✓ " : "✗ ") + k; }).join("   ");
       detailEl.appendChild(el("div", "muted", checks));
@@ -203,6 +266,8 @@
       statusEl.textContent = running
         ? snap.finished + " / " + snap.total + (snap.current ? " · most: " + snap.current : "") + (snap.cancelled ? " · leállítás az aktuális eset után" : "")
         : (snap.cancelled ? "Leállítva. " : "Kész. ") + snap.finished + " / " + snap.total + " futás.";
+      if (running && snap.report_pending) statusEl.textContent = "Szöveges kiértékelés készül (Luna)…";
+      reportBtn.hidden = !snap.report;
     }
     renderSummary();
     renderMatrix();
@@ -216,14 +281,23 @@
     }).catch(function (e) { errorEl.textContent = e.message; });
   }
 
+  archsEl.addEventListener("change", renderMatrix);
   runBtn.addEventListener("click", function () {
     errorEl.textContent = "";
     detailEl.textContent = "";
+    reportBtn.hidden = true;
     api("/api/evals", { method: "POST", json: {
-      architectures: checked(archsEl), cases: checked(casesEl), repeat: Number(repeatEl.value)
+      architectures: checked(archsEl), cases: allCases.map(function (c) { return c.id; }).filter(function (c) { return selected[c]; }), repeat: Number(repeatEl.value)
     } }).then(function () { clearTimeout(timer); poll(); })
       .catch(function (e) { errorEl.textContent = e.message; });
   });
+  reportBtn.addEventListener("click", function () {
+    if (!snap || !snap.report) return;
+    renderMarkdown(reportBody, snap.report);
+    reportDlg.showModal();
+  });
+  document.getElementById("reportClose").addEventListener("click", function () { reportDlg.close(); });
+  reportDlg.addEventListener("click", function (e) { if (e.target === reportDlg) reportDlg.close(); });
   cancelBtn.addEventListener("click", function () {
     api("/api/evals/cancel", { method: "POST" }).then(function () { clearTimeout(timer); poll(); })
       .catch(function (e) { errorEl.textContent = e.message; });
@@ -231,7 +305,9 @@
 
   api("/api/evals/options").then(function (o) {
     o.architectures.forEach(function (a) { option(archsEl, a.id, a.label, a.id, a.id === "router" || a.id === "single_agent" || a.id === "no_router"); });
-    o.cases.forEach(function (c) { option(casesEl, c.id, c.id, c.question + (c.customer ? " (" + c.customer + ")" : ""), true); });
+    allCases = o.cases;
+    allCases.forEach(function (c) { selected[c.id] = true; });
+    renderMatrix();
     for (var i = 1; i <= o.max_repeat; i++) { var op = el("option", null, String(i)); op.value = i; repeatEl.appendChild(op); }
     poll();  /* picks up a run that is already going (or the last finished one) */
   }).catch(function (e) { errorEl.textContent = "Nem érhető el a szerver: " + e.message; });

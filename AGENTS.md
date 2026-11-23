@@ -26,6 +26,10 @@ LangGraph, using OpenRouter as the model provider.
   The same runner (`src/bank_officer/eval_runner.py`) backs the web page
   http://127.0.0.1:8050/eval.html (`GET /api/evals/options`, `POST /api/evals`,
   `GET /api/evals/current`, `POST /api/evals/cancel`); one eval runs at a time.
+  After a web run, `src/bank_officer/eval_report.py` has the Luna model
+  (`EVAL_REPORT_MODEL`, default `openai/gpt-6-luna`) write a Hungarian text evaluation of
+  the failed cases: which agent file of the architecture to fix and the exact change. It
+  is saved as `logs/evals/<stamp>.md` and shown in a popup (button "Kiértékelés").
 
 The first three commands make OpenRouter requests. The search example also
 uses DuckDuckGo, and the image example in `simple_agent.py` expects `test.jpg`
@@ -86,7 +90,8 @@ entitlement tier is below the matched endpoint's `required_entitlement`,
 ### Architecture profiles (bank officer)
 
 The pipeline's shape is data: `src/bank_officer/architectures/<id>/architecture.yaml`
-(`router`, `no_router`, `single_agent`, `alt_model_specialists`) says whether
+(`router`, `no_router`, `single_agent`; the folder may carry an ordering prefix, so
+`03_router/` holds the profile `router`) says whether
 the Jev router runs, whether the coordinator delegates to specialist
 sub-agents (`mode: delegate`) or gets every data tool itself (`mode: flat`),
 and each architecture folder holds its own complete copy of the agent files
@@ -108,9 +113,8 @@ hours, locations, conditions) and an `answer_synthesizer` (`coordinator.synthesi
 the YAML, no tools). The `ask_answer_synthesizer` tool reads the turn's specialist
 answers from the graph state in code (the coordinator does not retype them); with fewer
 than two answers it passes the single answer on, and an `ACCESS DENIED` answer is
-returned verbatim, never merged. `alt_model_specialists` keeps the earlier simple
-shape (no public-info specialist, no synthesizer). `no_router` and `single_agent` still
-give the coordinator the general tools directly.
+returned verbatim, never merged. `no_router` and `single_agent` still give the
+coordinator the general tools directly.
 
 ## Validation
 

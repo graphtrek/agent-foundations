@@ -184,15 +184,24 @@ def _agent_ids(profile: ArchitectureProfile) -> set[str]:
     return ids
 
 
+def folder_profile_id(folder_name: str) -> str:
+    """The profile id of a folder: an optional ``NN_`` ordering prefix is not part
+    of it (``03_router`` holds the profile ``router``)."""
+    return re.sub(r"^\d+_", "", folder_name)
+
+
 def profile_dir(profile_id: str) -> Path:
-    """The folder of one architecture (its YAML and its agent files)."""
+    """The folder of one architecture (its YAML and its agent files): ``<id>/`` or
+    ``NN_<id>/``."""
     _require(
         isinstance(profile_id, str) and ID_RE.match(profile_id) is not None,
         "invalid profile id",
     )
-    path = (ARCHITECTURES_DIR / profile_id).resolve()
-    _require(path.parent == ARCHITECTURES_DIR.resolve(), "invalid profile id")
-    return path
+    root = ARCHITECTURES_DIR.resolve()
+    for folder in sorted(root.iterdir()) if root.is_dir() else []:
+        if folder.is_dir() and folder_profile_id(folder.name) == profile_id:
+            return folder
+    return root / profile_id
 
 
 def effective_specs(profile: ArchitectureProfile) -> dict[str, AgentSpec]:
@@ -276,12 +285,12 @@ def list_profiles() -> list[dict[str, str]]:
     found: list[dict[str, str]] = []
     for path in sorted(ARCHITECTURES_DIR.glob(f"*/{PROFILE_FILE}")):
         try:
-            profile = load_profile(path.parent.name)
+            profile = load_profile(folder_profile_id(path.parent.name))
             found.append(
                 {"id": profile.id, "label": profile.label, "description": profile.description}
             )
         except (ProfileError, yaml.YAMLError, OSError) as exc:
-            found.append({"id": path.parent.name, "label": path.parent.name, "description": "", "error": str(exc)})
+            found.append({"id": folder_profile_id(path.parent.name), "label": path.parent.name, "description": "", "error": str(exc)})
     return found
 
 

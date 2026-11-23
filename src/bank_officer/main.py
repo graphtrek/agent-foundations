@@ -167,7 +167,8 @@ def eval_options() -> dict[str, Any]:
     return {
         "architectures": [p for p in list_profiles() if "error" not in p],
         "cases": [
-            {"id": c["id"], "question": c["question"], "customer": c.get("customer")}
+            {"id": c["id"], "question": c["question"], "customer": c.get("customer"),
+             "complexity": eval_runner.case_complexity(c)}
             for c in eval_runner.load_cases()
         ],
         "max_repeat": eval_runner.MAX_REPEAT,
@@ -324,6 +325,7 @@ async def stream_live(chat_id: str) -> StreamingResponse:
 def architecture_page() -> FileResponse:
     """The architecture explainer page that lives in the repository root."""
     return FileResponse(ARCHITECTURE_PAGE, media_type="text/html")
+
 
 
 # Last, so the API routes above take precedence: catalog.html and chat.html.

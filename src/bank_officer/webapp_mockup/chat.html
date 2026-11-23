@@ -11,11 +11,11 @@
   guardrails act on the finished model message, so raw tokens would show
   text they later redact or rewrite.
 -->
-<html lang="en">
+<html lang="hu">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Branch Officer Chat</title>
+<title>Branch Officer Chat — az architektúra kipróbálása</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <style>
@@ -295,24 +295,24 @@
 <div class="app">
   <header>
     <h1>Branch Officer</h1>
-    <nav><a data-home href="index.html">← Home</a> <a href="catalog.html">Endpoint catalog →</a> <a href="eval.html">Eval →</a> <a href="architecture.html" target="_blank">Architecture →</a></nav>
+    <nav><a data-home href="index.html">← Kezdőlap</a> <a data-arch href="architecture.html">← Architektúra</a> <a href="catalog.html">← Teszt katalógus</a> <a href="eval.html">Eval →</a></nav>
     <span class="spacer"></span>
-    <label class="archpick">Architecture <select id="arch" title="Agent architecture profile - switching starts a new chat"></select></label>
-    <span class="customer" id="customer">No customer selected</span>
-    <button type="button" id="flow-toggle">Flow</button>
-    <button type="button" id="new-chat" title="End this session (saves it to conversations/) and start a new one">New chat</button>
+    <label class="archpick">Architektúra <select id="arch" title="Az agent architektúra-profilja - váltáskor új chat indul"></select></label>
+    <span class="customer" id="customer">Nincs kiválasztott ügyfél</span>
+    <button type="button" id="flow-toggle">Folyamat</button>
+    <button type="button" id="new-chat" title="A munkamenet lezárása (mentés a conversations/ mappába) és új indítása">Új chat</button>
   </header>
 
   <div id="messages" aria-live="polite"></div>
 
   <form id="composer">
-    <textarea id="input" rows="1" maxlength="2000" placeholder="Ask about a customer's accounts, transactions, products or offers…" required></textarea>
-    <button type="submit" id="send">Send</button>
+    <textarea id="input" rows="1" maxlength="2000" placeholder="Kérdezzen egy ügyfél számláiról, tranzakcióiról, termékeiről vagy ajánlatairól…" required></textarea>
+    <button type="submit" id="send">Küldés</button>
   </form>
 </div>
-<aside class="flow" id="flow" aria-label="Architecture flow of the current question">
-  <h2>Architecture flow</h2>
-  <p class="hint">Rebuilt for every question; nodes light up as the pipeline runs.</p>
+<aside class="flow" id="flow" aria-label="Az aktuális kérdés architektúra-folyamata">
+  <h2>Architektúra-folyamat</h2>
+  <p class="hint">Minden kérdésnél újraépül; a lépések a pipeline futása közben gyulladnak ki.</p>
   <div class="fnodes" id="fnodes"></div>
 </aside>
 </div>
@@ -345,8 +345,8 @@
   if (location.protocol === "file:") {
     var banner = document.createElement("div");
     banner.className = "banner";
-    banner.innerHTML = "This page needs the chat server. Start it with " +
-      "<code>uv run python src/bank_officer/main.py</code> and open " +
+    banner.innerHTML = "Ehhez az oldalhoz a chat szerver kell. Indítsa el így: " +
+      "<code>uv run python src/bank_officer/main.py</code>, majd nyissa meg: " +
       "<a href=\"http://127.0.0.1:8050/chat.html\">http://127.0.0.1:8050/chat.html</a>.";
     messagesEl.appendChild(banner);
     form.hidden = true;
@@ -395,11 +395,11 @@
   /* ---- Architecture flow panel: one run of the pipeline, rebuilt per question ---- */
   var flowEl = document.getElementById("fnodes");
   var TOOL_LABELS = {
-    list_customers: "Customer list",
-    select_customer: "Customer selection",
-    ask_account_specialist: "Account specialist",
-    ask_product_specialist: "Product specialist",
-    ask_service_specialist: "Service specialist"
+    list_customers: "Ügyféllista",
+    select_customer: "Ügyfélválasztás",
+    ask_account_specialist: "Számla specialista",
+    ask_product_specialist: "Termék specialista",
+    ask_service_specialist: "Szolgáltatás specialista"
   };
 
   function Flow() { this.reset(); }
@@ -448,14 +448,14 @@
     flowEl.textContent = "";
     this.tools = {};
     var n = this.n = {};
-    n.q = this.node("human", "Officer question", "input", "");
-    n.gin = this.node("guard", "Input guardrail", "code", "injection check + PII redaction");
-    n.router = this.node("agent", "Endpoint router", "Jev", "matching the catalog");
-    n.access = this.node("guard", "Access check", "code", "entitlement tier vs. endpoint");
-    n.coord = this.node("agent", "Coordinator", "LLM", "");
+    n.q = this.node("human", "Ügyintézői kérdés", "bemenet", "");
+    n.gin = this.node("guard", "Bemeneti guardrail", "kód", "injekció-ellenőrzés + PII-maszkolás");
+    n.router = this.node("agent", "Endpoint router", "Jev", "egyeztetés a katalógussal");
+    n.access = this.node("guard", "Jogosultság-ellenőrzés", "kód", "belépési szint és végpont összevetése");
+    n.coord = this.node("agent", "Koordinátor", "LLM", "");
     this.group = el("div", "fgroup");
-    n.gout = this.node("guard", "Output guardrail", "code", "PII redaction + query-only check");
-    n.gw = this.node("tool", "Reply gateway", "code", "");
+    n.gout = this.node("guard", "Kimeneti guardrail", "kód", "PII-maszkolás + csak lekérdezés ellenőrzés");
+    n.gw = this.node("tool", "Válaszkapu", "kód", "");
     var self = this;
     this.arrows = [];
     [n.q, n.gin, n.router, n.access, n.coord, this.group, n.gout, n.gw].forEach(function (node, i) {
@@ -470,8 +470,8 @@
   /* An architecture without a router step shows its two nodes as not present. */
   Flow.prototype.noRouter = function () {
     if (currentArch.router) return;
-    this.state(this.n.router, "skipped", "not in this architecture");
-    this.state(this.n.access, "skipped", "tools still enforce the tier");
+    this.state(this.n.router, "skipped", "nincs ebben az architektúrában");
+    this.state(this.n.access, "skipped", "a toolok így is érvényesítik a szintet");
   };
 
   Flow.prototype.start = function (text) {
@@ -490,31 +490,31 @@
       this.llmTotal = 0;
       this.arrows[2].classList.add("on");
       this.arrows[3].classList.add("on");
-      this.state(n.coord, "active", currentArch.mode === "flat" ? "calling data tools directly" : "choosing a specialist");
+      this.state(n.coord, "active", currentArch.mode === "flat" ? "közvetlenül hívja az adat toolokat" : "specialistát választ");
     } else if (event === "route") {
       var ep = data.endpoint;
       this.time(n.router, data.elapsed_ms);
       this.lastAt = data.at_ms || 0;
       this.llmTotal = 0;
-      this.state(n.router, "done", ep ? ep.method + " " + ep.path + " · p=" + Number(ep.probability).toFixed(2) : "no confident match");
+      this.state(n.router, "done", ep ? ep.method + " " + ep.path + " · p=" + Number(ep.probability).toFixed(2) : "nincs biztos egyezés");
       this.arrows[2].classList.add("on");
       if (ep && ep.access_denied === true) {
-        this.state(n.access, "denied", "denied - " + ep.required_entitlement + " tier required");
+        this.state(n.access, "denied", "megtagadva - " + ep.required_entitlement + " szint szükséges");
         this.arrows[3].classList.add("deny");
-        this.state(n.coord, "skipped", "never called");
+        this.state(n.coord, "skipped", "nem futott");
         this.state(n.gout, "skipped");
         this.group.hidden = true;
         this.arrows[4].hidden = this.arrows[5].hidden = true;
-        this.state(n.gw, "active", "fixed refusal");
+        this.state(n.gw, "active", "fix elutasítás");
       } else {
-        this.state(n.access, "done", ep ? "allowed (" + ep.required_entitlement + ")" : "no endpoint, allowed");
+        this.state(n.access, "done", ep ? "engedélyezve (" + ep.required_entitlement + ")" : "nincs végpont, engedélyezve");
         this.arrows[3].classList.add("on");
-        this.state(n.coord, "active", "choosing a specialist");
+        this.state(n.coord, "active", "specialistát választ");
       }
     } else if (event === "tool_call") {
-      var node = this.node("agent", TOOL_LABELS[data.name] || data.name, data.name.indexOf("ask_") === 0 ? "sub-agent" : "tool", "");
+      var node = this.node("agent", TOOL_LABELS[data.name] || data.name, data.name.indexOf("ask_") === 0 ? "subagent" : "tool", "");
       var args = JSON.stringify(data.args || {});
-      node.d.textContent = args === "{}" ? "running" : args.slice(0, 90);
+      node.d.textContent = args === "{}" ? "fut" : args.slice(0, 90);
       this.state(node, "active");
       node.callAt = data.at_ms;
       this.llmTotal = (this.llmTotal || 0) + (data.llm_ms || 0);
@@ -529,9 +529,9 @@
         this.state(tn, data.ok ? "done" : "error");
         if (tn.callAt !== undefined && data.at_ms !== undefined) this.time(tn, data.at_ms - tn.callAt);
       }
-      if (n.coord.classList.contains("active")) n.coord.d.textContent = "writing the answer";
+      if (n.coord.classList.contains("active")) n.coord.d.textContent = "válaszol";
     } else if (event === "customer") {
-      n.coord.d.textContent = "customer: " + (data.customer ? data.customer.name : "-");
+      n.coord.d.textContent = "ügyfél: " + (data.customer ? data.customer.name : "-");
     } else if (event === "reply") {
       Object.keys(this.tools).forEach(function (id) {
         if (self.tools[id].classList.contains("active")) self.state(self.tools[id], "done");
@@ -543,18 +543,18 @@
         this.state(n.coord, "done");
         this.state(n.gout, "done");
         this.arrows[5].classList.add("on");
-        this.state(n.gw, "done", "reply delivered");
+        this.state(n.gw, "done", "válasz kézbesítve");
       } else {
-        this.state(n.gw, "done", "fixed refusal delivered");
+        this.state(n.gw, "done", "fix elutasítás kézbesítve");
       }
       this.arrows[6].classList.add("on");
       if (data.total_ms !== undefined) {
         this.time(n.gw, data.total_ms);
-        flowEl.appendChild(el("div", "ftotal", "total " + fmtMs(data.total_ms)));
+        flowEl.appendChild(el("div", "ftotal", "összesen " + fmtMs(data.total_ms)));
       }
     } else if (event === "app_error" || event === "stopped") {
       ["router", "access", "coord", "gout", "gw"].forEach(function (k) {
-        if (n[k].classList.contains("active")) self.state(n[k], "error", event === "stopped" ? "stopped" : "failed");
+        if (n[k].classList.contains("active")) self.state(n[k], "error", event === "stopped" ? "leállítva" : "hiba");
       });
       Object.keys(this.tools).forEach(function (id) {
         if (self.tools[id].classList.contains("active")) self.state(self.tools[id], "error");
@@ -577,7 +577,7 @@
     return api("/api/architectures").then(function (body) {
       archSel.textContent = "";
       body.architectures.forEach(function (a) {
-        var o = el("option", null, a.label + (a.error ? " (invalid)" : ""));
+        var o = el("option", null, a.label + (a.error ? " (érvénytelen)" : ""));
         o.value = a.id;
         o.disabled = !!a.error;
         o.title = a.error || a.description || "";
@@ -605,8 +605,8 @@
 
   function setCustomer(c) {
     customerEl.textContent = "";
-    if (!c) { customerEl.textContent = "No customer selected"; return; }
-    customerEl.appendChild(document.createTextNode("Customer: "));
+    if (!c) { customerEl.textContent = "Nincs kiválasztott ügyfél"; return; }
+    customerEl.appendChild(document.createTextNode("Ügyfél: "));
     customerEl.appendChild(el("strong", null, c.name));
     customerEl.appendChild(el("span", "tier " + c.tier, c.tier));
   }
@@ -640,10 +640,10 @@
    * (SSE) and replayed from history - so both render identically. */
   function AssistantBubble() {
     this.root = el("div", "msg assistant");
-    this.root.appendChild(el("div", "label", "Assistant"));
+    this.root.appendChild(el("div", "label", "Asszisztens"));
     this.steps = el("div", "steps");
     this.reply = el("div", "reply");
-    this.status = el("div", "status", "Routing the question");
+    this.status = el("div", "status", "Kérdés irányítása");
     this.root.appendChild(this.steps);
     this.root.appendChild(this.reply);
     this.root.appendChild(this.status);
@@ -658,16 +658,16 @@
       var ep = data.endpoint;
       var row = el("div", "route");
       if (!ep) {
-        row.textContent = "Endpoint router: no confident match";
+        row.textContent = "Endpoint router: nincs biztos egyezés";
       } else {
         if (ep.access_denied === true) row.classList.add("denied");
         row.appendChild(el("span", "method " + ep.method.toLowerCase(), ep.method));
         row.appendChild(el("span", "path", ep.path));
         row.appendChild(el("span", null, "· " + ep.menu_path + " · p=" + Number(ep.probability).toFixed(2)));
-        if (ep.access_denied === true) row.appendChild(el("strong", null, "· access denied (" + ep.required_entitlement + " required)"));
+        if (ep.access_denied === true) row.appendChild(el("strong", null, "· hozzáférés megtagadva (" + ep.required_entitlement + " szint szükséges)"));
       }
       this.steps.appendChild(row);
-      this.status.textContent = "Asking the coordinator";
+      this.status.textContent = "A koordinátor dolgozik";
     } else if (event === "tool_call") {
       var chip = el("details", "tool pending");
       var summary = el("summary");
@@ -677,7 +677,7 @@
       chip.appendChild(summary);
       this.steps.appendChild(chip);
       this.tools[data.id] = chip;
-      this.status.textContent = data.name.indexOf("ask_") === 0 ? "Waiting for the " + data.name.replace(/^ask_|_specialist$/g, "") + " specialist" : "Running " + data.name;
+      this.status.textContent = data.name.indexOf("ask_") === 0 ? "Várakozás: " + data.name.replace(/^ask_|_specialist$/g, "") + " specialista" : "Fut: " + data.name;
     } else if (event === "tool_result") {
       var entry = this.tools[data.id];
       if (entry) {
@@ -685,7 +685,7 @@
         entry.classList.add(data.ok ? "ok" : "error");
         if (data.preview) entry.appendChild(el("pre", null, data.preview));
       }
-      this.status.textContent = "Writing the answer";
+      this.status.textContent = "A válasz megírása";
     } else if (event === "customer") {
       setCustomer(data.customer);
     } else if (event === "reply") {
@@ -693,7 +693,7 @@
     } else if (event === "app_error") {
       this.root.appendChild(el("div", "notice error", data.message));
     } else if (event === "stopped") {
-      this.root.appendChild(el("div", "notice muted", "Stopped."));
+      this.root.appendChild(el("div", "notice muted", "Leállítva."));
     }
     scrollDown();
     return self;
@@ -702,13 +702,13 @@
   AssistantBubble.prototype.finish = function () {
     this.status.remove();
     if (!this.reply.textContent && !this.root.querySelector(".notice")) {
-      this.root.appendChild(el("div", "notice muted", "No reply."));
+      this.root.appendChild(el("div", "notice muted", "Nincs válasz."));
     }
   };
 
   function setStreaming(on) {
     streaming = on;
-    sendBtn.textContent = on ? "Stop" : "Send";
+    sendBtn.textContent = on ? "Leállítás" : "Küldés";
     sendBtn.classList.toggle("stop", on);
     sendBtn.disabled = false;
     newChatBtn.disabled = on;
@@ -736,13 +736,13 @@
       api("/api/chats/" + encodeURIComponent(chatId)).then(function (body) {
         var last = body.turns[body.turns.length - 1];
         if (last) last.events.forEach(function (pair) { bubble.handle(pair[0], pair[1]); });
-      }).catch(function () { /* fall through to "No reply." */ }).finally(end);
+      }).catch(function () { /* fall through to "Nincs válasz." */ }).finally(end);
     });
     source.onerror = function () {
       /* Connection dropped: reconnecting would replay the run from its
        * start, so reload the session state instead. */
       end();
-      bubble.root.appendChild(el("div", "notice error", "Lost the connection to the chat server."));
+      bubble.root.appendChild(el("div", "notice error", "Megszakadt a kapcsolat a chat szerverrel."));
     };
   }
 
@@ -759,7 +759,7 @@
     api("/api/chats/" + encodeURIComponent(chatId) + "/messages", { method: "POST", json: { content: text } })
       .then(function () { follow(bubble); })
       .catch(function (err) {
-        bubble.handle("app_error", { message: err.status === 404 ? "This session has ended - start a new chat." : err.message });
+        bubble.handle("app_error", { message: err.status === 404 ? "A munkamenet véget ért - indítson új chatet." : err.message });
         bubble.finish();
         setStreaming(false);
       });
@@ -840,11 +840,11 @@
                  : loadProfile(archSel.value).then(startNewChat);
   }).catch(function (err) {
     messagesEl.textContent = "";
-    var b = el("div", "banner", "Could not reach the chat server: " + err.message);
+    var b = el("div", "banner", "A chat szerver nem érhető el: " + err.message);
     messagesEl.appendChild(b);
   });
 })();
 </script>
-<script>if (location.protocol === 'file:') document.querySelectorAll('a[data-home]').forEach(a => a.href = '../../../index.html');</script>
+<script>document.querySelectorAll('a[data-home]').forEach(a => a.href = location.protocol === 'file:' ? '../../../index.html' : '/');document.querySelectorAll('a[data-arch]').forEach(a => a.href = location.protocol === 'file:' ? '../../../bank-officer-agent-architecture-hu.html' : '/architecture.html');</script>
 </body>
 </html>
