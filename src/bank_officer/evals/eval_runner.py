@@ -154,7 +154,8 @@ def summarize(archs: list[str], results: list[dict[str, Any]]) -> list[dict[str,
 
 
 def valid_architectures() -> list[str]:
-    return [p["id"] for p in list_profiles() if "error" not in p]
+    """Architectures the bank eval cases apply to (the web-search one has no bank data)."""
+    return [p["id"] for p in list_profiles() if "error" not in p and p["id"] != "web_search"]
 
 
 def save_results(archs: list[str], results: list[dict[str, Any]]) -> Path:

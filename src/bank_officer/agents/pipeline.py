@@ -13,6 +13,7 @@ from model_util import ModelConfigLike
 from routing.decision_router import EndpointRouter
 from tools.branch_context import BranchContext, BranchState
 from tools.branch_tools import create_branch_tools
+from tools.research_tool import create_research_tools
 from tools.specialist_tools import SpecialistBinding
 
 
@@ -65,8 +66,17 @@ class PipelineRegistry:
         synthesizer = (
             factories[profile.synthesizer_agent] if profile.synthesizer_agent else None
         )
+        if profile.mode == "research":
+            assert profile.researcher_agent is not None  # guaranteed by parse_profile
+            coordinator_tools = create_research_tools(
+                factories[profile.researcher_agent], profile.max_links
+            )
+        else:
+            coordinator_tools = create_branch_tools(
+                bindings, flat=profile.mode == "flat", synthesizer=synthesizer
+            )
         coordinator = factories[profile.coordinator_agent].build(
-            create_branch_tools(bindings, flat=profile.mode == "flat", synthesizer=synthesizer),
+            coordinator_tools,
             state_schema=BranchState,
             context_schema=BranchContext,
             checkpointer=InMemorySaver(),

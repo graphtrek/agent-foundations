@@ -15,7 +15,8 @@ from tools.tool_groups import TOOL_GROUPS
 
 PROFILE_FILE = "architecture.yaml"
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
-MODES = ("delegate", "flat")
+MODES = ("delegate", "flat", "research")
+MAX_RESEARCH_LINKS = 5
 MAX_LABEL_CHARS = 100
 MAX_DESCRIPTION_CHARS = 500
 MAX_SPECIALISTS = 8
@@ -43,6 +44,8 @@ class ArchitectureProfile:
     mode: str
     specialists: tuple[SpecialistSpec, ...]
     synthesizer_agent: str | None = None
+    researcher_agent: str | None = None  # research mode: the page-researcher subagent
+    max_links: int = 3  # research mode: links read in parallel per question
     label_en: str = ""  # English label / description, shown when the UI language is English
     description_en: str = ""
 
@@ -58,6 +61,9 @@ class ArchitectureProfile:
         }
         if self.synthesizer_agent:
             coordinator["synthesizer"] = self.synthesizer_agent
+        if self.researcher_agent:
+            coordinator["researcher"] = self.researcher_agent
+            coordinator["max_links"] = self.max_links
         profile: dict[str, Any] = {
             "id": self.id,
             "label": self.label,
@@ -135,10 +141,28 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
         synthesizer is None or mode == "delegate",
         "only delegate mode can have a synthesizer",
     )
+    researcher = coordinator.get("researcher")
+    require(
+        researcher is None
+        or (isinstance(researcher, str) and ID_RE.match(researcher) is not None),
+        "coordinator.researcher must be an agent id",
+    )
+    max_links = coordinator.get("max_links", 3)
+    require(
+        isinstance(max_links, int)
+        and not isinstance(max_links, bool)
+        and 1 <= max_links <= MAX_RESEARCH_LINKS,
+        f"coordinator.max_links must be 1..{MAX_RESEARCH_LINKS}",
+    )
     if mode == "delegate":
         require(bool(specialists), "delegate mode needs at least one specialist")
+        require(researcher is None, "only research mode has a researcher")
+    elif mode == "research":
+        require(researcher is not None, "research mode needs a coordinator.researcher")
+        require(not specialists and synthesizer is None, "research mode has no specialists or synthesizer")
     else:
         require(not specialists, "flat mode has no specialists")
+        require(researcher is None, "only research mode has a researcher")
 
     return ArchitectureProfile(
         id=profile_id,
@@ -152,6 +176,8 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
         mode=mode,
         specialists=tuple(specialists),
         synthesizer_agent=synthesizer,
+        researcher_agent=researcher,
+        max_links=max_links,
         label_en=_text(raw.get("label_en", ""), "label_en", MAX_LABEL_CHARS, required=False),
         description_en=_text(
             raw.get("description_en", ""), "description_en", MAX_DESCRIPTION_CHARS, required=False

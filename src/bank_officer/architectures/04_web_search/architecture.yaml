@@ -1,0 +1,13 @@
+id: web_search
+label: Webkeresés (DuckDuckGo) + 3 párhuzamos oldalolvasó subagent
+description: Nincs router, nincs ügyfél. A koordinátor azonnal keres DuckDuckGóval, kiválasztja a 3 legrelevánsabb linket, mindegyikhez egy subagentet indít párhuzamosan, megvárja mindhármat, majd egyesíti a kivonatokat kattintható linkekkel.
+label_en: Web search (DuckDuckGo) + 3 parallel page-reader subagents
+description_en: No router, no customer. The coordinator searches DuckDuckGo immediately, picks the 3 most relevant links, starts one subagent per link in parallel, waits for all three and consolidates the summaries with clickable links.
+router:
+  enabled: false
+  agent: endpoint_router
+coordinator:
+  agent: web_search_coordinator
+  mode: research
+  researcher: page_researcher
+  max_links: 3

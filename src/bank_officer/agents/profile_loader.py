@@ -22,6 +22,7 @@ from agents.profile import (
     parse_profile,
     require,
 )
+from tools.research_tool import RESEARCH_TOOL
 from tools.synthesizer_tool import SYNTHESIZER_TOOL
 from tools.tool_groups import DIRECT_TOOL_NAMES, TOOL_GROUPS, group_tool_names
 
@@ -33,6 +34,8 @@ def agent_ids(profile: ArchitectureProfile) -> set[str]:
         ids.add(profile.router_agent)
     if profile.synthesizer_agent:
         ids.add(profile.synthesizer_agent)
+    if profile.researcher_agent:
+        ids.add(profile.researcher_agent)
     return ids
 
 
@@ -79,7 +82,10 @@ def effective_specs(profile: ArchitectureProfile) -> dict[str, AgentSpec]:
     if profile.mode == "flat":
         allowed = set(DIRECT_TOOL_NAMES)
         for group in TOOL_GROUPS:
-            allowed |= set(group_tool_names(group))
+            if group != "web":
+                allowed |= set(group_tool_names(group))
+    elif profile.mode == "research":
+        allowed = {"web_search", RESEARCH_TOOL}
     else:
         allowed = set(DIRECT_TOOL_NAMES) | {f"ask_{s.id}" for s in profile.specialists}
         if profile.synthesizer_agent:
@@ -89,6 +95,10 @@ def effective_specs(profile: ArchitectureProfile) -> dict[str, AgentSpec]:
         spec = specs[specialist.id]
         require(spec.kind == "agent", f"specialist '{spec.id}' must be a chat agent")
         _check_tools(spec, set(group_tool_names(specialist.tool_group)))
+    if profile.researcher_agent:
+        researcher = specs[profile.researcher_agent]
+        require(researcher.kind == "agent", "the researcher must be a chat agent")
+        _check_tools(researcher, set(group_tool_names("web")))
     if profile.synthesizer_agent:
         synthesizer = specs[profile.synthesizer_agent]
         require(synthesizer.kind == "agent", "the synthesizer must be a chat agent")

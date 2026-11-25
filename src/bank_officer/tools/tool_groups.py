@@ -6,6 +6,7 @@ from tools.account_tools import create_account_specialist_tools
 from tools.product_tools import create_product_specialist_tools
 from tools.public_info_tools import create_public_info_tools
 from tools.service_tools import create_service_specialist_tools
+from tools.web_tools import create_page_reader_tools
 
 # Groups a profile can hand to a specialist (or, in ``flat`` mode, to the
 # coordinator itself). Each builder takes a customer id.
@@ -14,11 +15,12 @@ TOOL_GROUPS: dict[str, Any] = {
     "product": create_product_specialist_tools,
     "service": create_service_specialist_tools,
     "public": create_public_info_tools,
+    "web": create_page_reader_tools,
 }
 
 # Groups whose tools answer the same for everyone: their specialist needs no
 # selected customer, and in ``flat`` mode they are the coordinator's direct tools.
-CUSTOMER_FREE_GROUPS = frozenset({"public"})
+CUSTOMER_FREE_GROUPS = frozenset({"public", "web"})
 
 DIRECT_TOOL_NAMES = (
     "list_customers",
@@ -34,6 +36,7 @@ GROUP_CATEGORIES: dict[str, tuple[str, ...]] = {
     "product": ("loans",),
     "service": ("cards", "profile", "support"),
     "public": ("general",),
+    "web": (),
 }
 
 

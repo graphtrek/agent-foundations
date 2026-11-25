@@ -688,9 +688,9 @@
           agents</em>): start simple, and add complexity only when measurements
           justify it. OpenAI's guide (<em>A practical guide to building
           agents</em>) says the same: a single agent first, and only then
-          several agents. We show three variants with more and more parts; for each
+          several agents. We show three variants with more and more parts, plus a fourth shape for web research; for each
           we point out the matching Anthropic and OpenAI pattern. In all
-          three, the answer passes through a response gateway written in code and
+          of them, the answer passes through a response gateway written in code and
           through safety filters.
         </p>
         <div class="legend">
@@ -820,6 +820,46 @@ flowchart TD
   class T,GW tool
   class O result
   class G,DENY guardrail</pre
+        >
+       </div>
+      </div>
+
+      <section class="narrow">
+        <div class="eyebrow">4 · Web search</div>
+        <h2>Search, parallel page readers and consolidation</h2>
+        <p class="lede">
+          A different shape for open questions: there is no router, no customer and no clarifying question. The agent searches DuckDuckGo at once, picks the three most relevant links and starts one subagent per link in parallel. It waits for all three summaries, then consolidates them into one answer with clickable links.
+        </p>
+        <p class="lede">
+          <strong>Anthropic:</strong> orchestrator-workers with a parallelization workflow (sectioning): the same task fanned out to independent workers and aggregated. <strong>OpenAI:</strong> the manager pattern with parallel tool calls; the fan-out and the wait for every worker are done in code, not left to the model.
+        </p>
+      </section>
+      <div class="diagram-card">
+       <div class="diagram-inner">
+        <pre class="mermaid">
+flowchart TD
+  O["User"] -->|question - no clarifying| C(["Coordinator (Luna)"])
+  C -->|1. search at once| WS["DuckDuckGo"]
+  WS -->|title, URL, snippet| C
+  C -->|2. 3 best links| FAN{{"Fan-out in code"}}
+  FAN --> P1(["Page reader 1<br/>reads one link"])
+  FAN --> P2(["Page reader 2<br/>reads one link"])
+  FAN --> P3(["Page reader 3<br/>reads one link"])
+  P1 -->|summary| JOIN["Wait for all - code"]
+  P2 -->|summary| JOIN
+  P3 -->|summary| JOIN
+  JOIN -->|3. all arrived| C
+  C -.-> G{{"Safety filter"}}
+  C -->|answer + clickable links| GW["Response gateway - code"]
+  GW --> O
+  classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
+  classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
+  classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
+  classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
+  class C,P1,P2,P3 agent
+  class WS,JOIN,GW tool
+  class O result
+  class G,FAN guardrail</pre
         >
        </div>
       </div>

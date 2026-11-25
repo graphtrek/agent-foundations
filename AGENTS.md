@@ -139,6 +139,17 @@ than two answers it passes the single answer on, and an `ACCESS DENIED` answer i
 returned verbatim, never merged. `no_router` and `single_agent` still give the
 coordinator the general tools directly.
 
+The `web_search` profile (`04_web_search/`, `coordinator.mode: research`) is a different shape: no router,
+no customer, DuckDuckGo (`ddgs`) instead of bank data. The `web_search_coordinator` searches at once
+(`web_search`, retried across ddgs backends because DuckDuckGo rate-limits randomly), picks the 3 most
+relevant links and calls `research_links` once; that tool (`tools/research_tool.py`) runs one
+`page_researcher` subagent per link in a `ThreadPoolExecutor`, in code, and returns only when all of
+them are done. The researchers' only tool is `fetch_page` (`tools/web_tools.py`; public http(s) only,
+SSRF-checked on every redirect, size/time limited, tool group `web`). The coordinator consolidates the
+summaries into one answer with Markdown links. The profile's `max_links` (default 3, max 5) caps the
+fan-out in code. It uses the `research` middleware stack (guardrails + reply language) and is left out
+of the bank evals (`valid_architectures()`). Diagram: section 4 of both architecture pages.
+
 ## Validation
 
 There is no test suite or CI configuration yet. After Python changes, run:

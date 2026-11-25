@@ -347,12 +347,14 @@
       flow_aria: "Az aktuális kérdés architektúra-folyamata", flow_title: "Architektúra-folyamat",
       flow_hint: "Minden kérdésnél újraépül; a lépések a pipeline futása közben gyulladnak ki.",
       no_customer: "Nincs kiválasztott ügyfél", customer: "Ügyfél: ",
+      empty_web: "Mit keressek a weben? Az utolsó 5 keresésed:", empty_web_none: "Írd be a kérdésed: azonnal keresek, és 3 oldalt párhuzamosan elolvasok.",
       empty: "Kérdezzen a pultnál álló ügyfélről. A válaszok csak lekérdezések, és átmennek a védőkorlátokon.",
       server_needed: "Ehhez az oldalhoz a chat szerver kell. Indítsa el így: ", then_open: ", majd nyissa meg: ",
       server_down: "A chat szerver nem érhető el: ",
       t_list_customers: "Ügyféllista", t_select_customer: "Ügyfélválasztás", t_ask_account_specialist: "Számla specialista",
       t_ask_product_specialist: "Termék specialista", t_ask_service_specialist: "Szolgáltatás specialista",
       t_ask_public_info_specialist: "Nyilvános info specialista", t_ask_answer_synthesizer: "Válasz-összefésülő",
+      t_web_search: "Webkeresés (DuckDuckGo)", t_research_links: "3 oldalolvasó subagent (párhuzamosan)",
       f_question: "Ügyintézői kérdés", f_input: "bemenet", f_gin: "Bemeneti guardrail", f_code: "kód",
       f_gin_d: "injekció-ellenőrzés + PII-maszkolás", f_router_d: "egyeztetés a katalógussal",
       f_access: "Jogosultság-ellenőrzés", f_access_d: "belépési szint és végpont összevetése",
@@ -380,12 +382,14 @@
       flow_aria: "Architecture flow of the current question", flow_title: "Architecture flow",
       flow_hint: "Rebuilt for every question; the steps light up as the pipeline runs.",
       no_customer: "No customer selected", customer: "Customer: ",
+      empty_web: "What should I search for? Your last 5 searches:", empty_web_none: "Type a question: I search at once and read 3 pages in parallel.",
       empty: "Ask about the customer at the desk. Answers are lookups only and pass through the guardrails.",
       server_needed: "This page needs the chat server. Start it with: ", then_open: ", then open: ",
       server_down: "The chat server is unreachable: ",
       t_list_customers: "Customer list", t_select_customer: "Select customer", t_ask_account_specialist: "Account specialist",
       t_ask_product_specialist: "Product specialist", t_ask_service_specialist: "Service specialist",
       t_ask_public_info_specialist: "Public info specialist", t_ask_answer_synthesizer: "Answer synthesizer",
+      t_web_search: "Web search (DuckDuckGo)", t_research_links: "3 page-reader subagents (parallel)",
       f_question: "Officer question", f_input: "input", f_gin: "Input guardrail", f_code: "code",
       f_gin_d: "injection check + PII masking", f_router_d: "matching against the catalog",
       f_access: "Entitlement check", f_access_d: "customer tier vs. endpoint requirement",
@@ -632,7 +636,7 @@
         this.state(n.coord, "active", t("f_pick"));
       }
     } else if (event === "tool_call") {
-      var node = this.node("agent", toolLabel(data.name), data.name.indexOf("ask_") === 0 ? "subagent" : "tool", "");
+      var node = this.node("agent", toolLabel(data.name), (data.name.indexOf("ask_") === 0 || data.name === "research_links") ? "subagent" : "tool", "");
       var args = JSON.stringify(data.args || {});
       node.d.textContent = args === "{}" ? t("f_running") : args.slice(0, 90);
       this.state(node, "active");
@@ -741,11 +745,25 @@
     customerEl.appendChild(el("span", "tier " + c.tier, c.tier));
   }
 
+  /* The web-search architecture has no bank samples: it offers the user's own last 5 searches. */
+  var SEARCH_HISTORY_KEY = "webSearchHistory";
+  function searchHistory() {
+    try { var h = JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || "[]"); return Array.isArray(h) ? h.slice(0, 5) : []; }
+    catch (e) { return []; }
+  }
+  function rememberSearch(text) {
+    var h = searchHistory().filter(function (s) { return s !== text; });
+    h.unshift(text);
+    try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(h.slice(0, 5))); } catch (e) { /* ignore */ }
+  }
+
   function showEmpty() {
     var box = el("div", "empty");
-    box.appendChild(el("p", null, t("empty")));
+    var webSearch = currentArch.id === "web_search";
+    var samples = webSearch ? searchHistory() : SUGGESTIONS_BY_LANG[uiLang];
+    box.appendChild(el("p", null, t(webSearch ? (samples.length ? "empty_web" : "empty_web_none") : "empty")));
     var list = el("div", "suggestions");
-    SUGGESTIONS_BY_LANG[uiLang].forEach(function (s) {
+    samples.forEach(function (s) {
       var b = el("button", null, s);
       b.type = "button";
       b.onclick = function () { input.value = s; send(); };
@@ -808,7 +826,7 @@
       chip.appendChild(summary);
       this.steps.appendChild(chip);
       this.tools[data.id] = chip;
-      this.status.textContent = data.name.indexOf("ask_") === 0 ? t("s_waiting") + toolLabel(data.name) : t("s_running") + data.name;
+      this.status.textContent = (data.name.indexOf("ask_") === 0 || data.name === "research_links") ? t("s_waiting") + toolLabel(data.name) : t("s_running") + data.name;
     } else if (event === "tool_result") {
       var entry = this.tools[data.id];
       if (entry) {
@@ -883,6 +901,7 @@
     if (!text || streaming || !chatId) return;
     input.value = "";
     autosize();
+    if (currentArch.id === "web_search") rememberSearch(text);
     addOfficer(text);
     flow.start(text);
     var bubble = new AssistantBubble();

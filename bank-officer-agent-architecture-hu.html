@@ -692,9 +692,9 @@
           agents</em>): egyszerűen indulj, és csak akkor bonyolíts, ha a mérések
           indokolják. Az OpenAI útmutatója (<em>A practical guide to building
           agents</em>) ugyanezt mondja: előbb egyetlen agent, és csak ezután
-          több agent. Három változatot mutatunk, egyre több résszel; mindegyiknél
+          több agent. Három változatot mutatunk, egyre több résszel, plusz egy negyediket a webes kutatáshoz; mindegyiknél
           jelezzük az Anthropic és az OpenAI megfelelő mintáját. A válasz
-          mindháromnál egy kódban megírt válaszkapun és biztonsági szűrőkön megy át.
+          mindegyiknél egy kódban megírt válaszkapun és biztonsági szűrőkön megy át.
         </p>
         <div class="legend">
           <span><span class="swatch sw-human"></span>felhasználó / operátor</span>
@@ -823,6 +823,46 @@ flowchart TD
   class T,GW tool
   class O result
   class G,DENY guardrail</pre
+        >
+       </div>
+      </div>
+
+      <section class="narrow">
+        <div class="eyebrow">4 · Webkeresés</div>
+        <h2>Keresés, párhuzamos oldalolvasók és összegzés</h2>
+        <p class="lede">
+          Más alak a nyitott kérdésekhez: nincs router, nincs ügyfél, és nincs visszakérdezés. Az agent azonnal keres DuckDuckGóval, kiválasztja a három legrelevánsabb linket, és mindegyikhez egy subagentet indít párhuzamosan. Megvárja mindhárom kivonatot, majd egyetlen válaszba egyesíti őket kattintható linkekkel.
+        </p>
+        <p class="lede">
+          <strong>Anthropic:</strong> orchestrator-workers párhuzamosítással (sectioning): ugyanaz a feladat független workerekre bontva, az eredmények összegyűjtve. <strong>OpenAI:</strong> a manager minta párhuzamos tool-hívásokkal; a szétosztást és az összes worker megvárását kód végzi, nem a modellre van bízva.
+        </p>
+      </section>
+      <div class="diagram-card">
+       <div class="diagram-inner">
+        <pre class="mermaid">
+flowchart TD
+  O["Felhasználó"] -->|question - no clarifying| C(["Koordinátor (Luna)"])
+  C -->|1. search at once| WS["DuckDuckGo"]
+  WS -->|title, URL, snippet| C
+  C -->|2. 3 legjobb link| FAN{{"Szétosztás kódban"}}
+  FAN --> P1(["Oldalolvasó 1<br/>egy linket olvas"])
+  FAN --> P2(["Oldalolvasó 2<br/>egy linket olvas"])
+  FAN --> P3(["Oldalolvasó 3<br/>egy linket olvas"])
+  P1 -->|summary| JOIN["Mindet megvárja - kód"]
+  P2 -->|summary| JOIN
+  P3 -->|summary| JOIN
+  JOIN -->|3. all arrived| C
+  C -.-> G{{"Biztonsági szűrő"}}
+  C -->|válasz + kattintható linkek| GW["Válaszkapu - kód"]
+  GW --> O
+  classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
+  classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
+  classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
+  classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
+  class C,P1,P2,P3 agent
+  class WS,JOIN,GW tool
+  class O result
+  class G,FAN guardrail</pre
         >
        </div>
       </div>

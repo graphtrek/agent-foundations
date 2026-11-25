@@ -47,12 +47,14 @@ from langchain.chat_models import BaseChatModel
 from guardrails.middleware_stacks import (
     build_coordinator_middleware,
     build_guardrail_middleware,
+    build_research_middleware,
 )
 from model_util import ModelConfigLike, get_openrouter_model
 
 MIDDLEWARE_STACKS: dict[str, Callable[[], list[Any]]] = {
     "guardrails": build_guardrail_middleware,
     "coordinator": build_coordinator_middleware,
+    "research": build_research_middleware,
 }
 
 _DIRECTIVE_RE = re.compile(r"^<!--\s*([a-z_]+)\s*:\s*(.*?)\s*-->$")

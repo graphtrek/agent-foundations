@@ -14,6 +14,7 @@ from langchain.agents.middleware import PIIMiddleware
 from guardrails.matched_endpoint_context import MatchedEndpointContextMiddleware
 from guardrails.prompt_injection import PromptInjectionGuardMiddleware
 from guardrails.query_only import QueryOnlyEnforcementMiddleware
+from guardrails.reply_language import ReplyLanguageMiddleware
 
 
 def build_guardrail_middleware() -> list[Any]:
@@ -37,3 +38,8 @@ def build_guardrail_middleware() -> list[Any]:
 def build_coordinator_middleware() -> list[Any]:
     """The guardrail stack plus the router-result context for the coordinator."""
     return build_guardrail_middleware() + [MatchedEndpointContextMiddleware()]
+
+
+def build_research_middleware() -> list[Any]:
+    """The guardrail stack plus the reply language, for the web-search coordinator."""
+    return build_guardrail_middleware() + [ReplyLanguageMiddleware()]

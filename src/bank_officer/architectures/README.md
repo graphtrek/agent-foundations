@@ -38,3 +38,7 @@ Directive lines (HTML comments, any order) right after the heading:
   counts as "no decision", and `tools`, `middleware` and sampling settings do not apply.
 
 Every HTML comment is stripped from the body before it is sent to the model.
+
+`04_web_search/` (profile `web_search`, `mode: research`) has no router and no specialists: the
+coordinator's tools are `web_search` and `research_links`, and `researcher:` names the subagent file
+(`02_page_researcher.md`, tool `fetch_page`) that `research_links` runs once per link, in parallel.
