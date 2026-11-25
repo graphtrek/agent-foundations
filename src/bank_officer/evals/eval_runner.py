@@ -25,11 +25,13 @@ from app_context import LOGS_DIR, REGISTRY
 from data import bank_data
 from evals.eval_report import generate_report, save_report
 from session.branch_session import BranchSession
+from localization.language import DEFAULT_LANGUAGE, SUPPORTED
 from tools.branch_context import BranchContext
 
 CASES_FILE = Path(__file__).resolve().parent / "cases.yaml"
 EVALS_DIR = LOGS_DIR / "evals"
-DENIED_MARKER = "jogosultsági szint"
+DENIED_MARKERS = {"hu": "jogosultsági szint", "en": "entitlement tier"}
+SELECT_CUSTOMER = {"hu": "Válaszd ki az ügyfelet: {name}.", "en": "Select the customer: {name}."}
 MAX_REPEAT = 5
 
 
@@ -40,12 +42,24 @@ def load_cases() -> list[dict[str, Any]]:
     return sorted(cases, key=case_complexity)
 
 
+def localized(value: Any, language: str) -> Any:
+    """A ``{hu: ..., en: ...}`` map resolves to the entry of ``language``; anything else is shared."""
+    if isinstance(value, dict) and set(value) <= set(SUPPORTED):
+        return value.get(language) or value[DEFAULT_LANGUAGE]
+    return value
+
+
+def localize_case(case: dict[str, Any], language: str) -> dict[str, Any]:
+    """The case with its language-dependent fields (question, expected texts) picked for ``language``."""
+    return {k: localized(v, language) for k, v in case.items()}
+
+
 def case_complexity(case: dict[str, Any]) -> int:
     """Complexity = number of deterministic checks the case scores: required numbers,
     required text fragments, the expected endpoint and the access-denied expectation."""
     return (
         len(case.get("must_contain_numbers") or [])
-        + len(case.get("must_contain_text") or [])
+        + len(localized(case.get("must_contain_text"), DEFAULT_LANGUAGE) or [])
         + (1 if case.get("expected_endpoint") else 0)
         + (1 if case.get("expect_access_denied") else 0)
     )
@@ -55,7 +69,8 @@ def _digits(text: str) -> str:
     return re.sub(r"\D", "", text)
 
 
-def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
+def run_case(arch: str, case: dict[str, Any], language: str = DEFAULT_LANGUAGE) -> dict[str, Any]:
+    case = localize_case(case, language)
     pipeline = REGISTRY.get(arch)
     session = BranchSession(
         pipeline.router,
@@ -63,12 +78,13 @@ def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
         BranchContext(officer_id="eval", branch_id="branch-buda"),
         thread_id_prefix=f"eval-{arch}-{case['id']}-{time.time_ns()}",
         architecture=arch,
+        language=language,
     )
     if case.get("customer"):
         # The model only knows what is in the conversation, so the customer is
         # selected by a real first turn, as an officer would do.
         customer = bank_data.find_customer(case["customer"])
-        session.run_turn(f"Válaszd ki az ügyfelet: {customer.full_name}.")
+        session.run_turn(SELECT_CUSTOMER[language].format(name=customer.full_name))
         if session.current_customer_id != case["customer"]:
             raise RuntimeError(f"setup turn did not select {case['customer']}")
     tools: list[str] = []
@@ -87,7 +103,7 @@ def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
 
     checks: dict[str, bool] = {}
     if case.get("expect_access_denied"):
-        checks["access_denied"] = DENIED_MARKER in reply
+        checks["access_denied"] = DENIED_MARKERS[language] in reply
     else:
         if case.get("expected_any_tools"):
             checks["tool"] = any(t in tools for t in case["expected_any_tools"])
@@ -97,9 +113,10 @@ def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
         for number in case.get("must_contain_numbers", []):
             checks[f"number {number}"] = _digits(str(number)) in reply_digits
         for fragment in case.get("must_contain_text", []):
-            checks[f"text {fragment}"] = fragment.lower() in reply.lower()
+            checks[f"text {fragment}"] = any(alt.lower() in reply.lower() for alt in fragment.split("|"))
     return {
         "arch": arch,
+        "language": language,
         "case": case["id"],
         "passed": all(checks.values()),
         "checks": checks,
@@ -111,9 +128,9 @@ def run_case(arch: str, case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _safe_run(arch: str, case: dict[str, Any]) -> dict[str, Any]:
+def _safe_run(arch: str, case: dict[str, Any], language: str = DEFAULT_LANGUAGE) -> dict[str, Any]:
     try:
-        return run_case(arch, case)
+        return run_case(arch, case, language)
     except Exception as exc:  # a broken run counts as a failure
         return {
             "arch": arch, "case": case["id"], "passed": False,
@@ -154,9 +171,13 @@ def save_results(archs: list[str], results: list[dict[str, Any]]) -> Path:
 class EvalRun:
     """One background eval over architectures x cases x repeats."""
 
-    def __init__(self, archs: list[str], cases: list[dict[str, Any]], repeat: int) -> None:
+    def __init__(
+        self, archs: list[str], cases: list[dict[str, Any]], repeat: int,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> None:
         self.id = uuid.uuid4().hex[:10]
         self.archs, self.cases, self.repeat = archs, cases, repeat
+        self.language = language if language in SUPPORTED else DEFAULT_LANGUAGE
         self.total = len(archs) * len(cases) * repeat
         self.results: list[dict[str, Any]] = []
         self.current: str | None = None
@@ -179,7 +200,9 @@ class EvalRun:
                 # Luna's text evaluation of the failures; `done` stays false until it
                 # is written, so the page keeps polling and then offers the popup.
                 self.report_pending = True
-                self.report = generate_report(self.results, self.cases)
+                self.report = generate_report(
+                    self.results, [localize_case(c, self.language) for c in self.cases], self.language
+                )
                 save_report(self.saved, self.report)
         finally:
             self.current = None
@@ -193,7 +216,7 @@ class EvalRun:
                     if self.cancelled.is_set():
                         return
                     self.current = f"{arch} / {case['id']}"
-                    result = _safe_run(arch, case)
+                    result = _safe_run(arch, case, self.language)
                     with self._lock:
                         self.results.append(result)
 
@@ -205,6 +228,7 @@ class EvalRun:
             "archs": self.archs,
             "cases": [c["id"] for c in self.cases],
             "repeat": self.repeat,
+            "language": self.language,
             "total": self.total,
             "finished": len(results),
             "current": self.current,

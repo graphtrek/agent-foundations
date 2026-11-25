@@ -23,7 +23,7 @@ REPORT_MAX_TOKENS = 3000
 MAX_FAILURES_PER_ARCH = 12  # keeps the prompt bounded on a very bad run
 REPLY_LIMIT = 1200
 
-SYSTEM_PROMPT = """\
+SYSTEM_PROMPT_HU = """\
 Te egy LLM-ügynökrendszerek tesztelésére szakosodott minőségbiztosítási mérnök vagy.
 Egy bankfiókos tisztviselői chat asszisztens automatikus tesztjeinek eredményét kapod: az esetek
 leírását, a determinisztikus ellenőrzések eredményét, a hívott tool-okat, az asszisztens válaszát,
@@ -51,13 +51,62 @@ esetben jelentkezik, egy javaslatot adj és hivatkozz rá. A bank adatait ne mó
 csak lekérdező. Ne ismételd meg a teljes válaszokat."""
 
 
-def _agent_files(arch: str) -> str:
+SYSTEM_PROMPT_EN = """\
+You are a quality-assurance engineer specialised in testing LLM agent systems.
+You receive the results of the automatic tests of a bank branch officer chat assistant: the
+description of each case, the result of the deterministic checks, the tools that were called, the
+assistant's reply, and the full text of the agent description (Markdown) files of the architecture
+concerned.
+
+Write a concise text evaluation in English, in Markdown, with exactly this structure:
+
+## Summary
+2-4 sentences: how many runs failed and what the common cause is (if any).
+
+## Failures and suggestions
+For every failed case (architecture / case id) a separate sub-heading (###) with:
+- **What went wrong:** which check failed, and what the tool calls / reply show about the cause.
+- **Agent file to fix:** the relative path of the file (e.g. `03_router/01_branch_coordinator.md`) and
+  why that one (not the model's fault, but which instruction is missing, ambiguous or contradictory).
+- **Exact change:** the concrete text to insert or replace (quote the current sentence if it is to be
+  replaced, and give the new one in a code block).
+
+## Not fixable with a prompt
+If a failure is not the description's fault (missing tool, data, a wrong test expectation, model
+variance), write it here with a justification; otherwise omit this section.
+
+Rules: refer only to the files you were given, do not invent files or tools. If the same failure
+appears in several cases, give one suggestion and refer to it. Do not modify the bank's data; the
+system is query-only. Do not repeat the full replies."""
+
+# Text the report is assembled from, per language (the model answer follows the system prompt).
+TEXTS = {
+    "hu": {
+        "system": SYSTEM_PROMPT_HU, "file": "Fájl", "arch": "Architektúra", "failed_run": "Hibás futás",
+        "case": "Az eset", "checks": "Ellenőrzések", "tools": "Hívott tool-ok", "outputs": "Tool-kimenetek (előnézet)",
+        "endpoint": "Router végpont", "reply": "Az asszisztens válasza",
+        "more": "(+{n} további hibás futás nincs felsorolva)", "totals": "Összesen {total} futás, ebből {failed} hibás.",
+        "ok": "## Összegzés\n\nMinden futás sikeres volt, nincs javítandó agent leíró.",
+        "empty": "A modell üres kiértékelést adott.", "failed": "## Összegzés\n\nA kiértékelés nem készült el ({model}): {exc}",
+    },
+    "en": {
+        "system": SYSTEM_PROMPT_EN, "file": "File", "arch": "Architecture", "failed_run": "Failed run",
+        "case": "The case", "checks": "Checks", "tools": "Tools called", "outputs": "Tool outputs (preview)",
+        "endpoint": "Router endpoint", "reply": "The assistant's reply",
+        "more": "(+{n} more failed runs not listed)", "totals": "{total} runs in total, {failed} failed.",
+        "ok": "## Summary\n\nAll runs passed; no agent description needs fixing.",
+        "empty": "The model returned an empty evaluation.", "failed": "## Summary\n\nThe evaluation could not be written ({model}): {exc}",
+    },
+}
+
+
+def _agent_files(arch: str, label: str = "Fájl") -> str:
     folder = profile_dir(arch)
     parts = []
     for path in sorted(folder.glob("*.md")):
         if path.name.lower() == "readme.md":
             continue
-        parts.append(f"#### Fájl: `{folder.name}/{path.name}`\n```markdown\n"
+        parts.append(f"#### {label}: `{folder.name}/{path.name}`\n```markdown\n"
                      f"{path.read_text(encoding='utf-8').strip()}\n```")
     return "\n\n".join(parts)
 
@@ -68,8 +117,11 @@ def _case_text(case: dict[str, Any]) -> str:
     return "\n".join(f"- {k}: {case[k]}" for k in keys if case.get(k) not in (None, [], False))
 
 
-def build_prompt(results: list[dict[str, Any]], cases: list[dict[str, Any]]) -> str | None:
+def build_prompt(
+    results: list[dict[str, Any]], cases: list[dict[str, Any]], language: str = "hu"
+) -> str | None:
     """The user message for the model, or ``None`` when no run failed."""
+    tx = TEXTS.get(language, TEXTS["hu"])
     by_id = {c["id"]: c for c in cases}
     failed: dict[str, list[dict[str, Any]]] = {}
     for r in results:
@@ -79,43 +131,46 @@ def build_prompt(results: list[dict[str, Any]], cases: list[dict[str, Any]]) -> 
         return None
     sections = []
     for arch, rows in failed.items():
-        sections.append(f"# Architektúra: {arch}\n\n{_agent_files(arch)}\n")
+        sections.append(f"# {tx['arch']}: {arch}\n\n{_agent_files(arch, tx['file'])}\n")
         for r in rows[:MAX_FAILURES_PER_ARCH]:
             case = by_id.get(r["case"], {"id": r["case"]})
             checks = "\n".join(f"  {'✓' if ok else '✗'} {name}" for name, ok in r["checks"].items())
             sections.append(
-                f"## Hibás futás: {arch} / {r['case']}\n"
-                f"Az eset:\n{_case_text(case)}\n"
-                f"Ellenőrzések:\n{checks}\n"
-                f"Hívott tool-ok: {', '.join(r['tools']) or '–'}\n"
-                f"Tool-kimenetek (előnézet):\n{chr(10).join(r.get('tool_outputs') or ['–'])}\n"
-                f"Router végpont: {r['endpoint'] or '–'}\n"
-                f"Az asszisztens válasza:\n{r['reply'][:REPLY_LIMIT]}\n"
+                f"## {tx['failed_run']}: {arch} / {r['case']}\n"
+                f"{tx['case']}:\n{_case_text(case)}\n"
+                f"{tx['checks']}:\n{checks}\n"
+                f"{tx['tools']}: {', '.join(r['tools']) or '–'}\n"
+                f"{tx['outputs']}:\n{chr(10).join(r.get('tool_outputs') or ['–'])}\n"
+                f"{tx['endpoint']}: {r['endpoint'] or '–'}\n"
+                f"{tx['reply']}:\n{r['reply'][:REPLY_LIMIT]}\n"
             )
         if len(rows) > MAX_FAILURES_PER_ARCH:
-            sections.append(f"(+{len(rows) - MAX_FAILURES_PER_ARCH} további hibás futás nincs felsorolva)\n")
+            sections.append(tx["more"].format(n=len(rows) - MAX_FAILURES_PER_ARCH) + "\n")
     total = len(results)
     n_failed = sum(not r["passed"] for rs in failed.values() for r in rs)
-    return f"Összesen {total} futás, ebből {n_failed} hibás.\n\n" + "\n".join(sections)
+    return tx["totals"].format(total=total, failed=n_failed) + "\n\n" + "\n".join(sections)
 
 
-def generate_report(results: list[dict[str, Any]], cases: list[dict[str, Any]]) -> str:
+def generate_report(
+    results: list[dict[str, Any]], cases: list[dict[str, Any]], language: str = "hu"
+) -> str:
     """The evaluation text. Never raises: a model failure becomes a note in the report."""
-    prompt = build_prompt(results, cases)
+    tx = TEXTS.get(language, TEXTS["hu"])
+    prompt = build_prompt(results, cases, language)
     if prompt is None:
-        return "## Összegzés\n\nMinden futás sikeres volt, nincs javítandó agent leíró."
+        return tx["ok"]
     try:
         config = dataclasses.replace(
             BASE_CONFIG, name=REPORT_MODEL, temperature=0.2, max_tokens=REPORT_MAX_TOKENS
         )
         model = get_openrouter_model(config, OPENROUTER_API_KEY)
-        answer = model.invoke([("system", SYSTEM_PROMPT), ("human", prompt)])
+        answer = model.invoke([("system", tx["system"]), ("human", prompt)])
         text = answer.content
         if isinstance(text, list):
             text = "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in text)
-        return text.strip() or "A modell üres kiértékelést adott."
+        return text.strip() or tx["empty"]
     except Exception as exc:  # the eval itself is already saved; the report is a bonus
-        return f"## Összegzés\n\nA kiértékelés nem készült el ({REPORT_MODEL}): {exc}"
+        return tx["failed"].format(model=REPORT_MODEL, exc=exc)
 
 
 def report_path(results_file: str | Path) -> Path:

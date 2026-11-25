@@ -3,6 +3,7 @@
 from typing import Any
 
 from data import bank_data
+from localization.messages import text
 
 TIER_RANK = {"retail": 0, "premium": 1, "business": 2}
 
@@ -25,10 +26,12 @@ def check_endpoint_access(
     return TIER_RANK[customer.entitlement_tier] < TIER_RANK[matched["required_entitlement"]]
 
 
-def access_denied_reply(matched: dict[str, Any]) -> str:
-    """Fixed, code-written refusal for an endpoint the customer isn't entitled to."""
-    return (
-        "A kiválasztott ügyfél csomagja nem tartalmazza ezt a funkciót "
-        f"({matched['menu_path']}); ehhez legalább "
-        f"'{matched['required_entitlement']}' jogosultsági szint szükséges."
+def access_denied_reply(matched: dict[str, Any], language: str | None = None) -> str:
+    """Fixed, code-written refusal for an endpoint the customer isn't entitled to,
+    in the current turn's language unless ``language`` says otherwise."""
+    return text(
+        "access_denied",
+        language,
+        menu_path=matched["menu_path"],
+        required_entitlement=matched["required_entitlement"],
     )

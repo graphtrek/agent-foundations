@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The path of a question — a general agentic assistant architecture | agent-foundations</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+      :root {
+        --ink: #17212b;
+        --muted: #64717b;
+        --paper: #f5f2ea;
+        --white: #fffdf8;
+        --lime: #c8e85b;
+        --coral: #ff765c;
+        --blue: #7bb9d8;
+        --red: #d7263d;
+        --redbg: #ffe3e0;
+        --line: #d9d6cc;
+        --shadow: 0 18px 50px rgba(23, 33, 43, 0.13);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Manrope, sans-serif;
+        background-image:
+          linear-gradient(rgba(23, 33, 43, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(23, 33, 43, 0.04) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+      .progress {
+        position: fixed;
+        z-index: 10;
+        top: 0;
+        left: 0;
+        height: 5px;
+        background: var(--coral);
+        width: 0%;
+      }
+      main {
+        width: 100%;
+        margin: 0;
+        padding: clamp(32px, 7vw, 72px) 0 120px;
+      }
+      .narrow {
+        width: min(880px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+      code,
+      pre,
+      .eyebrow,
+      .step-tag,
+      .num,
+      .chip {
+        font-family: 'DM Mono', monospace;
+      }
+      .eyebrow {
+        color: var(--coral);
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-weight: 800;
+        letter-spacing: -2px;
+        line-height: 1;
+        margin: 0;
+        font-size: clamp(36px, 6vw, 62px);
+      }
+      h2 {
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin: 0;
+        font-size: clamp(24px, 3.4vw, 34px);
+      }
+      h3 {
+        margin: 0 0 6px;
+        font-size: 19px;
+        letter-spacing: -0.2px;
+      }
+      p {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0;
+      }
+      .lede {
+        margin-top: 20px;
+        max-width: 640px;
+        font-size: 18px;
+      }
+      code {
+        background: rgba(23, 33, 43, 0.07);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.86em;
+      }
+      .hero {
+        padding-bottom: 8px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 28px;
+        font-family: 'DM Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .legend-line {
+        display: inline-block;
+        width: 22px;
+        height: 0;
+        border-top: 3px solid;
+      }
+      .ll-auth {
+        border-color: #2f6fb3;
+      }
+      .ll-noauth {
+        border-color: #3f9142;
+      }
+      .swatch {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        display: inline-block;
+        border: 1px solid var(--ink);
+      }
+      .sw-agent {
+        background: var(--lime);
+        border-width: 2px;
+        border-radius: 20px;
+        width: 20px;
+        height: 12px;
+      }
+      .sw-tool {
+        background: var(--white);
+        border-color: var(--coral);
+      }
+      .sw-state {
+        background: #e5eef2;
+        border-color: var(--blue);
+        border-radius: 50%;
+      }
+      .sw-human {
+        background: var(--ink);
+        border-color: var(--coral);
+      }
+      .sw-guard {
+        background: var(--redbg);
+        border-color: var(--red);
+        border-width: 2px;
+        clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+      }
+      .intro-proposal {
+        padding-bottom: 32px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 40px;
+      }
+      .principles {
+        display: grid;
+        gap: 14px;
+        margin-top: 24px;
+      }
+      .principle {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 16px;
+        align-items: start;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        padding: 16px 20px;
+      }
+      .principle .pnum {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: var(--lime);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'DM Mono', monospace;
+        font-weight: 500;
+        font-size: 15px;
+      }
+      .principle p {
+        margin: 0;
+        font-size: 15.5px;
+      }
+      .principle strong {
+        color: var(--ink);
+      }
+      .cca-section {
+        padding-bottom: 32px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 40px;
+      }
+      .cca-section h3 {
+        margin: 36px 0 4px;
+        font-size: 20px;
+      }
+      .cca-section h3 .sub {
+        font-family: 'DM Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+        margin-right: 8px;
+      }
+      .cca-tip {
+        margin-top: 14px;
+        padding: 12px 16px;
+        border-left: 4px solid var(--coral);
+        background: var(--white);
+        font-size: 15px;
+      }
+      .stop-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+        font-size: 14.5px;
+        background: var(--white);
+        box-shadow: var(--shadow);
+      }
+      .stop-table th,
+      .stop-table td {
+        text-align: left;
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        vertical-align: top;
+      }
+      .stop-table th {
+        background: var(--ink);
+        color: var(--lime);
+        font-family: 'DM Mono', monospace;
+        font-weight: 500;
+        font-size: 12px;
+      }
+      .diagram-card {
+        background: var(--white);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        margin-top: 36px;
+        margin-bottom: 8px;
+        padding: clamp(32px, 5vw, 56px) clamp(20px, 6vw, 64px) clamp(40px, 6vw, 64px);
+        overflow-x: auto;
+      }
+      .diagram-inner {
+        width: max-content;
+        min-width: 100%;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      .diagram-card .mermaid {
+        width: 100%;
+      }
+      .diagram-card .mermaid svg {
+        display: block;
+        margin: 0 auto;
+        width: 100% !important;
+        height: auto !important;
+      }
+      .phase {
+        margin-top: 64px;
+      }
+      .phase-head {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin-bottom: 24px;
+      }
+      .phase-badge {
+        background: var(--ink);
+        color: var(--lime);
+        font-family: 'DM Mono', monospace;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 3px;
+        white-space: nowrap;
+        transform: rotate(-1deg);
+      }
+      .timeline {
+        position: relative;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        column-gap: 20px;
+        position: relative;
+        padding-bottom: 28px;
+      }
+      .step::before {
+        content: '';
+        position: absolute;
+        left: 27px;
+        top: 56px;
+        bottom: -2px;
+        width: 2px;
+        background: var(--line);
+      }
+      .step:last-child::before {
+        display: none;
+      }
+      .num {
+        position: relative;
+        z-index: 2;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--white);
+        border: 2px solid var(--ink);
+        box-shadow: var(--shadow);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        font-weight: 500;
+        color: var(--ink);
+      }
+      .step.kind-human .num {
+        background: var(--ink);
+        color: var(--lime);
+        border-color: var(--ink);
+      }
+      .step.kind-agent .num {
+        background: var(--lime);
+        border-color: var(--ink);
+        color: var(--ink);
+      }
+      .step.kind-tool .num {
+        background: var(--white);
+        border-color: var(--coral);
+        color: var(--coral);
+      }
+      .step.kind-state .num {
+        background: #e5eef2;
+        border-color: var(--blue);
+        color: #2d5873;
+      }
+      .card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        padding: 20px 24px;
+      }
+      .step-tag {
+        display: inline-block;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .card p + p {
+        margin-top: 10px;
+      }
+      .card p {
+        font-size: 15.5px;
+      }
+      .guard-note {
+        margin-top: 14px;
+        border-left: 4px solid var(--red);
+        background: var(--redbg);
+        padding: 10px 14px;
+        border-radius: 0 3px 3px 0;
+      }
+      .guard-note p {
+        color: #7a0c1c;
+        font-size: 14px;
+        margin: 0;
+      }
+      .guard-note strong {
+        color: #7a0c1c;
+      }
+      .card pre {
+        margin-top: 14px;
+        background: var(--ink);
+        color: #ecf2e4;
+        border-radius: 4px;
+        padding: 16px 18px;
+        overflow: auto;
+        font-size: 13px;
+        line-height: 1.55;
+        box-shadow: none;
+      }
+      .kw {
+        color: var(--lime);
+      }
+      .str {
+        color: #ffaf88;
+      }
+      .fn {
+        color: var(--blue);
+      }
+      .outro {
+        margin-top: 72px;
+        padding: 28px 26px;
+        background: var(--ink);
+        color: var(--white);
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .outro p {
+        color: #d7e0d5;
+      }
+      .outro code {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--lime);
+      }
+      @media (max-width: 640px) {
+        .step {
+          grid-template-columns: 44px 1fr;
+          column-gap: 14px;
+        }
+        .num {
+          width: 44px;
+          height: 44px;
+          font-size: 14px;
+        }
+        .step::before {
+          left: 21px;
+        }
+      }
+      .proposal-phase {
+        border-left: 4px solid var(--coral);
+        padding-left: 20px;
+      }
+      .phase-badge.proposal {
+        background: var(--coral);
+        color: var(--ink);
+      }
+      .proposal-intro {
+        margin-bottom: 20px;
+      }
+      .proposal-intro p {
+        font-size: 15.5px;
+      }
+      .step .num.proposal {
+        background: var(--coral);
+        border-color: var(--coral);
+        color: var(--white);
+      }
+      .pagenav {
+        width: min(880px, calc(100% - 40px));
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .pagenav a {
+        font: 600 14px Manrope, sans-serif;
+        color: var(--ink);
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 8px 16px;
+        text-decoration: none;
+        box-shadow: var(--shadow);
+      }
+      .pagenav.top {
+        padding-top: 20px;
+      }
+      .pagenav.bottom {
+        padding-bottom: 60px;
+      }
+      .langsw {
+        position: fixed;
+        top: 10px;
+        right: 12px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 12px Manrope, sans-serif;
+        color: var(--muted);
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 4px 6px 4px 12px;
+      }
+      .langsw select {
+        font: inherit;
+        color: var(--ink);
+        background: transparent;
+        border: 0;
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="progress" id="progress"></div>
+    <nav class="pagenav top">
+      <a data-nav="index" href="index-en.html">← Home</a>
+      <a data-nav="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Next: 2 · Test catalog →</a>
+    </nav>
+    <main>
+      <section class="narrow intro-proposal">
+        <div class="eyebrow">Proposal</div>
+        <h2>Built on the principles of Anthropic and OpenAI</h2>
+        <p class="lede">
+          This solution is not just one concrete example; it also shows the
+          principles worth following when building any LLM-based system:
+        </p>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>An LLM has no memory — it is completely "stateless".</strong>
+              Every call stands on its own: the model remembers nothing from
+              earlier questions unless we pass it again.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>An LLM can receive information in two ways:</strong>
+              either as part of the request, in the JSON data sent to the SDK,
+              or by calling a function (tool) that the model itself asks for
+              when it needs it.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>The more information we pass to the LLM, the higher the
+              token usage and the uncertainty.</strong>
+              That is why it receives only the information that is really
+              needed in the given step.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">4</span>
+            <p>
+              <strong>A guardrail must be used before and after every LLM call.</strong>
+              The model's answer alone is no guarantee — so before and after
+              every call a reliable check written in code runs, and the
+              system's safety is built on it.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="narrow cca-section">
+        <div class="eyebrow">The principles in detail</div>
+        <h2>Agentic architecture and orchestration</h2>
+        <p class="lede">
+          The four principles above rest on agentic architecture and
+          orchestration. Deterministic, controlled solutions should
+          consistently be preferred over probabilistic ones left to "gut feeling".
+        </p>
+
+        <h3><span class="sub">1.1</span>The agentic loop and API basics</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>The agentic loop is autonomous multi-step execution.</strong>
+              Claude carries out a multi-step task without human intervention: <code>Plan → Act → Observe → Decide → Repeat</code>. In every round the loop calls the Anthropic API.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Control of the loop matters most.</strong>
+              The loop ends when the <code>stop_reason</code> in the API response says so. We do not interpret the model's text; we read this deterministic signal.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Always feed the tool result back.</strong>
+              Before the next API call, add the assistant message (with the <code>tool_use</code> request) to the conversation history, then a new user message with the tool result.
+            </p>
+          </div>
+        </div>
+        <table class="stop-table">
+          <tr><th>stop_reason</th><th>Meaning in the loop</th></tr>
+          <tr><td><code>tool_use</code></td><td>The model requests a tool: run it, feed the result back, repeat.</td></tr>
+          <tr><td><code>end_turn</code></td><td>The model is done: the loop ends normally.</td></tr>
+          <tr><td><code>max_tokens</code></td><td>The answer was cut off by the token limit.</td></tr>
+          <tr><td><code>stop_sequence</code></td><td>The model generated a predefined stop sequence.</td></tr>
+          <tr><td><code>pause_turn</code></td><td>A long-running turn is paused: the conversation can continue.</td></tr>
+          <tr><td><code>refusal</code></td><td>The model declined to answer for safety reasons.</td></tr>
+          <tr><td><code>model_context_window_exceeded</code></td><td>The context window is full.</td></tr>
+        </table>
+
+        <h3><span class="sub">1.2</span>Multi-agent orchestration</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>Hub-and-spoke pattern.</strong>
+              All communication goes through the central orchestrator (hub); sub-agents never talk to each other. Advantages: context isolation, focused tools, parallel execution and fault isolation.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>The Task tool starts a new, isolated agent.</strong>
+              Only the orchestrator has it. If several Task calls appear in a single response, the sub-agents run in parallel; in separate responses, sequentially.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Session operations: resume and fork.</strong>
+              <code>--resume</code> continues an existing session, like a commit on the main branch. <code>fork session</code> creates a new session with the full context so far, but it runs independently and does not modify the parent, like a new branch in Git.
+            </p>
+          </div>
+        </div>
+
+        <h3><span class="sub">1.3</span>Hooks: programmatic enforcement</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>A hook is deterministic code before and after a tool.</strong>
+              It can run before the tool call (validate parameters, block the action) and after it. It is meant for business rules, compliance and security, and it fails immediately.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Whatever must hold 100% of the time is enforced with a hook.</strong>
+              A prompt-based instruction is probabilistic, so it is no guarantee. The same principle stands behind the example's guardrail layer.
+            </p>
+          </div>
+        </div>
+        <div class="cca-tip"><strong>Tip:</strong> when in doubt, choose the most controlled, most deterministic solution.</div>
+        <div class="cca-tip">
+          <strong>Mapping to the example's implementation:</strong> the concepts
+          above are the names used by the Claude API and the Claude Agent SDK.
+          The example runs on LangChain with OpenAI models, where the equivalents are:
+          hook → LangChain middleware (<code>before_model</code> /
+          <code>after_model</code>), <code>stop_reason</code> → OpenAI
+          <code>finish_reason</code>, Task tool (in the Agent SDK now called the
+          <strong>Agent</strong> tool) → a subagent wrapped as a tool.
+        </div>
+
+        <h3><span class="sub">1.4</span>Session management and workflow</h3>
+        <div class="principles">
+          <div class="principle">
+            <span class="pnum">1</span>
+            <p>
+              <strong>The stale-context trap.</strong>
+              Data fetched at the start of a session can be out of date by the time it is used. Defences: re-fetch critical data before use, scratchpad files for intermediate state, caches that watch their TTL, and checkpoints.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">2</span>
+            <p>
+              <strong>Prompt chaining: for predictable, linear tasks.</strong>
+              The workflow is defined in advance and the order of steps is fixed.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="pnum">3</span>
+            <p>
+              <strong>Dynamic, adaptive: for unpredictable, result-driven tasks.</strong>
+              The agent itself decides the next step. The question: is the next step determined by the plan or by the result? Plan → chaining, result → adaptive.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="hero narrow">
+        <div class="eyebrow">Full overview</div>
+        <h1>Several paths lead to the answer: from the simple to the complex.</h1>
+        <p class="lede">
+          The structure builds on Anthropic's principles (<em>Building effective
+          agents</em>): start simple, and add complexity only when measurements
+          justify it. OpenAI's guide (<em>A practical guide to building
+          agents</em>) says the same: a single agent first, and only then
+          several agents. We show three variants with more and more parts; for each
+          we point out the matching Anthropic and OpenAI pattern. In all
+          three, the answer passes through a response gateway written in code and
+          through safety filters.
+        </p>
+        <div class="legend">
+          <span><span class="swatch sw-human"></span>user / operator</span>
+          <span><span class="swatch sw-agent"></span><strong>agent</strong> (rounded, green, thick border)</span>
+          <span><span class="swatch sw-tool"></span>function / data</span>
+          <span><span class="swatch sw-guard"></span>safety check, code</span>
+        </div>
+      </section>
+
+      <section class="narrow">
+        <div class="eyebrow">1 · Single agent</div>
+        <h2>One agent, all functions</h2>
+        <p class="lede">
+          The simplest form: one agent receives all the functions and decides
+          for itself which to call. With few functions this is the cheapest and
+          easiest-to-follow solution.
+        </p>
+        <p class="lede">
+          <strong>Anthropic:</strong> the "augmented LLM" (tools + memory),
+          or the autonomously deciding agent. <strong>OpenAI:</strong> a single-agent
+          system: one run loop, functions are added gradually.
+        </p>
+      </section>
+      <div class="diagram-card">
+       <div class="diagram-inner">
+        <pre class="mermaid">
+flowchart TD
+  O["Operator"] -->|question| A(["Agent"])
+  A -->|calls| T["All functions: account, product, service, public info"]
+  T -->|data| A
+  A -.-> G{{"Safety filter"}}
+  A -->|answer| GW["Response gateway - code"]
+  GW --> O
+  classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
+  classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
+  classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
+  classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
+  class A agent
+  class T,GW tool
+  class O result
+  class G guardrail</pre
+        >
+       </div>
+      </div>
+
+      <section class="narrow">
+        <div class="eyebrow">2 · No router</div>
+        <h2>Orchestrator and expert subagents</h2>
+        <p class="lede">
+          When the number of functions and the prompt size grow, we split the
+          task by domain: the orchestrator calls subagents (even in
+          parallel) and assembles the answer.
+        </p>
+        <p class="lede">
+          <strong>Anthropic:</strong> the orchestrator-workers pattern: the
+          central agent breaks the question into subtasks on the fly.
+          <strong>OpenAI:</strong> the manager pattern: subagents are called as
+          the manager's tools, and only the manager talks to the user.
+        </p>
+      </section>
+      <div class="diagram-card">
+       <div class="diagram-inner">
+        <pre class="mermaid">
+flowchart TD
+  O["Operator"] -->|question| C(["Orchestrator"])
+  C -->|1..N in parallel| S(["Domain subagents"])
+  S -->|fetches| T["User and public data"]
+  T -->|data| S
+  S -->|answer| C
+  S -.-> G{{"Safety filter"}}
+  C -.-> G
+  C -->|final answer| GW["Response gateway - code"]
+  GW --> O
+  classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
+  classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
+  classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
+  classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
+  class C,S agent
+  class T,GW tool
+  class O result
+  class G guardrail</pre
+        >
+       </div>
+      </div>
+
+      <section class="narrow">
+        <div class="eyebrow">3 · With a router</div>
+        <h2>Router, orchestrator, subagents and synthesizer</h2>
+        <p class="lede">
+          The most complex form: the router decides in advance what the
+          question is about and whether the user may access it. Without
+          entitlement, the code short-circuits and the LLM is not even called.
+          A synthesizer agent merges the answers of several subagents.
+        </p>
+        <p class="lede">
+          <strong>Anthropic:</strong> the routing workflow (classify the input
+          and send it down a specialised path) in front of orchestrator-workers.
+          <strong>OpenAI:</strong> the triage-agent / classification idea
+          with the manager pattern, plus guardrails that enforce
+          entitlement at code level.
+        </p>
+      </section>
+      <div class="diagram-card">
+       <div class="diagram-inner">
+        <pre class="mermaid">
+flowchart TD
+  O["Operator"] -->|question| R(["Router - TypeSafe Jev"])
+  R -->|not entitled| DENY{{"Fixed refusal - code"}}
+  DENY --> GW["Response gateway - code"]
+  R -->|entitled: question + matched function| C(["Orchestrator"])
+  C -->|1..N in parallel| S(["Domain subagents"])
+  S -->|fetches| T["User and public data"]
+  T -->|data| S
+  S -->|answer| C
+  C -->|if several answers| SYN(["Answer synthesizer"])
+  SYN -->|unified answer| C
+  R -.-> G{{"Safety filter"}}
+  S -.-> G
+  C -->|final answer| GW
+  GW --> O
+  classDef agent fill:#c8e85b,stroke:#17212b,stroke-width:3px,color:#0d1015,font-weight:700
+  classDef tool fill:#fffdf8,stroke:#ff765c,stroke-width:1px,color:#17212b
+  classDef result fill:#17212b,stroke:#ff765c,stroke-width:2px,color:#fffdf8
+  classDef guardrail fill:#ffe3e0,stroke:#d7263d,stroke-width:2px,color:#7a0c1c
+  class R,C,S,SYN agent
+  class T,GW tool
+  class O result
+  class G,DENY guardrail</pre
+        >
+       </div>
+      </div>
+
+      <section class="narrow cca-section">
+        <div class="eyebrow">Literature</div>
+        <h2>Sources used</h2>
+        <p class="lede">
+          Chapters 1.1–1.4 build on Anthropic's documentation and the CCA-F
+          notes; the proposals and the LangChain/OpenAI mapping come from the
+          sources below.
+        </p>
+        <table class="stop-table">
+          <tr><th>Source</th><th>What we used it for</th></tr>
+          <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons#end-turn">Anthropic SDK – stop_reason</a></td><td>loop control, the <code>stop_reason</code> table</td></tr>
+          <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/mid-conversation-effort-example">Anthropic SDK – orchestration mode</a></td><td>orchestrator / subagent pattern</td></tr>
+          <tr><td><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Anthropic SDK – Context Windows</a></td><td>stale context, <code>model_context_window_exceeded</code></td></tr>
+          <tr><td><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic – Building effective agents</a></td><td>start simple; chaining, routing, adaptive agent</td></tr>
+          <tr><td><a href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf">OpenAI – A practical guide to building agents</a></td><td>guardrails, measurement-based model choice</td></tr>
+          <tr><td><a href="https://openai.github.io/openai-agents-python/guardrails/">OpenAI Agents SDK – Guardrails</a></td><td>how tripwires work</td></tr>
+          <tr><td><a href="https://docs.langchain.com/oss/python/langchain/middleware/overview">LangChain – Middleware</a></td><td><code>before_model</code> / <code>after_model</code>, PII (hook equivalent)</td></tr>
+          <tr><td><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents">LangChain – Subagents</a></td><td>a subagent wrapped as a tool (Task/Agent tool equivalent)</td></tr>
+          <tr><td><a href="https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit">LangGraph – Recursion limit</a></td><td>loop iteration limit</td></tr>
+          <tr><td><a href="https://github.com/daronyondem/claude-architect-exam-guide/releases">Claude Certified Architect Exam Guide</a>, <a href="https://github.com/OlivierAlter/Claude-Certified-Architect-Foundations-Certification-Exam/blob/main/Claude%20Certification%20Exam.md">exam notes</a></td><td>CCA-F principles (see <code>CCA-F.md</code>)</td></tr>
+        </table>
+      </section>
+
+      <div class="outro narrow">
+        <h2 style="color: var(--lime)">One important rule, whichever structure you choose.</h2>
+        <p style="margin-top: 10px">
+          Whatever must hold 100% of the time is enforced by code, not by the
+          model's goodwill: whose data is concerned, whether the user may access
+          a function, and what reaches the operator. Models decide only where
+          the decision really needs interpretation — and even there they are
+          surrounded by safety filters.
+        </p>
+      </div>
+    </main>
+    <nav class="pagenav bottom">
+      <a data-nav="index" href="index-en.html">← Home</a>
+      <a data-nav="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Next: 2 · Test catalog →</a>
+    </nav>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#fffdf8',
+          primaryTextColor: '#17212b',
+          primaryBorderColor: '#ff765c',
+          lineColor: '#ff765c',
+          secondaryColor: '#c8e85b',
+          tertiaryColor: '#e5eef2',
+          fontFamily: 'Manrope, sans-serif',
+          fontSize: '19px',
+        },
+        flowchart: {
+          nodeSpacing: 70,
+          rankSpacing: 95,
+          padding: 16,
+        },
+      });
+
+      if (location.protocol !== 'file:') {
+        const nav = { index: '/index-en.html', catalog: '/catalog.html' };
+        document.querySelectorAll('a[data-nav]').forEach((a) => a.setAttribute('href', nav[a.dataset.nav]));
+      }
+
+      const progress = document.getElementById('progress');
+      function updateProgress() {
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        const pct = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+        progress.style.width = pct + '%';
+      }
+      document.addEventListener('scroll', updateProgress, { passive: true });
+      window.addEventListener('resize', updateProgress);
+      updateProgress();
+    </script>
+    <script>
+      /* Language switcher: auto (browser language) | English | Magyar. The choice is shared
+         with the chat, catalog and eval pages through localStorage; the page redirects to the
+         variant that matches it. */
+      (function () {
+        var KEY = 'bankOfficerLang', PAGE = document.documentElement.lang;
+        var VARIANTS = { hu: { file: 'bank-officer-agent-architecture-hu.html', server: '/architecture.html' }, en: { file: 'bank-officer-agent-architecture-en.html', server: '/architecture-en.html' } };
+        var setting = 'auto';
+        try { var s = localStorage.getItem(KEY); if (s === 'hu' || s === 'en') setting = s; } catch (e) {}
+        function effective() { return setting === 'auto' ? ((navigator.language || 'hu').slice(0, 2) === 'hu' ? 'hu' : 'en') : setting; }
+        function go() {
+          var want = effective();
+          if (want === PAGE) return;
+          var v = VARIANTS[want];
+          location.replace(location.protocol === 'file:' ? v.file : v.server);
+        }
+        go();
+        var box = document.createElement('label');
+        box.className = 'langsw';
+        box.appendChild(document.createTextNode(PAGE === 'hu' ? 'Nyelv ' : 'Language '));
+        var sel = document.createElement('select');
+        [['en', 'English'], ['hu', 'Magyar']].forEach(function (o) {
+          var opt = document.createElement('option'); opt.value = o[0]; opt.textContent = o[1]; sel.appendChild(opt);
+        });
+        sel.value = effective();
+        sel.addEventListener('change', function () {
+          setting = sel.value;
+          try { localStorage.setItem(KEY, setting); } catch (e) {}
+          go();
+        });
+        box.appendChild(sel);
+        document.body.appendChild(box);
+      })();
+    </script>
+  </body>

@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Eval-driven development · R&amp;D Harness Agent — from a fixed pipeline to a measurement-driven architecture | agent-foundations</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+      :root {
+        --ink: #17212b;
+        --muted: #64717b;
+        --paper: #f5f2ea;
+        --white: #fffdf8;
+        --lime: #c8e85b;
+        --coral: #ff765c;
+        --blue: #7bb9d8;
+        --line: #d9d6cc;
+        --grid: rgba(23, 33, 43, 0.04);
+        --codebg: rgba(23, 33, 43, 0.07);
+        --shadow: 0 18px 50px rgba(23, 33, 43, 0.13);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #eef0ea;
+          --muted: #a2adb5;
+          --paper: #12181e;
+          --white: #1a222a;
+          --line: #2f3a44;
+          --grid: rgba(238, 240, 234, 0.04);
+          --codebg: rgba(238, 240, 234, 0.09);
+          --shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Manrope, sans-serif;
+        background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 28px 28px;
+      }
+      main {
+        width: min(880px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: clamp(40px, 8vw, 80px) 0 100px;
+      }
+      code,
+      .eyebrow,
+      .tag {
+        font-family: 'DM Mono', monospace;
+      }
+      .eyebrow {
+        color: var(--coral);
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+      h1 {
+        font-weight: 800;
+        letter-spacing: -2px;
+        line-height: 1.02;
+        margin: 0;
+        font-size: clamp(34px, 6vw, 58px);
+      }
+      h2 {
+        font-weight: 800;
+        letter-spacing: -1px;
+        margin: 0 0 16px;
+        font-size: clamp(24px, 3.4vw, 32px);
+      }
+      h3 {
+        margin: 0 0 6px;
+        font-size: 19px;
+        letter-spacing: -0.2px;
+      }
+      p {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0;
+      }
+      strong {
+        color: var(--ink);
+      }
+      .lede {
+        margin-top: 20px;
+        max-width: 700px;
+        font-size: 18px;
+      }
+      code {
+        background: var(--codebg);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.86em;
+      }
+      section {
+        margin-top: 56px;
+      }
+      .why {
+        display: grid;
+        gap: 12px;
+      }
+      .why div {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 18px;
+        font-size: 15.5px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .why strong {
+        color: var(--ink);
+      }
+      .card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 22px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .cards {
+        display: grid;
+        gap: 16px;
+      }
+      .card p {
+        font-size: 15.5px;
+      }
+      .tag {
+        align-self: flex-start;
+        font-size: 11.5px;
+        padding: 3px 9px;
+        border-radius: 99px;
+        background: var(--lime);
+        color: #17212b;
+        letter-spacing: 0.5px;
+      }
+      .tag.coral {
+        background: var(--coral);
+      }
+      .tag.blue {
+        background: var(--blue);
+      }
+      .card ul {
+        margin: 2px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .btn {
+        align-self: flex-start;
+        margin-top: 6px;
+        background: var(--ink);
+        color: var(--paper);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 9px 16px;
+        border-radius: 99px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .btn {
+          background: var(--lime);
+          color: #17212b;
+        }
+      }
+      ol.steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: s;
+        display: grid;
+        gap: 12px;
+      }
+      ol.steps li {
+        counter-increment: s;
+        position: relative;
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 14px 18px 14px 58px;
+        font-size: 15.5px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      ol.steps li::before {
+        content: counter(s);
+        position: absolute;
+        left: 14px;
+        top: 12px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--ink);
+        color: var(--paper);
+        font-family: 'DM Mono', monospace;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .note {
+        margin-top: 16px;
+        padding: 12px 16px;
+        border-left: 4px solid var(--coral);
+        background: var(--white);
+        font-size: 15px;
+      }
+      .outro {
+        margin-top: 56px;
+        padding: 26px;
+        background: #17212b;
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+      }
+      .outro h2 {
+        color: var(--lime);
+        margin: 0;
+        font-size: clamp(20px, 3vw, 26px);
+      }
+      .outro p {
+        color: #d7e0d5;
+        margin-top: 10px;
+      }
+      .outro code {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--lime);
+      }
+      footer {
+        margin-top: 24px;
+        padding: 26px;
+        background: #17212b;
+        border-radius: 4px;
+        box-shadow: var(--shadow);
+        color: #d7e0d5;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      footer h3 {
+        color: var(--lime);
+        margin: 0 0 8px;
+        font-size: clamp(20px, 3vw, 26px);
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+      footer a {
+        color: #fffdf8;
+        text-decoration-color: var(--coral);
+        text-underline-offset: 3px;
+      }
+      footer a:hover {
+        color: var(--lime);
+      }
+      .sources {
+        padding-left: 20px;
+        margin: 8px 0 14px;
+      }
+      .langsw {
+        position: fixed;
+        top: 10px;
+        right: 12px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 12px Manrope, sans-serif;
+        color: var(--muted);
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 4px 6px 4px 12px;
+      }
+      .langsw select {
+        font: inherit;
+        color: var(--ink);
+        background: transparent;
+        border: 0;
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">agent-foundations · eval-driven development</div>
+        <h1>Eval Driven Development <span style="white-space:nowrap">· R&amp;D Harness Agent</span></h1>
+        <p class="lede">
+          The bank branch officer example is the architecture of a <strong>Bank Agent
+          Harness Chat</strong> application, built on the <strong>Anthropic and OpenAI
+          documentation</strong>. Today it is a <strong>fixed</strong> pipeline: the order of the
+          router, the coordinator, the specialists and the guardrails is set by code.
+          That is a good starting point, but "it works in the demo" does not tell us
+          whether a change makes it <em>better</em>. With this example we present EDD:
+          we organise the agent's development <strong>around an eval set</strong>, on the
+          already working mock application as a POC.
+        </p>
+      </header>
+
+      <section>
+        <h2>Why adopt it?</h2>
+        <div class="why">
+          <div><strong>Without measurement we fly blind.</strong> A prompt change can improve one
+          type of question and silently break another, for example the entitlement handling of
+          card limits.</div>
+          <div><strong>The building block is probabilistic.</strong> The same question run three
+          times can give three different answers, so it must be measured, not calculated.</div>
+          <div><strong>The risk of a change becomes predictable.</strong> Before swapping a model,
+          adding a specialist or rewriting a prompt, you can compare before and after on the same
+          set, in days instead of weeks.</div>
+          <div><strong>"Good" has to be defined.</strong> Instead of "an adequate answer": the number
+          matches the test data, or the answer is refused because of entitlement.</div>
+          <div><strong>Reliability is more than a one-off success.</strong> A rule that holds 9 times
+          out of 10 is not a rule in production, so we run the same question several times
+          (<code>--repeat</code>) and every run has to pass.</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>The POC in three steps: look at the working example</h2>
+        <p style="margin-bottom: 18px">
+          The three cards on the home page are also the three steps of the EDD process.
+        </p>
+        <div class="cards">
+          <div class="card">
+            <span class="tag">1 · the dynamic architecture</span>
+            <h3>What can be swapped, and what stays in code?</h3>
+            <p>The architecture is not fixed: the architecture page shows three variants, from
+            the simple to the complex (a single agent, without a router, with a router), and they
+            can be switched as profiles. EDD asks here:</p>
+            <ul>
+              <li>What stays <strong>always in code</strong>? Entitlement, PII, query-only, a fixed answer on failure.</li>
+              <li>What can be changed <strong>based on measurement</strong>? Whether a router, delegation or a single agent is needed, which model, which prompt.</li>
+            </ul>
+            <a class="btn" data-page="architecture" href="bank-officer-agent-architecture-en.html">Architecture page →</a>
+          </div>
+          <div class="card">
+            <span class="tag coral">2 · Test catalog</span>
+            <h3>The test data is the yardstick</h3>
+            <p>The data of the three mock customers and the REST endpoints behind them are the
+            reference: from them you can work out in advance what the correct number is and what
+            must be refused for a retail customer. In a mock environment an experiment is cheap
+            and repeatable; on the live system it is expensive and risky.</p>
+            <a class="btn" data-page="catalog" href="src/bank_officer/webapp_mockup/catalog.html">Open the test data →</a>
+          </div>
+          <div class="card">
+            <span class="tag blue">3 · try it and measure</span>
+            <h3>Chat, then eval</h3>
+            <p>In the chat you can follow a question live: which endpoint the router hit, which
+            tools the agent called, what came back after the guardrail. The eval page runs the
+            same questions on several architecture profiles, so the comparison is a number, not
+            an impression.</p>
+            <a class="btn" data-page="chat" href="http://127.0.0.1:8050/chat.html">Open the chat →</a>
+            <a class="btn" data-page="eval" href="src/bank_officer/webapp_mockup/eval.html" style="margin-top: 0">Eval page →</a>
+          </div>
+        </div>
+        <p class="note" id="file-note" hidden>
+          You opened this page as a file: to run the chat and eval pages you need to start the
+          server (<code>uv run python src/bank_officer/main.py</code>).
+        </p>
+      </section>
+
+      <footer>
+        <h3>Sources</h3>
+        <ul class="sources">
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic – Building effective agents</a></li>
+        <li><a href="https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons#end-turn" target="_blank" rel="noopener">Anthropic SDK – stop_reason</a></li>
+        <li><a href="https://platform.claude.com/docs/en/build-with-claude/context-windows" target="_blank" rel="noopener">Anthropic SDK – Context Windows</a></li>
+        <li><a href="https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf" target="_blank" rel="noopener">OpenAI – A practical guide to building agents</a></li>
+        <li><a href="https://www.anthropic.com/research/demystifying-evals-for-ai-agents" target="_blank" rel="noopener">Anthropic – Demystifying evals for AI agents</a></li>
+        <li><a href="https://www.youtube.com/watch?v=VvKDoV39jAk&amp;list=PLmiDJB5zE0KGwFtDCSqHfQG7SV6VeQ_31" target="_blank" rel="noopener">AIGODMODE AI (YouTube) – Claude Certified Architect (playlist)</a></li>
+        <li><a href="https://openai.github.io/openai-agents-python/guardrails/" target="_blank" rel="noopener">OpenAI Agents SDK – Guardrails</a></li>
+        <li><a href="https://docs.langchain.com/oss/python/langchain/middleware/overview" target="_blank" rel="noopener">LangChain – Middleware</a></li>
+        <li><a href="https://docs.langchain.com/oss/python/langchain/multi-agent/subagents" target="_blank" rel="noopener">LangChain – Subagents</a></li>
+        <li><a href="https://docs.langchain.com/oss/python/langgraph/graph-api#recursion-limit" target="_blank" rel="noopener">LangGraph – Recursion limit</a></li>
+        </ul>
+        The full list, with the matching uses, is at the end of the architecture page. These sources give principles, not a ready-made architecture.
+      </footer>
+    </main>
+
+    <script>
+      (function () {
+        if (location.protocol === 'file:') {
+          var note = document.getElementById('file-note');
+          if (note) note.hidden = false;
+          return;
+        }
+        var map = {
+          architecture: '/architecture-en.html',
+          catalog: '/catalog.html',
+          chat: '/chat.html',
+          eval: '/eval.html'
+        };
+        document.querySelectorAll('a[data-page]').forEach(function (a) {
+          if (map[a.dataset.page]) a.setAttribute('href', map[a.dataset.page]);
+        });
+      })();
+    </script>
+    <script>
+      /* Language switcher: auto (browser language) | English | Magyar. The choice is shared
+         with the chat, catalog and eval pages through localStorage; the page redirects to the
+         variant that matches it. */
+      (function () {
+        var KEY = 'bankOfficerLang', PAGE = document.documentElement.lang;
+        var VARIANTS = { hu: { file: 'index.html', server: '/' }, en: { file: 'index-en.html', server: '/index-en.html' } };
+        var setting = 'auto';
+        try { var s = localStorage.getItem(KEY); if (s === 'hu' || s === 'en') setting = s; } catch (e) {}
+        function effective() { return setting === 'auto' ? ((navigator.language || 'hu').slice(0, 2) === 'hu' ? 'hu' : 'en') : setting; }
+        function go() {
+          var want = effective();
+          if (want === PAGE) return;
+          var v = VARIANTS[want];
+          location.replace(location.protocol === 'file:' ? v.file : v.server);
+        }
+        go();
+        var box = document.createElement('label');
+        box.className = 'langsw';
+        box.appendChild(document.createTextNode(PAGE === 'hu' ? 'Nyelv ' : 'Language '));
+        var sel = document.createElement('select');
+        [['en', 'English'], ['hu', 'Magyar']].forEach(function (o) {
+          var opt = document.createElement('option'); opt.value = o[0]; opt.textContent = o[1]; sel.appendChild(opt);
+        });
+        sel.value = effective();
+        sel.addEventListener('change', function () {
+          setting = sel.value;
+          try { localStorage.setItem(KEY, setting); } catch (e) {}
+          go();
+        });
+        box.appendChild(sel);
+        document.body.appendChild(box);
+      })();
+    </script>
+  </body>
+</html>

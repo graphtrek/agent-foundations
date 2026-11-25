@@ -72,36 +72,56 @@
 <body>
 <main>
   <header>
-    <h1>Architektúra eval</h1>
-    <nav><a data-home href="index.html">← Kezdőlap</a> <a data-arch href="architecture.html">← Architektúra</a> <a href="catalog.html">← Teszt katalógus</a> <a href="chat.html">← Bank Chat</a></nav>
+    <h1 data-t>Architektúra eval</h1>
+    <nav><a data-home href="index.html" data-t>← Kezdőlap</a> <a data-arch href="architecture.html" data-t>← Architektúra</a> <a href="catalog.html" data-t>← Teszt katalógus</a> <a href="chat.html" data-t>← Bank Chat</a></nav>
   </header>
-  <p class="muted">Ugyanazokat a kérdéseket futtatja le a kiválasztott architektúra-profilokon. Valódi modellhívások, determinisztikus ellenőrzéssel (elvárt tool, végpont, számok a válaszban, hozzáférés-elutasítás). Egy futás keveset bizonyít: a modell valószínűségi, ezért érdemes többször ismételni.</p>
+  <p class="muted" data-t>Ugyanazokat a kérdéseket futtatja le a kiválasztott architektúra-profilokon. Valódi modellhívások, determinisztikus ellenőrzéssel (elvárt tool, végpont, számok a válaszban, hozzáférés-elutasítás). Egy futás keveset bizonyít: a modell valószínűségi, ezért érdemes többször ismételni.</p>
 
   <div class="cols">
-    <section class="panel"><strong>Architektúrák</strong><div id="archs"></div></section>
+    <section class="panel"><strong data-t>Architektúrák</strong><div id="archs"></div></section>
   </div>
   <div class="bar">
-    <label>Ismétlés <select id="repeat"></select></label>
-    <button class="primary" id="run" type="button">Futtatás</button>
-    <button id="cancel" type="button" hidden>Leállítás</button>
-    <button id="reportBtn" type="button" hidden>Kiértékelés</button>
+    <label><span data-t>Ismétlés</span> <select id="repeat"></select></label>
+    <button class="primary" id="run" type="button" data-t>Futtatás</button>
+    <button id="cancel" type="button" data-t hidden>Leállítás</button>
+    <button id="reportBtn" type="button" data-t hidden>Kiértékelés</button>
     <progress id="progress" max="1" value="0" hidden></progress>
     <span class="muted" id="status"></span>
   </div>
   <div class="err" id="error"></div>
 
-  <h2>Összesítés</h2>
+  <h2 data-t>Összesítés</h2>
   <div class="panel"><div id="summary" class="muted">Még nincs futás.</div></div>
-  <h2>Eredmények esetenként <span class="muted">(kattints egy cellára a részletekért · komplexitás = az eset ellenőrzéseinek száma: számok, szövegek, végpont, elutasítás)</span></h2>
+  <h2><span data-t>Eredmények esetenként</span> <span class="muted" data-t>(kattints egy cellára a részletekért · komplexitás = az eset ellenőrzéseinek száma: számok, szövegek, végpont, elutasítás)</span></h2>
   <div class="panel"><div id="matrix"></div><div class="detail" id="detail"></div></div>
 </main>
 <dialog id="reportDlg">
-  <div class="dlg-head"><strong>Szöveges kiértékelés</strong><button id="reportClose" type="button">Bezár</button></div>
+  <div class="dlg-head"><strong data-t>Szöveges kiértékelés</strong><button id="reportClose" type="button" data-t>Bezár</button></div>
   <div id="reportBody"></div>
 </dialog>
+<script src="ui_lang.js"></script>
 <script>
 (function () {
   "use strict";
+  var T = UILang.tr;
+  UILang.register({
+    "Architektúra eval | Branch Officer": "Architecture eval | Branch Officer", "Architektúra eval": "Architecture eval",
+    "← Kezdőlap": "← Home", "← Architektúra": "← Architecture", "← Teszt katalógus": "← Test catalog", "← Bank Chat": "← Bank Chat",
+    "Ugyanazokat a kérdéseket futtatja le a kiválasztott architektúra-profilokon. Valódi modellhívások, determinisztikus ellenőrzéssel (elvárt tool, végpont, számok a válaszban, hozzáférés-elutasítás). Egy futás keveset bizonyít: a modell valószínűségi, ezért érdemes többször ismételni.":
+      "Runs the same questions on the selected architecture profiles. Real model calls, checked deterministically (expected tool, endpoint, numbers in the reply, access refusal). A single run proves little: the model is probabilistic, so repeat it several times.",
+    "Architektúrák": "Architectures", "Ismétlés": "Repeat", "Futtatás": "Run", "Leállítás": "Stop", "Kiértékelés": "Evaluation",
+    "Összesítés": "Summary", "Eredmények esetenként": "Results per case",
+    "(kattints egy cellára a részletekért · komplexitás = az eset ellenőrzéseinek száma: számok, szövegek, végpont, elutasítás)": "(click a cell for details · complexity = number of checks of the case: numbers, texts, endpoint, refusal)",
+    "Szöveges kiértékelés": "Text evaluation", "Bezár": "Close", "Nyelv": "Language", "Auto (felismerés)": "Auto (detect)",
+    "Még nincs futás.": "No run yet.", "Sikeres": "Passed", "Medián válaszidő": "Median response time", "Átl. tool-hívás": "Avg. tool calls",
+    "Eset": "Case", "Komplexitás": "Complexity", "Mentve: ": "Saved: ", "Futás ": "Run ", "tool-ok: ": "tools: ", "végpont: ": "endpoint: ",
+    "SIKERES": "PASSED", "HIBÁS": "FAILED", "most: ": "now: ", "leállítás az aktuális eset után": "stopping after the current case",
+    "Leállítva. ": "Stopped. ", "Kész. ": "Done. ", " futás.": " runs.", "Szöveges kiértékelés készül…": "Writing the text evaluation…",
+    "Nem érhető el a szerver: ": "The server is unreachable: ",
+    "Ehhez a szerver kell: uv run python src/bank_officer/main.py, majd http://127.0.0.1:8050/eval.html": "This needs the server: uv run python src/bank_officer/main.py, then http://127.0.0.1:8050/eval.html"
+  });
+  UILang.mount(document.querySelector("header"));
+  UILang.mark(document, "[data-t]");
   var archsEl = document.getElementById("archs"), allCases = [], selected = {};
   var repeatEl = document.getElementById("repeat"), runBtn = document.getElementById("run");
   var cancelBtn = document.getElementById("cancel"), progressEl = document.getElementById("progress");
@@ -116,7 +136,8 @@
   document.querySelectorAll("a[data-arch]").forEach(function (a) { a.href = location.protocol === "file:" ? "../../../bank-officer-agent-architecture-hu.html" : "/architecture.html"; });
 
   if (location.protocol === "file:") {
-    errorEl.textContent = "Ehhez a szerver kell: uv run python src/bank_officer/main.py, majd http://127.0.0.1:8050/eval.html";
+    errorEl.textContent = T("Ehhez a szerver kell: uv run python src/bank_officer/main.py, majd http://127.0.0.1:8050/eval.html");
+    UILang.apply();
     document.querySelectorAll("a[data-home]").forEach(function (a) { a.href = "../../../index.html"; });
     runBtn.disabled = true;
     return;
@@ -150,6 +171,16 @@
   }
   function checked(box) {
     return Array.prototype.map.call(box.querySelectorAll("input:checked"), function (i) { return i.value; });
+  }
+  var archList = [];
+  /* Architecture checkboxes, labelled in the UI language; a redraw keeps what is ticked. */
+  function renderArchs(initial) {
+    var ticked = initial ? null : checked(archsEl);
+    archsEl.textContent = "";
+    archList.forEach(function (a) {
+      var on = ticked ? ticked.indexOf(a.id) >= 0 : (a.id === "router" || a.id === "single_agent" || a.id === "no_router");
+      option(archsEl, a.id, (UILang.lang() === "en" && a.label_en) || a.label, a.id, on);
+    });
   }
   function fmtMs(ms) { return ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms"; }
   function median(a) {
@@ -191,9 +222,9 @@
 
   function renderSummary() {
     summaryEl.textContent = "";
-    if (!snap || !snap.results.length) { summaryEl.textContent = "Még nincs futás."; return; }
+    if (!snap || !snap.results.length) { summaryEl.textContent = T("Még nincs futás."); return; }
     var t = el("table"), head = el("tr");
-    ["Architektúra", "Sikeres", "Medián válaszidő", "Átl. tool-hívás"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    ["Architektúra", "Sikeres", "Medián válaszidő", "Átl. tool-hívás"].forEach(function (h) { head.appendChild(el("th", null, T(h))); });
     t.appendChild(head);
     snap.summary.forEach(function (r) {
       var tr = el("tr");
@@ -204,7 +235,7 @@
       t.appendChild(tr);
     });
     summaryEl.appendChild(t);
-    if (snap.saved) summaryEl.appendChild(el("p", "muted", "Mentve: " + snap.saved));
+    if (snap.saved) summaryEl.appendChild(el("p", "muted", T("Mentve: ") + snap.saved));
   }
 
   function renderMatrix() {
@@ -213,8 +244,8 @@
     var archs = snap && snap.archs.length ? snap.archs : checked(archsEl);
     var t = el("table"), head = el("tr");
     head.appendChild(el("th", null, "#"));
-    head.appendChild(el("th", null, "Eset"));
-    head.appendChild(el("th", null, "Komplexitás"));
+    head.appendChild(el("th", null, T("Eset")));
+    head.appendChild(el("th", null, T("Komplexitás")));
     archs.forEach(function (a) { head.appendChild(el("th", null, a)); });
     t.appendChild(head);
     allCases.forEach(function (cs, idx) {
@@ -225,7 +256,7 @@
       cb.addEventListener("change", function () { selected[c] = cb.checked; });
       l.appendChild(cb);
       var tt = el("span", null, c);
-      tt.appendChild(el("small", null, cs.question + (cs.customer ? " (" + cs.customer + ")" : "")));
+      tt.appendChild(el("small", null, ((cs.questions && cs.questions[UILang.lang()]) || cs.question) + (cs.customer ? " (" + cs.customer + ")" : "")));
       l.appendChild(tt);
       first.appendChild(l);
       tr.appendChild(first);
@@ -249,8 +280,8 @@
     detailEl.textContent = "";
     detailEl.appendChild(el("strong", null, arch + " / " + caseId));
     rows.forEach(function (r, i) {
-      var head = el("div", "muted", "Futás " + (i + 1) + " · " + fmtMs(r.ms) + " · tool-ok: " + (r.tools.join(", ") || "–") + " · végpont: " + (r.endpoint || "–") + " ");
-      head.appendChild(el("span", "tag " + (r.passed ? "pass" : "fail"), r.passed ? "SIKERES" : "HIBÁS"));
+      var head = el("div", "muted", T("Futás ") + (i + 1) + " · " + fmtMs(r.ms) + " · " + T("tool-ok: ") + (r.tools.join(", ") || "–") + " · " + T("végpont: ") + (r.endpoint || "–") + " ");
+      head.appendChild(el("span", "tag " + (r.passed ? "pass" : "fail"), T(r.passed ? "SIKERES" : "HIBÁS")));
       detailEl.appendChild(head);
       var checks = Object.keys(r.checks).map(function (k) { return (r.checks[k] ? "✓ " : "✗ ") + k; }).join("   ");
       detailEl.appendChild(el("div", "muted", checks));
@@ -266,9 +297,9 @@
     if (snap) {
       progressEl.max = snap.total; progressEl.value = snap.finished;
       statusEl.textContent = running
-        ? snap.finished + " / " + snap.total + (snap.current ? " · most: " + snap.current : "") + (snap.cancelled ? " · leállítás az aktuális eset után" : "")
-        : (snap.cancelled ? "Leállítva. " : "Kész. ") + snap.finished + " / " + snap.total + " futás.";
-      if (running && snap.report_pending) statusEl.textContent = "Szöveges kiértékelés készül…";
+        ? snap.finished + " / " + snap.total + (snap.current ? " · " + T("most: ") + snap.current : "") + (snap.cancelled ? " · " + T("leállítás az aktuális eset után") : "")
+        : T(snap.cancelled ? "Leállítva. " : "Kész. ") + snap.finished + " / " + snap.total + T(" futás.");
+      if (running && snap.report_pending) statusEl.textContent = T("Szöveges kiértékelés készül…");
       statusEl.classList.toggle("blink", !!(running && snap.report_pending));
       reportBtn.hidden = !snap.report;
     }
@@ -284,13 +315,15 @@
     }).catch(function (e) { errorEl.textContent = e.message; });
   }
 
+  UILang.onChange(function () { renderArchs(false); if (snap) render(); else { renderSummary(); renderMatrix(); } });
+  UILang.apply();
   archsEl.addEventListener("change", renderMatrix);
   runBtn.addEventListener("click", function () {
     errorEl.textContent = "";
     detailEl.textContent = "";
     reportBtn.hidden = true;
     api("/api/evals", { method: "POST", json: {
-      architectures: checked(archsEl), cases: allCases.map(function (c) { return c.id; }).filter(function (c) { return selected[c]; }), repeat: Number(repeatEl.value)
+      architectures: checked(archsEl), cases: allCases.map(function (c) { return c.id; }).filter(function (c) { return selected[c]; }), repeat: Number(repeatEl.value), language: UILang.lang()
     } }).then(function () { clearTimeout(timer); poll(); })
       .catch(function (e) { errorEl.textContent = e.message; });
   });
@@ -307,13 +340,14 @@
   });
 
   api("/api/evals/options").then(function (o) {
-    o.architectures.forEach(function (a) { option(archsEl, a.id, a.label, a.id, a.id === "router" || a.id === "single_agent" || a.id === "no_router"); });
+    archList = o.architectures;
+    renderArchs(true);
     allCases = o.cases;
     allCases.forEach(function (c) { selected[c.id] = true; });
     renderMatrix();
     for (var i = 1; i <= o.max_repeat; i++) { var op = el("option", null, String(i)); op.value = i; repeatEl.appendChild(op); }
     poll();  /* picks up a run that is already going (or the last finished one) */
-  }).catch(function (e) { errorEl.textContent = "Nem érhető el a szerver: " + e.message; });
+  }).catch(function (e) { errorEl.textContent = T("Nem érhető el a szerver: ") + e.message; });
 })();
 </script>
 </body>

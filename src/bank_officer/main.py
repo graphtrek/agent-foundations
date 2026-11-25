@@ -54,7 +54,9 @@ from agents.profile_loader import list_profiles, load_profile
 from app_context import CONVERSATIONS_DIR, DEFAULT_ARCHITECTURE, LOGS_DIR, REGISTRY
 from evals import eval_runner
 from session import live_run
-from session.branch_session import FAILURE_REPLY, BranchSession, customer_info
+from localization.language import AUTO, LANGUAGE_NAMES, SUPPORTED, normalize
+from localization.messages import text
+from session.branch_session import BranchSession, customer_info
 from tools.branch_context import BranchContext
 
 MOCKUP_DIR = Path(__file__).resolve().parent / "webapp_mockup"
@@ -62,7 +64,12 @@ ARCHITECTURE_PAGE = (
     Path(__file__).resolve().parent.parent.parent
     / "bank-officer-agent-architecture-hu.html"
 )
+ARCHITECTURE_PAGE_EN = (
+    Path(__file__).resolve().parent.parent.parent
+    / "bank-officer-agent-architecture-en.html"
+)
 INDEX_PAGE = Path(__file__).resolve().parent.parent.parent / "index.html"
+INDEX_PAGE_EN = Path(__file__).resolve().parent.parent.parent / "index-en.html"
 LOG_FILE = LOGS_DIR / "bank_officer_web.log"
 HOST = os.environ.get("BANK_WEB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("BANK_WEB_PORT", "8050"))
@@ -107,10 +114,16 @@ class EvalRequest(BaseModel):
     architectures: list[str] = Field(min_length=1, max_length=10)
     cases: list[str] | None = None
     repeat: int = Field(default=1, ge=1, le=eval_runner.MAX_REPEAT)
+    language: str = Field(default="hu", max_length=8)  # language of the questions and expected texts
 
 
 class NewChatRequest(BaseModel):
     architecture: str = Field(default=DEFAULT_ARCHITECTURE, max_length=40)
+    language: str = Field(default=AUTO, max_length=8)
+
+
+class LanguageRequest(BaseModel):
+    language: str = Field(max_length=8)
 
 
 app = FastAPI(title="Bank Branch Officer Chat")
@@ -122,6 +135,14 @@ def root() -> Response:
     """The repository landing page; the chat if it is not shipped (Docker)."""
     if INDEX_PAGE.is_file():
         return FileResponse(INDEX_PAGE, media_type="text/html")
+    return RedirectResponse("/chat.html")
+
+
+@app.get("/index-en.html", include_in_schema=False)
+def root_en() -> Response:
+    """English variant of the landing page (the pages redirect by language setting)."""
+    if INDEX_PAGE_EN.is_file():
+        return FileResponse(INDEX_PAGE_EN, media_type="text/html")
     return RedirectResponse("/chat.html")
 
 
@@ -139,9 +160,33 @@ def new_chat(req: NewChatRequest | None = None) -> dict[str, str]:
         BranchContext(officer_id="officer-demo", branch_id="branch-buda"),
         thread_id_prefix=f"web-{chat_id}",
         architecture=architecture,
+        language=req.language if req else AUTO,
     )
     _chats[chat_id] = WebChat(session=session, architecture=architecture)
-    return {"chat_id": chat_id, "architecture": architecture}
+    return {
+        "chat_id": chat_id,
+        "architecture": architecture,
+        "language": session.language_setting,
+    }
+
+
+@app.get("/api/languages")
+def get_languages() -> dict[str, Any]:
+    return {
+        "default": AUTO,
+        "languages": [{"id": AUTO, "label": "Auto"}]
+        + [{"id": k, "label": v} for k, v in LANGUAGE_NAMES.items()],
+    }
+
+
+@app.put("/api/chats/{chat_id}/language")
+def set_chat_language(chat_id: str, req: LanguageRequest) -> dict[str, str]:
+    """Change the reply language of a chat (``auto`` detects it per message)."""
+    if req.language.strip().lower() != AUTO and normalize(req.language) == AUTO:
+        raise HTTPException(status_code=400, detail=f"Unsupported language: {req.language}")
+    chat = _get_chat(chat_id)
+    chat.session.set_language(req.language)
+    return {"language": chat.session.language_setting}
 
 
 @app.get("/api/architectures")
@@ -165,7 +210,9 @@ def eval_options() -> dict[str, Any]:
     return {
         "architectures": [p for p in list_profiles() if "error" not in p],
         "cases": [
-            {"id": c["id"], "question": c["question"], "customer": c.get("customer"),
+            {"id": c["id"], "question": eval_runner.localized(c["question"], "hu"),
+             "questions": {lang: eval_runner.localized(c["question"], lang) for lang in SUPPORTED},
+             "customer": c.get("customer"),
              "complexity": eval_runner.case_complexity(c)}
             for c in eval_runner.load_cases()
         ],
@@ -189,7 +236,11 @@ def start_eval(req: EvalRequest) -> dict[str, str]:
         cases = [c for c in cases if c["id"] in set(req.cases)]
     if not cases:
         raise HTTPException(status_code=400, detail="No cases selected.")
-    _eval_run = eval_runner.EvalRun(list(dict.fromkeys(req.architectures)), cases, req.repeat)
+    language = normalize(req.language)
+    _eval_run = eval_runner.EvalRun(
+        list(dict.fromkeys(req.architectures)), cases, req.repeat,
+        language if language != AUTO else "hu",
+    )
     _eval_run.start()
     return {"id": _eval_run.id}
 
@@ -213,6 +264,7 @@ def get_chat(chat_id: str) -> dict[str, Any]:
     run = live_run.get(chat_id)
     return {
         "architecture": chat.architecture,
+        "language": chat.session.language_setting,
         "customer": customer_info(chat.session.current_customer_id),
         "turns": chat.turns,
         "live": {"prompt": run.prompt} if run is not None and not run.done else None,
@@ -252,7 +304,7 @@ def _run_turn(
             return events
     except Exception:  # stream_turn already falls back; this is a last resort
         logger.exception("Turn failed")
-        emit("app_error", {"message": FAILURE_REPLY})
+        emit("app_error", {"message": text("failure", chat.session.language)})
         return events
     finally:
         stream.close()
@@ -324,6 +376,12 @@ def architecture_page() -> FileResponse:
     """The architecture explainer page that lives in the repository root."""
     return FileResponse(ARCHITECTURE_PAGE, media_type="text/html")
 
+
+
+@app.get("/architecture-en.html", include_in_schema=False)
+def architecture_page_en() -> FileResponse:
+    """English variant of the architecture explainer page."""
+    return FileResponse(ARCHITECTURE_PAGE_EN, media_type="text/html")
 
 
 # Last, so the API routes above take precedence: catalog.html and chat.html.

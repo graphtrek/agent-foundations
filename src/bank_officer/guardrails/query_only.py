@@ -7,6 +7,8 @@ from langchain.agents.middleware import AgentMiddleware, AgentState, hook_config
 from langchain.messages import AIMessage
 from langgraph.runtime import Runtime
 
+from localization.messages import text
+
 MUTATION_CLAIM_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -20,12 +22,6 @@ MUTATION_CLAIM_PATTERNS = [
     )
 ]
 
-QUERY_ONLY_NOTICE = (
-    "I can only look up information - I have not changed, approved, or opened "
-    "anything. Please action any changes through the usual banking systems."
-)
-
-
 class QueryOnlyEnforcementMiddleware(AgentMiddleware):
     """Rewrite any reply that claims to have performed a mutating action."""
 
@@ -36,5 +32,5 @@ class QueryOnlyEnforcementMiddleware(AgentMiddleware):
             return None
         text = str(messages[-1].content)
         if any(pattern.search(text) for pattern in MUTATION_CLAIM_PATTERNS):
-            return {"messages": [AIMessage(content=QUERY_ONLY_NOTICE)], "jump_to": "end"}
+            return {"messages": [AIMessage(content=text("query_only"))], "jump_to": "end"}
         return None

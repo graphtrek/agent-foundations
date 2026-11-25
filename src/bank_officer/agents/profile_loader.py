@@ -139,7 +139,13 @@ def list_profiles() -> list[dict[str, str]]:
         try:
             profile = load_profile(folder_profile_id(path.parent.name))
             found.append(
-                {"id": profile.id, "label": profile.label, "description": profile.description}
+                {
+                    "id": profile.id,
+                    "label": profile.label,
+                    "description": profile.description,
+                    "label_en": profile.label_en,
+                    "description_en": profile.description_en,
+                }
             )
         except (ProfileError, yaml.YAMLError, OSError) as exc:
             found.append({"id": folder_profile_id(path.parent.name), "label": path.parent.name, "description": "", "error": str(exc)})

@@ -7,6 +7,8 @@ from langchain.agents.middleware import AgentMiddleware, AgentState, hook_config
 from langchain.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
 
+from localization.messages import text
+
 INJECTION_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -21,13 +23,6 @@ INJECTION_PATTERNS = [
         r"mostantól (te|ön) (egy|vagy)",
     )
 ]
-
-INJECTION_REFUSAL = (
-    "I can't follow instructions embedded in a message like that. Please ask "
-    "a normal question about the selected customer's accounts, transactions, "
-    "products, or offers."
-)
-
 
 def is_prompt_injection(text: str) -> bool:
     """Deterministic instruction-override / prompt-extraction check, shared by
@@ -44,5 +39,5 @@ class PromptInjectionGuardMiddleware(AgentMiddleware):
             (m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)), None
         )
         if last_human is not None and is_prompt_injection(str(last_human.content)):
-            return {"messages": [AIMessage(content=INJECTION_REFUSAL)], "jump_to": "end"}
+            return {"messages": [AIMessage(content=text("injection_refusal"))], "jump_to": "end"}
         return None

@@ -7,6 +7,8 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain.agents.middleware.types import ModelRequest, ModelResponse
 from langchain.messages import SystemMessage
 
+from localization.language import LANGUAGE_NAMES, current_language
+
 
 class MatchedEndpointContextMiddleware(AgentMiddleware):
     """Make ``state["matched_endpoint"]`` visible to the coordinator's model.
@@ -31,6 +33,11 @@ class MatchedEndpointContextMiddleware(AgentMiddleware):
                 f"required_entitlement={matched['required_entitlement']}, "
                 f"access_denied={matched.get('access_denied')}."
             )
+        language = LANGUAGE_NAMES[current_language()]
+        note += (
+            f"\n\nReply language for this turn: {language}. Write your final answer in "
+            f"{language}, even if tool results or product names are in another language."
+        )
         base = request.system_message.content if request.system_message else ""
         request.system_message = SystemMessage(content=f"{base}{note}")
         return handler(request)

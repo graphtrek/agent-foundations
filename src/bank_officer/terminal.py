@@ -40,6 +40,7 @@ import logging
 import os
 
 from app_context import CONVERSATIONS_DIR, DEFAULT_ARCHITECTURE, LOGS_DIR, REGISTRY
+from localization.language import AUTO, LANGUAGE_NAMES, SUPPORTED, normalize
 from session.branch_session import BranchSession
 from tools.branch_context import BranchContext
 
@@ -48,7 +49,10 @@ LOG_FILE = LOGS_DIR / "bank_officer_agent.log"
 EXIT_WORDS = {"exit", "quit", "kilépés"}
 logger = logging.getLogger(__name__)
 
-def run_officer_chat(architecture: str = DEFAULT_ARCHITECTURE) -> None:
+LABELS = {"hu": ("Tisztviselő", "Asszisztens"), "en": ("Officer", "Assistant")}
+
+
+def run_officer_chat(architecture: str = DEFAULT_ARCHITECTURE, language: str = AUTO) -> None:
     """Run the interactive officer chat loop until an exit word is typed."""
     pipeline = REGISTRY.get(architecture)
     session = BranchSession(
@@ -56,27 +60,37 @@ def run_officer_chat(architecture: str = DEFAULT_ARCHITECTURE) -> None:
         pipeline.coordinator,
         BranchContext(officer_id="officer-demo", branch_id="branch-buda"),
         architecture=architecture,
+        language=language,
     )
 
     print(SEPARATOR)
     print(f"Architecture: {architecture} - {pipeline.profile.label}")
     print("Bank Branch Officer Assistant - type 'exit', 'quit', or 'kilépés' to quit.")
+    print(f"Language: {session.language_setting} - type '/lang auto|en|hu' to change it.")
     print(SEPARATOR)
 
     while True:
         try:
-            user_input = input("Tisztviselő: ").strip()
+            user_input = input(f"{LABELS[session.language or 'hu'][0]}: ").strip()
         except EOFError:
             break
         if not user_input:
             continue
         if user_input.lower() in EXIT_WORDS:
             break
+        if user_input.lower().startswith("/lang"):
+            choice = user_input[5:].strip().lower()
+            if choice == AUTO or choice in SUPPORTED:
+                session.set_language(choice)
+                print(f"Language set to: {choice} ({LANGUAGE_NAMES.get(choice, 'detect per message')})\n")
+            else:
+                print("Usage: /lang auto|en|hu\n")
+            continue
         for event, data in session.stream_turn(user_input):
             if event == "tool_call":
                 print(f"  … {data['name']}")
             elif event == "reply":
-                print(f"Asszisztens: {data['text']}\n")
+                print(f"{LABELS[session.language or 'hu'][1]}: {data['text']}\n")
 
     conversation_path = session.save(CONVERSATIONS_DIR)
     if conversation_path is not None:
@@ -103,6 +117,13 @@ if __name__ == "__main__":
         default=DEFAULT_ARCHITECTURE,
         help="architecture profile id (src/bank_officer/architectures/<id>.yaml)",
     )
+    parser.add_argument(
+        "--lang",
+        default=os.environ.get("BANK_LANG", AUTO),
+        choices=[AUTO, *SUPPORTED],
+        type=normalize,
+        help="reply language: auto (detect per message), en or hu (BANK_LANG sets the default)",
+    )
     args = parser.parse_args()
     print("Bank Branch Officer Assistant is running...")
-    run_officer_chat(args.arch)
+    run_officer_chat(args.arch, args.lang)

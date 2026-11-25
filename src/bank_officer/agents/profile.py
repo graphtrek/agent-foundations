@@ -43,6 +43,8 @@ class ArchitectureProfile:
     mode: str
     specialists: tuple[SpecialistSpec, ...]
     synthesizer_agent: str | None = None
+    label_en: str = ""  # English label / description, shown when the UI language is English
+    description_en: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """The profile as the plain mapping stored in the YAML file."""
@@ -56,13 +58,18 @@ class ArchitectureProfile:
         }
         if self.synthesizer_agent:
             coordinator["synthesizer"] = self.synthesizer_agent
-        return {
+        profile: dict[str, Any] = {
             "id": self.id,
             "label": self.label,
             "description": self.description,
             "router": {"enabled": self.router_enabled, "agent": self.router_agent},
             "coordinator": coordinator,
         }
+        if self.label_en:
+            profile["label_en"] = self.label_en
+        if self.description_en:
+            profile["description_en"] = self.description_en
+        return profile
 
 
 def require(condition: bool, message: str) -> None:
@@ -81,7 +88,7 @@ def _text(value: Any, name: str, limit: int, *, required: bool = True) -> str:
 def parse_profile(raw: Any) -> ArchitectureProfile:
     """Validate the raw mapping of a profile (structure and value ranges)."""
     require(isinstance(raw, dict), "a profile must be a mapping")
-    unknown = set(raw) - {"id", "label", "description", "router", "coordinator"}
+    unknown = set(raw) - {"id", "label", "description", "label_en", "description_en", "router", "coordinator"}
     require(not unknown, f"unknown top-level keys {sorted(unknown)}")
     profile_id = raw.get("id")
     require(
@@ -145,4 +152,8 @@ def parse_profile(raw: Any) -> ArchitectureProfile:
         mode=mode,
         specialists=tuple(specialists),
         synthesizer_agent=synthesizer,
+        label_en=_text(raw.get("label_en", ""), "label_en", MAX_LABEL_CHARS, required=False),
+        description_en=_text(
+            raw.get("description_en", ""), "description_en", MAX_DESCRIPTION_CHARS, required=False
+        ),
     )

@@ -1,6 +1,6 @@
 """Run the same questions through several architecture profiles and compare.
 
-    uv run python src/bank_officer/evals/run.py --arch router,no_router,single_agent [--repeat 3]
+    uv run python src/bank_officer/evals/run.py --arch router,no_router,single_agent [--repeat 3] [--lang en|hu]
 
 Prints a table and writes ``logs/evals/<timestamp>.json``. The runner itself
 is ``eval_runner.py`` (shared with the ``eval.html`` page).
@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from localization.language import DEFAULT_LANGUAGE, SUPPORTED  # noqa: E402
 from evals.eval_runner import (  # noqa: E402
     _safe_run,
     load_cases,
@@ -25,6 +26,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--arch", help="comma separated profile ids (default: all)")
     parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--lang", choices=SUPPORTED, default=DEFAULT_LANGUAGE,
+                        help="language of the questions and the expected texts (default: hu)")
     parser.add_argument("--case", help="comma separated case ids (default: all)")
     args = parser.parse_args()
 
@@ -38,7 +41,7 @@ def main() -> None:
     for arch in archs:
         for case in cases:
             for _ in range(args.repeat):
-                result = _safe_run(arch, case)
+                result = _safe_run(arch, case, args.lang)
                 results.append(result)
                 print(f"{arch:24} {case['id']:26} {'PASS' if result['passed'] else 'FAIL'} "
                       f"{result['ms']:>6} ms  tools={len(result['tools'])}", flush=True)

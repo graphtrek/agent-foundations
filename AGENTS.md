@@ -87,6 +87,29 @@ from `check_endpoint_access()`: `True` when the selected customer's
 entitlement tier is below the matched endpoint's `required_entitlement`,
 `None` when no customer is selected yet.
 
+### Language (bank officer)
+
+The assistant answers in English or Hungarian. `src/bank_officer/localization/` holds the
+deterministic detector (`language.py`: `detect_language()`, `resolve_language()`; no model call,
+ties keep the previous turn's language) and the code-written replies in both languages
+(`messages.py`: failure, access denied, injection refusal, query-only notice). The selector
+is `auto` (detect on every message), `en` or `hu`: web chat dropdown (`GET /api/languages`,
+`PUT /api/chats/{id}/language`, `POST /api/chats` takes `{language}`; the page UI follows it),
+terminal `--lang` / `BANK_LANG` / `/lang <auto|en|hu>`. `BranchSession` resolves the language per
+turn, publishes it through a `ContextVar` (`set_current_language()`, read by the guardrails and
+fixed replies in LangGraph's worker threads), and the coordinator middleware tells the model the
+reply language. The agent prompt files stay English-language instructions; mock data stays Hungarian.
+
+Every web page has the same selector (English/Magyar; no Auto - the first visit takes the browser language, and the web chat sends the explicit choice to the server; `auto` detection remains for the terminal and the API) and shares the choice through
+`localStorage["bankOfficerLang"]`: `chat.html` has its own dictionary, `catalog.html` and `eval.html`
+use `webapp_mockup/ui_lang.js` plus a hu→en phrase map each, and the root pages are separate
+variants (`index.html`/`index-en.html`, `bank-officer-agent-architecture-hu.html`/`-en.html`,
+served as `/`, `/index-en.html`, `/architecture.html`, `/architecture-en.html`) that redirect to the
+variant matching the setting. Edit both variants together.
+Architecture profiles carry optional `label_en` / `description_en` next to `label` / `description` in
+`architecture.yaml`; the chat picker and the eval page show them when the UI language is English. Eval cases in
+`cases.yaml` take `{hu, en}` maps for `question` and `must_contain_text` (`--lang en|hu`, or the UI language on eval.html).
+
 ### Architecture profiles (bank officer)
 
 The pipeline's shape is data: `src/bank_officer/architectures/<id>/architecture.yaml`

@@ -248,7 +248,8 @@
     border-left: 1px solid var(--border);
     margin-left: 8px;
   }
-  aside.flow h2 { font-size: 0.95rem; margin: 0 0 2px; }
+  aside.flow .flowhead { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; margin: 0 0 6px; }
+  aside.flow h2 { font-size: 0.95rem; margin: 0; align-self: flex-start; }
   aside.flow .hint { font-size: 0.74rem; color: var(--muted); margin: 0 0 12px; }
   .fnodes { display: flex; flex-direction: column; align-items: stretch; }
   .fnode {
@@ -295,24 +296,27 @@
 <div class="app">
   <header>
     <h1>Branch Officer</h1>
-    <nav><a data-home href="index.html">← Kezdőlap</a> <a data-arch href="architecture.html">← Architektúra</a> <a href="catalog.html">← Teszt katalógus</a> <a href="eval.html">Eval →</a></nav>
+    <nav><a data-home href="index.html" data-i18n="nav_home">← Kezdőlap</a> <a data-arch href="architecture.html" data-i18n="nav_arch">← Architektúra</a> <a href="catalog.html" data-i18n="nav_catalog">← Teszt katalógus</a> <a href="eval.html">Eval →</a></nav>
     <span class="spacer"></span>
-    <label class="archpick">Architektúra <select id="arch" title="Az agent architektúra-profilja - váltáskor új chat indul"></select></label>
-    <span class="customer" id="customer">Nincs kiválasztott ügyfél</span>
-    <button type="button" id="flow-toggle">Folyamat</button>
-    <button type="button" id="new-chat" title="A munkamenet lezárása (mentés a conversations/ mappába) és új indítása">Új chat</button>
+    <label class="archpick"><span data-i18n="arch_label">Architektúra</span> <select id="arch" data-i18n-title="arch_title"></select></label>
+    <span class="customer" id="customer"></span>
+    <button type="button" id="flow-toggle" data-i18n="flow">Folyamat</button>
+    <button type="button" id="new-chat" data-i18n="new_chat" data-i18n-title="new_chat_title">Új chat</button>
   </header>
 
   <div id="messages" aria-live="polite"></div>
 
   <form id="composer">
-    <textarea id="input" rows="1" maxlength="2000" placeholder="Kérdezzen egy ügyfél számláiról, tranzakcióiról, termékeiről vagy ajánlatairól…" required></textarea>
-    <button type="submit" id="send">Küldés</button>
+    <textarea id="input" rows="1" maxlength="2000" data-i18n-placeholder="placeholder" required></textarea>
+    <button type="submit" id="send"></button>
   </form>
 </div>
-<aside class="flow" id="flow" aria-label="Az aktuális kérdés architektúra-folyamata">
-  <h2>Architektúra-folyamat</h2>
-  <p class="hint">Minden kérdésnél újraépül; a lépések a pipeline futása közben gyulladnak ki.</p>
+<aside class="flow" id="flow" data-i18n-aria="flow_aria">
+  <div class="flowhead">
+  <label class="archpick"><span data-i18n="lang_label">Nyelv</span> <select id="lang" data-i18n-title="lang_title"></select></label>
+  <h2 data-i18n="flow_title">Architektúra-folyamat</h2>
+  </div>
+  <p class="hint" data-i18n="flow_hint">Minden kérdésnél újraépül; a lépések a pipeline futása közben gyulladnak ki.</p>
   <div class="fnodes" id="fnodes"></div>
 </aside>
 </div>
@@ -328,14 +332,136 @@
   var newChatBtn = document.getElementById("new-chat");
   var customerEl = document.getElementById("customer");
   var STORAGE_KEY = "bankOfficerChatId";
-  var SUGGESTIONS = [
-    "Válaszd ki Nagy Katalint, majd foglald össze a számlái egyenlegét, és mutasd meg a szeptember óta történt 100 000 Ft feletti tranzakciókat.",
-    "Kovács Bence ügyfélnek mennyi volt a kimenő költése az elmúlt hónapban (az átutalások nélkül), és melyik kategóriában költött a legtöbbet?",
-    "Milyen személyre szabott ajánlatai és meglévő hitelei vannak Szabó Emesének, és melyik új hiteltermék illene a helyzetéhez?",
-    "Szabó Emese jogosult a kártyalimitek megtekintésére, és milyen ütemezett fizetései vannak a következő hónapra?",
-    "Mikor tart nyitva a Buda fiók a jövő hétfőn, és melyik közeli fiók nyitva szombaton is?",
-    "Kovács Bence kártyái és beadott hitelkérelmei alapján van-e nyitott támogatási ügye, és mi a következő lépés?"
-  ];
+  /* ---- UI language: hu / en. The selector sets the reply language on the
+   * server ("auto" detects it per message); in auto mode the UI follows the
+   * language the server reports for the latest turn. ---- */
+  var I18N = {
+    hu: {
+      nav_home: "← Kezdőlap", nav_arch: "← Architektúra", nav_catalog: "← Teszt katalógus",
+      arch_label: "Architektúra", arch_title: "Az agent architektúra-profilja - váltáskor új chat indul",
+      lang_label: "Nyelv", lang_title: "A válaszok és a felület nyelve",
+      lang_auto: "Auto (felismerés)", invalid: "(érvénytelen)",
+      flow: "Folyamat", new_chat: "Új chat", new_chat_title: "A munkamenet lezárása (mentés a conversations/ mappába) és új indítása",
+      placeholder: "Kérdezzen egy ügyfél számláiról, tranzakcióiról, termékeiről vagy ajánlatairól…",
+      send: "Küldés", stop: "Leállítás",
+      flow_aria: "Az aktuális kérdés architektúra-folyamata", flow_title: "Architektúra-folyamat",
+      flow_hint: "Minden kérdésnél újraépül; a lépések a pipeline futása közben gyulladnak ki.",
+      no_customer: "Nincs kiválasztott ügyfél", customer: "Ügyfél: ",
+      empty: "Kérdezzen a pultnál álló ügyfélről. A válaszok csak lekérdezések, és átmennek a védőkorlátokon.",
+      server_needed: "Ehhez az oldalhoz a chat szerver kell. Indítsa el így: ", then_open: ", majd nyissa meg: ",
+      server_down: "A chat szerver nem érhető el: ",
+      t_list_customers: "Ügyféllista", t_select_customer: "Ügyfélválasztás", t_ask_account_specialist: "Számla specialista",
+      t_ask_product_specialist: "Termék specialista", t_ask_service_specialist: "Szolgáltatás specialista",
+      t_ask_public_info_specialist: "Nyilvános info specialista", t_ask_answer_synthesizer: "Válasz-összefésülő",
+      f_question: "Ügyintézői kérdés", f_input: "bemenet", f_gin: "Bemeneti guardrail", f_code: "kód",
+      f_gin_d: "injekció-ellenőrzés + PII-maszkolás", f_router_d: "egyeztetés a katalógussal",
+      f_access: "Jogosultság-ellenőrzés", f_access_d: "belépési szint és végpont összevetése",
+      f_coord: "Koordinátor", f_gout: "Kimeneti guardrail", f_gout_d: "PII-maszkolás + csak lekérdezés ellenőrzés",
+      f_gw: "Válaszkapu", f_no_router: "nincs ebben az architektúrában", f_tools_enforce: "a toolok így is érvényesítik a szintet",
+      f_flat: "közvetlenül hívja az adat toolokat", f_pick: "specialistát választ",
+      f_no_match: "nincs biztos egyezés", f_denied: "megtagadva - {tier} szint szükséges", f_not_run: "nem futott",
+      f_fixed_deny: "fix elutasítás", f_allowed: "engedélyezve ({tier})", f_allowed_none: "nincs végpont, engedélyezve",
+      f_running: "fut", f_answering: "válaszol", f_customer: "ügyfél: ", f_delivered: "válasz kézbesítve",
+      f_deny_delivered: "fix elutasítás kézbesítve", f_total: "összesen ", f_stopped: "leállítva", f_error: "hiba",
+      assistant: "Asszisztens", s_routing: "Kérdés irányítása", r_none: "Endpoint router: nincs biztos egyezés",
+      r_denied: "· hozzáférés megtagadva ({tier} szint szükséges)", s_coord: "A koordinátor dolgozik",
+      s_waiting: "Várakozás: ", s_running: "Fut: ", s_writing: "A válasz megírása",
+      stopped: "Leállítva.", no_reply: "Nincs válasz.", lost: "Megszakadt a kapcsolat a chat szerverrel.",
+      session_over: "A munkamenet véget ért - indítson új chatet."
+    },
+    en: {
+      nav_home: "← Home", nav_arch: "← Architecture", nav_catalog: "← Test catalog",
+      arch_label: "Architecture", arch_title: "The agent architecture profile - switching starts a new chat",
+      lang_label: "Language", lang_title: "Language of the replies and the interface",
+      lang_auto: "Auto (detect)", invalid: "(invalid)",
+      flow: "Flow", new_chat: "New chat", new_chat_title: "Ends the session (saved to the conversations/ folder) and starts a new one",
+      placeholder: "Ask about a customer's accounts, transactions, products or offers…",
+      send: "Send", stop: "Stop",
+      flow_aria: "Architecture flow of the current question", flow_title: "Architecture flow",
+      flow_hint: "Rebuilt for every question; the steps light up as the pipeline runs.",
+      no_customer: "No customer selected", customer: "Customer: ",
+      empty: "Ask about the customer at the desk. Answers are lookups only and pass through the guardrails.",
+      server_needed: "This page needs the chat server. Start it with: ", then_open: ", then open: ",
+      server_down: "The chat server is unreachable: ",
+      t_list_customers: "Customer list", t_select_customer: "Select customer", t_ask_account_specialist: "Account specialist",
+      t_ask_product_specialist: "Product specialist", t_ask_service_specialist: "Service specialist",
+      t_ask_public_info_specialist: "Public info specialist", t_ask_answer_synthesizer: "Answer synthesizer",
+      f_question: "Officer question", f_input: "input", f_gin: "Input guardrail", f_code: "code",
+      f_gin_d: "injection check + PII masking", f_router_d: "matching against the catalog",
+      f_access: "Entitlement check", f_access_d: "customer tier vs. endpoint requirement",
+      f_coord: "Coordinator", f_gout: "Output guardrail", f_gout_d: "PII masking + query-only check",
+      f_gw: "Reply gateway", f_no_router: "not in this architecture", f_tools_enforce: "the tools still enforce the tier",
+      f_flat: "calls the data tools directly", f_pick: "picks a specialist",
+      f_no_match: "no confident match", f_denied: "denied - {tier} tier required", f_not_run: "did not run",
+      f_fixed_deny: "fixed refusal", f_allowed: "allowed ({tier})", f_allowed_none: "no endpoint, allowed",
+      f_running: "running", f_answering: "answering", f_customer: "customer: ", f_delivered: "reply delivered",
+      f_deny_delivered: "fixed refusal delivered", f_total: "total ", f_stopped: "stopped", f_error: "error",
+      assistant: "Assistant", s_routing: "Routing the question", r_none: "Endpoint router: no confident match",
+      r_denied: "· access denied ({tier} tier required)", s_coord: "The coordinator is working",
+      s_waiting: "Waiting for: ", s_running: "Running: ", s_writing: "Writing the answer",
+      stopped: "Stopped.", no_reply: "No reply.", lost: "The connection to the chat server was lost.",
+      session_over: "The session has ended - start a new chat."
+    }
+  };
+  var SUGGESTIONS_BY_LANG = {
+    hu: [
+      "Válaszd ki Nagy Katalint, majd foglald össze a számlái egyenlegét, és mutasd meg a szeptember óta történt 100 000 Ft feletti tranzakciókat.",
+      "Kovács Bence ügyfélnek mennyi volt a kimenő költése az elmúlt hónapban (az átutalások nélkül), és melyik kategóriában költött a legtöbbet?",
+      "Milyen személyre szabott ajánlatai és meglévő hitelei vannak Szabó Emesének, és melyik új hiteltermék illene a helyzetéhez?",
+      "Szabó Emese jogosult a kártyalimitek megtekintésére, és milyen ütemezett fizetései vannak a következő hónapra?",
+      "Mikor tart nyitva a Buda fiók a jövő hétfőn, és melyik közeli fiók nyitva szombaton is?",
+      "Kovács Bence kártyái és beadott hitelkérelmei alapján van-e nyitott támogatási ügye, és mi a következő lépés?"
+    ],
+    en: [
+      "Select Katalin Nagy, then summarise her account balances and show the transactions above 100,000 HUF since September.",
+      "How much did customer Bence Kovács spend (outgoing, excluding transfers) last month, and in which category did he spend the most?",
+      "What personalised offers and existing loans does Emese Szabó have, and which new loan product would suit her situation?",
+      "Is Emese Szabó entitled to view card limits, and what scheduled payments does she have next month?",
+      "When is the Buda branch open next Monday, and which nearby branch is also open on Saturday?",
+      "Based on Bence Kovács's cards and submitted loan applications, does he have an open support ticket, and what is the next step?"
+    ]
+  };
+  var langSetting = "auto";   /* what the selector says: auto | hu | en */
+  var uiLang = (navigator.language || "hu").slice(0, 2) === "hu" ? "hu" : "en";
+  var langSel = document.getElementById("lang");
+  var LANG_KEY = "bankOfficerLang";
+  var currentCustomer = null;
+
+  function t(key, vars) {
+    var str = (I18N[uiLang] && I18N[uiLang][key]) || I18N.hu[key] || key;
+    if (vars) Object.keys(vars).forEach(function (k) { str = str.replace("{" + k + "}", vars[k]); });
+    return str;
+  }
+
+  function applyStaticText() {
+    document.documentElement.lang = uiLang;
+    document.querySelectorAll("[data-i18n]").forEach(function (n) { n.textContent = t(n.getAttribute("data-i18n")); });
+    document.querySelectorAll("[data-i18n-title]").forEach(function (n) { n.title = t(n.getAttribute("data-i18n-title")); });
+    document.querySelectorAll("[data-i18n-aria]").forEach(function (n) { n.setAttribute("aria-label", t(n.getAttribute("data-i18n-aria"))); });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (n) { n.placeholder = t(n.getAttribute("data-i18n-placeholder")); });
+    sendBtn.textContent = streaming ? t("stop") : t("send");
+    var auto = langSel.querySelector("option[value=auto]");
+    if (auto) auto.textContent = t("lang_auto");
+    setCustomer(currentCustomer);
+    if (typeof fillArchitectures === "function" && archList.length) fillArchitectures(archSel.value);
+    var empty = messagesEl.querySelector(".empty");
+    if (empty) { empty.remove(); showEmpty(); }
+  }
+
+  /* In auto mode the UI follows the language of the latest turn. */
+  function noteTurnLanguage(code) {
+    if (langSetting === "auto" && (code === "hu" || code === "en") && code !== uiLang) {
+      uiLang = code;
+      applyStaticText();
+    }
+  }
+
+  function setLangSetting(value) {
+    langSetting = value;
+    langSel.value = value;
+    try { localStorage.setItem(LANG_KEY, value); } catch (e) { /* ignore */ }
+    if (value === "hu" || value === "en") { uiLang = value; applyStaticText(); }
+  }
 
 
   var chatId = null;
@@ -345,8 +471,8 @@
   if (location.protocol === "file:") {
     var banner = document.createElement("div");
     banner.className = "banner";
-    banner.innerHTML = "Ehhez az oldalhoz a chat szerver kell. Indítsa el így: " +
-      "<code>uv run python src/bank_officer/main.py</code>, majd nyissa meg: " +
+    banner.innerHTML = t("server_needed") +
+      "<code>uv run python src/bank_officer/main.py</code>" + t("then_open") +
       "<a href=\"http://127.0.0.1:8050/chat.html\">http://127.0.0.1:8050/chat.html</a>.";
     messagesEl.appendChild(banner);
     form.hidden = true;
@@ -394,13 +520,7 @@
 
   /* ---- Architecture flow panel: one run of the pipeline, rebuilt per question ---- */
   var flowEl = document.getElementById("fnodes");
-  var TOOL_LABELS = {
-    list_customers: "Ügyféllista",
-    select_customer: "Ügyfélválasztás",
-    ask_account_specialist: "Számla specialista",
-    ask_product_specialist: "Termék specialista",
-    ask_service_specialist: "Szolgáltatás specialista"
-  };
+  function toolLabel(name) { var k = "t_" + name; return I18N.hu[k] ? t(k) : name; }
 
   function Flow() { this.reset(); }
 
@@ -448,14 +568,14 @@
     flowEl.textContent = "";
     this.tools = {};
     var n = this.n = {};
-    n.q = this.node("human", "Ügyintézői kérdés", "bemenet", "");
-    n.gin = this.node("guard", "Bemeneti guardrail", "kód", "injekció-ellenőrzés + PII-maszkolás");
-    n.router = this.node("agent", "Endpoint router", "Jev", "egyeztetés a katalógussal");
-    n.access = this.node("guard", "Jogosultság-ellenőrzés", "kód", "belépési szint és végpont összevetése");
-    n.coord = this.node("agent", "Koordinátor", "LLM", "");
+    n.q = this.node("human", t("f_question"), t("f_input"), "");
+    n.gin = this.node("guard", t("f_gin"), t("f_code"), t("f_gin_d"));
+    n.router = this.node("agent", "Endpoint router", "Jev", t("f_router_d"));
+    n.access = this.node("guard", t("f_access"), t("f_code"), t("f_access_d"));
+    n.coord = this.node("agent", t("f_coord"), "LLM", "");
     this.group = el("div", "fgroup");
-    n.gout = this.node("guard", "Kimeneti guardrail", "kód", "PII-maszkolás + csak lekérdezés ellenőrzés");
-    n.gw = this.node("tool", "Válaszkapu", "kód", "");
+    n.gout = this.node("guard", t("f_gout"), t("f_code"), t("f_gout_d"));
+    n.gw = this.node("tool", t("f_gw"), t("f_code"), "");
     var self = this;
     this.arrows = [];
     [n.q, n.gin, n.router, n.access, n.coord, this.group, n.gout, n.gw].forEach(function (node, i) {
@@ -470,8 +590,8 @@
   /* An architecture without a router step shows its two nodes as not present. */
   Flow.prototype.noRouter = function () {
     if (currentArch.router) return;
-    this.state(this.n.router, "skipped", "nincs ebben az architektúrában");
-    this.state(this.n.access, "skipped", "a toolok így is érvényesítik a szintet");
+    this.state(this.n.router, "skipped", t("f_no_router"));
+    this.state(this.n.access, "skipped", t("f_tools_enforce"));
   };
 
   Flow.prototype.start = function (text) {
@@ -490,31 +610,31 @@
       this.llmTotal = 0;
       this.arrows[2].classList.add("on");
       this.arrows[3].classList.add("on");
-      this.state(n.coord, "active", currentArch.mode === "flat" ? "közvetlenül hívja az adat toolokat" : "specialistát választ");
+      this.state(n.coord, "active", currentArch.mode === "flat" ? t("f_flat") : t("f_pick"));
     } else if (event === "route") {
       var ep = data.endpoint;
       this.time(n.router, data.elapsed_ms);
       this.lastAt = data.at_ms || 0;
       this.llmTotal = 0;
-      this.state(n.router, "done", ep ? ep.method + " " + ep.path + " · p=" + Number(ep.probability).toFixed(2) : "nincs biztos egyezés");
+      this.state(n.router, "done", ep ? ep.method + " " + ep.path + " · p=" + Number(ep.probability).toFixed(2) : t("f_no_match"));
       this.arrows[2].classList.add("on");
       if (ep && ep.access_denied === true) {
-        this.state(n.access, "denied", "megtagadva - " + ep.required_entitlement + " szint szükséges");
+        this.state(n.access, "denied", t("f_denied", { tier: ep.required_entitlement }));
         this.arrows[3].classList.add("deny");
-        this.state(n.coord, "skipped", "nem futott");
+        this.state(n.coord, "skipped", t("f_not_run"));
         this.state(n.gout, "skipped");
         this.group.hidden = true;
         this.arrows[4].hidden = this.arrows[5].hidden = true;
-        this.state(n.gw, "active", "fix elutasítás");
+        this.state(n.gw, "active", t("f_fixed_deny"));
       } else {
-        this.state(n.access, "done", ep ? "engedélyezve (" + ep.required_entitlement + ")" : "nincs végpont, engedélyezve");
+        this.state(n.access, "done", ep ? t("f_allowed", { tier: ep.required_entitlement }) : t("f_allowed_none"));
         this.arrows[3].classList.add("on");
-        this.state(n.coord, "active", "specialistát választ");
+        this.state(n.coord, "active", t("f_pick"));
       }
     } else if (event === "tool_call") {
-      var node = this.node("agent", TOOL_LABELS[data.name] || data.name, data.name.indexOf("ask_") === 0 ? "subagent" : "tool", "");
+      var node = this.node("agent", toolLabel(data.name), data.name.indexOf("ask_") === 0 ? "subagent" : "tool", "");
       var args = JSON.stringify(data.args || {});
-      node.d.textContent = args === "{}" ? "fut" : args.slice(0, 90);
+      node.d.textContent = args === "{}" ? t("f_running") : args.slice(0, 90);
       this.state(node, "active");
       node.callAt = data.at_ms;
       this.llmTotal = (this.llmTotal || 0) + (data.llm_ms || 0);
@@ -529,9 +649,9 @@
         this.state(tn, data.ok ? "done" : "error");
         if (tn.callAt !== undefined && data.at_ms !== undefined) this.time(tn, data.at_ms - tn.callAt);
       }
-      if (n.coord.classList.contains("active")) n.coord.d.textContent = "válaszol";
+      if (n.coord.classList.contains("active")) n.coord.d.textContent = t("f_answering");
     } else if (event === "customer") {
-      n.coord.d.textContent = "ügyfél: " + (data.customer ? data.customer.name : "-");
+      n.coord.d.textContent = t("f_customer") + (data.customer ? data.customer.name : "-");
     } else if (event === "reply") {
       Object.keys(this.tools).forEach(function (id) {
         if (self.tools[id].classList.contains("active")) self.state(self.tools[id], "done");
@@ -543,18 +663,18 @@
         this.state(n.coord, "done");
         this.state(n.gout, "done");
         this.arrows[5].classList.add("on");
-        this.state(n.gw, "done", "válasz kézbesítve");
+        this.state(n.gw, "done", t("f_delivered"));
       } else {
-        this.state(n.gw, "done", "fix elutasítás kézbesítve");
+        this.state(n.gw, "done", t("f_deny_delivered"));
       }
       this.arrows[6].classList.add("on");
       if (data.total_ms !== undefined) {
         this.time(n.gw, data.total_ms);
-        flowEl.appendChild(el("div", "ftotal", "összesen " + fmtMs(data.total_ms)));
+        flowEl.appendChild(el("div", "ftotal", t("f_total") + fmtMs(data.total_ms)));
       }
     } else if (event === "app_error" || event === "stopped") {
       ["router", "access", "coord", "gout", "gw"].forEach(function (k) {
-        if (n[k].classList.contains("active")) self.state(n[k], "error", event === "stopped" ? "leállítva" : "hiba");
+        if (n[k].classList.contains("active")) self.state(n[k], "error", event === "stopped" ? t("f_stopped") : t("f_error"));
       });
       Object.keys(this.tools).forEach(function (id) {
         if (self.tools[id].classList.contains("active")) self.state(self.tools[id], "error");
@@ -573,18 +693,27 @@
     });
   }
 
+  var archList = [];
+  function archText(a, key) { return (uiLang === "en" && a[key + "_en"]) || a[key]; }
+
+  /* Fill the picker in the UI language; keeps the selected profile. */
+  function fillArchitectures(selected) {
+    archSel.textContent = "";
+    archList.forEach(function (a) {
+      var o = el("option", null, archText(a, "label") + (a.error ? " " + t("invalid") : ""));
+      o.value = a.id;
+      o.disabled = !!a.error;
+      o.title = a.error || archText(a, "description") || "";
+      archSel.appendChild(o);
+    });
+    archSel.value = selected;
+    if (archSel.value !== selected) archSel.selectedIndex = 0;
+  }
+
   function loadArchitectures() {
     return api("/api/architectures").then(function (body) {
-      archSel.textContent = "";
-      body.architectures.forEach(function (a) {
-        var o = el("option", null, a.label + (a.error ? " (érvénytelen)" : ""));
-        o.value = a.id;
-        o.disabled = !!a.error;
-        o.title = a.error || a.description || "";
-        archSel.appendChild(o);
-      });
-      archSel.value = body.default;
-      if (archSel.value !== body.default) archSel.selectedIndex = 0;
+      archList = body.architectures;
+      fillArchitectures(body.default);
       return body;
     });
   }
@@ -604,18 +733,19 @@
   document.getElementById("flow-toggle").addEventListener("click", function () { flowPanel.classList.toggle("open"); });
 
   function setCustomer(c) {
+    currentCustomer = c;
     customerEl.textContent = "";
-    if (!c) { customerEl.textContent = "Nincs kiválasztott ügyfél"; return; }
-    customerEl.appendChild(document.createTextNode("Ügyfél: "));
+    if (!c) { customerEl.textContent = t("no_customer"); return; }
+    customerEl.appendChild(document.createTextNode(t("customer")));
     customerEl.appendChild(el("strong", null, c.name));
     customerEl.appendChild(el("span", "tier " + c.tier, c.tier));
   }
 
   function showEmpty() {
     var box = el("div", "empty");
-    box.appendChild(el("p", null, "Kérdezzen a pultnál álló ügyfélről. A válaszok csak lekérdezések, és átmennek a védőkorlátokon."));
+    box.appendChild(el("p", null, t("empty")));
     var list = el("div", "suggestions");
-    SUGGESTIONS.forEach(function (s) {
+    SUGGESTIONS_BY_LANG[uiLang].forEach(function (s) {
       var b = el("button", null, s);
       b.type = "button";
       b.onclick = function () { input.value = s; send(); };
@@ -640,10 +770,10 @@
    * (SSE) and replayed from history - so both render identically. */
   function AssistantBubble() {
     this.root = el("div", "msg assistant");
-    this.root.appendChild(el("div", "label", "Asszisztens"));
+    this.root.appendChild(el("div", "label", t("assistant")));
     this.steps = el("div", "steps");
     this.reply = el("div", "reply");
-    this.status = el("div", "status", "Kérdés irányítása");
+    this.status = el("div", "status", t("s_routing"));
     this.root.appendChild(this.steps);
     this.root.appendChild(this.reply);
     this.root.appendChild(this.status);
@@ -655,19 +785,20 @@
     var self = this;
     flow.handle(event, data);
     if (event === "route") {
+      noteTurnLanguage(data.language);
       var ep = data.endpoint;
       var row = el("div", "route");
       if (!ep) {
-        row.textContent = "Endpoint router: nincs biztos egyezés";
+        row.textContent = t("r_none");
       } else {
         if (ep.access_denied === true) row.classList.add("denied");
         row.appendChild(el("span", "method " + ep.method.toLowerCase(), ep.method));
         row.appendChild(el("span", "path", ep.path));
         row.appendChild(el("span", null, "· " + ep.menu_path + " · p=" + Number(ep.probability).toFixed(2)));
-        if (ep.access_denied === true) row.appendChild(el("strong", null, "· hozzáférés megtagadva (" + ep.required_entitlement + " szint szükséges)"));
+        if (ep.access_denied === true) row.appendChild(el("strong", null, t("r_denied", { tier: ep.required_entitlement })));
       }
       this.steps.appendChild(row);
-      this.status.textContent = "A koordinátor dolgozik";
+      this.status.textContent = t("s_coord");
     } else if (event === "tool_call") {
       var chip = el("details", "tool pending");
       var summary = el("summary");
@@ -677,7 +808,7 @@
       chip.appendChild(summary);
       this.steps.appendChild(chip);
       this.tools[data.id] = chip;
-      this.status.textContent = data.name.indexOf("ask_") === 0 ? "Várakozás: " + data.name.replace(/^ask_|_specialist$/g, "") + " specialista" : "Fut: " + data.name;
+      this.status.textContent = data.name.indexOf("ask_") === 0 ? t("s_waiting") + toolLabel(data.name) : t("s_running") + data.name;
     } else if (event === "tool_result") {
       var entry = this.tools[data.id];
       if (entry) {
@@ -685,15 +816,16 @@
         entry.classList.add(data.ok ? "ok" : "error");
         if (data.preview) entry.appendChild(el("pre", null, data.preview));
       }
-      this.status.textContent = "A válasz megírása";
+      this.status.textContent = t("s_writing");
     } else if (event === "customer") {
       setCustomer(data.customer);
     } else if (event === "reply") {
       renderMarkdown(this.reply, data.text);
+      noteTurnLanguage(data.language);
     } else if (event === "app_error") {
       this.root.appendChild(el("div", "notice error", data.message));
     } else if (event === "stopped") {
-      this.root.appendChild(el("div", "notice muted", "Leállítva."));
+      this.root.appendChild(el("div", "notice muted", t("stopped")));
     }
     scrollDown();
     return self;
@@ -702,13 +834,13 @@
   AssistantBubble.prototype.finish = function () {
     this.status.remove();
     if (!this.reply.textContent && !this.root.querySelector(".notice")) {
-      this.root.appendChild(el("div", "notice muted", "Nincs válasz."));
+      this.root.appendChild(el("div", "notice muted", t("no_reply")));
     }
   };
 
   function setStreaming(on) {
     streaming = on;
-    sendBtn.textContent = on ? "Leállítás" : "Küldés";
+    sendBtn.textContent = on ? t("stop") : t("send");
     sendBtn.classList.toggle("stop", on);
     sendBtn.disabled = false;
     newChatBtn.disabled = on;
@@ -742,7 +874,7 @@
       /* Connection dropped: reconnecting would replay the run from its
        * start, so reload the session state instead. */
       end();
-      bubble.root.appendChild(el("div", "notice error", "Megszakadt a kapcsolat a chat szerverrel."));
+      bubble.root.appendChild(el("div", "notice error", t("lost")));
     };
   }
 
@@ -759,7 +891,7 @@
     api("/api/chats/" + encodeURIComponent(chatId) + "/messages", { method: "POST", json: { content: text } })
       .then(function () { follow(bubble); })
       .catch(function (err) {
-        bubble.handle("app_error", { message: err.status === 404 ? "A munkamenet véget ért - indítson új chatet." : err.message });
+        bubble.handle("app_error", { message: err.status === 404 ? t("session_over") : err.message });
         bubble.finish();
         setStreaming(false);
       });
@@ -771,7 +903,7 @@
   }
 
   function startNewChat() {
-    return api("/api/chats", { method: "POST", json: { architecture: archSel.value } }).then(function (body) {
+    return api("/api/chats", { method: "POST", json: { architecture: archSel.value, language: langSetting } }).then(function (body) {
       chatId = body.chat_id;
       storageSet(chatId);
       messagesEl.textContent = "";
@@ -785,6 +917,8 @@
     return api("/api/chats/" + encodeURIComponent(id)).then(function (body) {
       chatId = id;
       archSel.value = body.architecture;
+      if (body.language === "hu" || body.language === "en") setLangSetting(body.language);
+      else api("/api/chats/" + encodeURIComponent(id) + "/language", { method: "PUT", json: { language: langSetting } }).catch(function () { /* ignore */ });
       return loadProfile(body.architecture).then(function () { return body; });
     }).then(function (body) {
       messagesEl.textContent = "";
@@ -834,13 +968,35 @@
       .finally(function () { newChatBtn.disabled = false; input.focus(); });
   });
 
+  function loadLanguages() {
+    var fallback = { languages: [{ id: "en", label: "English" }, { id: "hu", label: "Magyar" }] };
+    return api("/api/languages").catch(function () { return fallback; }).then(function (body) {
+      langSel.textContent = "";
+      body.languages.forEach(function (l) {
+        if (l.id === "auto") return;  /* the selector offers explicit languages only */
+        var o = el("option", null, l.label);
+        o.value = l.id;
+        langSel.appendChild(o);
+      });
+      var stored = null;
+      try { stored = localStorage.getItem(LANG_KEY); } catch (e) { /* ignore */ }
+      setLangSetting(stored === "hu" || stored === "en" ? stored : uiLang);  /* first visit: browser language */
+    });
+  }
+
+  langSel.addEventListener("change", function () {
+    setLangSetting(langSel.value);
+    if (chatId) api("/api/chats/" + encodeURIComponent(chatId) + "/language", { method: "PUT", json: { language: langSel.value } }).catch(function () { /* chat ended */ });
+  });
+
   var saved = storageGet();
-  loadArchitectures().then(function () {
+  applyStaticText();
+  loadLanguages().then(loadArchitectures).then(function () {
     return saved ? restore(saved).catch(function () { return loadProfile(archSel.value).then(startNewChat); })
                  : loadProfile(archSel.value).then(startNewChat);
   }).catch(function (err) {
     messagesEl.textContent = "";
-    var b = el("div", "banner", "A chat szerver nem érhető el: " + err.message);
+    var b = el("div", "banner", t("server_down") + err.message);
     messagesEl.appendChild(b);
   });
 })();

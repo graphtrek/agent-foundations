@@ -37,6 +37,8 @@ from langgraph.types import Command
 from data import bank_data
 from guardrails.endpoint_access import access_denied_reply
 from guardrails.pii import redact_pii
+from localization.language import AUTO, normalize, resolve_language, set_current_language
+from localization.messages import text
 from routing.decision_router import EndpointRouter, EndpointRouterError
 from session.conversation_util import message_text, save_conversation
 from tools.branch_context import BranchContext
@@ -46,10 +48,6 @@ logger = logging.getLogger(__name__)
 RECURSION_LIMIT = 80
 PREVIEW_CHARS = 600
 REASON_CHARS = 500
-FAILURE_REPLY = (
-    "Erre a kérdésre most nem tudok megbízható választ adni. "
-    "Kérem, próbálja újra, vagy nézze meg közvetlenül a banki rendszerben."
-)
 
 Event = tuple[str, dict[str, Any]]
 
@@ -125,12 +123,15 @@ class BranchSession:
         context: BranchContext,
         thread_id_prefix: str = "branch-visit",
         architecture: str | None = None,
+        language: str = AUTO,
     ) -> None:
         self.endpoint_router = endpoint_router
         self.coordinator = coordinator
         self.context = context
         self.thread_id_prefix = thread_id_prefix
         self.architecture = architecture
+        self.language_setting = normalize(language)  # "auto" or a fixed language
+        self.language: str | None = None  # language of the latest turn
         self.current_customer_id: str | None = None
         self.transcript: list[Any] = []
         self.first_prompt: str | None = None
@@ -148,7 +149,11 @@ class BranchSession:
         if user_input is not None:
             self.transcript.append(HumanMessage(content=user_input))
             self.transcript.append(AIMessage(content=reply))
-        return "reply", {"text": reply, **extra}
+        return "reply", {"text": reply, "language": self.language, **extra}
+
+    def set_language(self, language: str | None) -> None:
+        """Pick the reply language: ``"auto"`` detects it on every message."""
+        self.language_setting = normalize(language)
 
     def reset_thread(self) -> None:
         """Start a fresh coordinator thread (customer switch, cancelled turn)."""
@@ -163,6 +168,8 @@ class BranchSession:
         exactly one ``reply``."""
         if self.first_prompt is None:
             self.first_prompt = user_input
+        self.language = resolve_language(self.language_setting, user_input, self.language)
+        set_current_language(self.language)
         logger.info("Officer turn: %s", user_input)
         t0 = time.perf_counter()
         mark = t0  # end of the previous pipeline step
@@ -178,6 +185,7 @@ class BranchSession:
             # tools.
             yield "route", {
                 "endpoint": None,
+                "language": self.language,
                 "skipped": True,
                 "at_ms": now_ms(),
                 "elapsed_ms": now_ms(),
@@ -189,7 +197,7 @@ class BranchSession:
                 # Fail closed: an untrusted routing result must not let the
                 # question through without its entitlement check.
                 logger.exception("Endpoint router failed")
-                yield self._deliver(FAILURE_REPLY, user_input)
+                yield self._deliver(text("failure"), user_input)
                 return
             if matched and names_other_customer(user_input, self.current_customer_id):
                 # The officer is switching customers in this very question, so
@@ -201,6 +209,7 @@ class BranchSession:
             logger.info("Matched endpoint: %s", matched)
             yield "route", {
                 "endpoint": matched,
+                "language": self.language,
                 "at_ms": now_ms(),
                 "elapsed_ms": now_ms(),
             }
@@ -263,11 +272,11 @@ class BranchSession:
         except Exception:
             logger.exception("Coordinator failed")
             self.reset_thread()  # the thread may hold a half-finished turn
-            yield self._deliver(FAILURE_REPLY, user_input)
+            yield self._deliver(text("failure"), user_input)
             return
         if final_state is None:
             self.reset_thread()
-            yield self._deliver(FAILURE_REPLY, user_input)
+            yield self._deliver(text("failure"), user_input)
             return
 
         messages = final_state["messages"]
@@ -299,7 +308,7 @@ class BranchSession:
 
     def run_turn(self, user_input: str) -> str:
         """Run one turn without following its progress; return the reply."""
-        reply = FAILURE_REPLY
+        reply = text("failure")
         for event, data in self.stream_turn(user_input):
             if event == "reply":
                 reply = data["text"]

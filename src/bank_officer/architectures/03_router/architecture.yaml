@@ -1,6 +1,8 @@
 id: router
 label: Router + koordinátor + specialisták + összeállító
 description: A bank-officer-agent-architecture-hu.html szerinti felépítés. Jev endpoint router, koordinátor (Luna), három domain specialista (párhuzamosan hívhatók), nyilvános infó subagent és válasz-összeállító subagent.
+label_en: Router + coordinator + specialists + synthesizer
+description_en: The structure from bank-officer-agent-architecture-en.html. Jev endpoint router, coordinator (Luna), three domain specialists (callable in parallel), a public-info subagent and an answer-synthesizer subagent.
 router:
   enabled: true
   agent: endpoint_router

@@ -9,4 +9,6 @@ logs/
 *.html
 !index.html
 !bank-officer-agent-architecture-hu.html
+!index-en.html
+!bank-officer-agent-architecture-en.html
 test.jpg

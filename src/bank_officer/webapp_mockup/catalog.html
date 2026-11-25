@@ -447,6 +447,188 @@
     </ul>
   </details>
 </main>
+<script src="ui_lang.js"></script>
+<script>
+const T = UILang.tr;
+UILang.register({
+    "_MENU_ tétel/oldal": "_MENU_ items/page",
+    "(szűrve _MAX_ tételből)": "(filtered from _MAX_ items)",
+    "_START_–_END_ / _TOTAL_ tétel": "_START_–_END_ / _TOTAL_ items",
+    "Az ügyfél számláinak listája típussal és egyenleggel.": "The customer's accounts with type and balance.",
+    "Egy számla részletes adatai.": "Details of one account.",
+    "Egy számla legutóbbi tranzakciói, összeg- és dátumszűrővel.": "Recent transactions of an account, with amount and date filters.",
+    "Egy tranzakció vitatása (reklamáció benyújtása).": "Dispute a transaction (file a complaint).",
+    "Havi számlakivonat letöltése.": "Download the monthly account statement.",
+    "Az összes üzleti számla és alszámla összesített áttekintése.": "Consolidated overview of all business accounts and sub-accounts.",
+    "Belföldi átutalás az ügyfél saját vagy mentett számlái között.": "Domestic transfer between the customer's own or saved accounts.",
+    "Közműszámla befizetése számlakibocsátó-kóddal és hivatkozási számmal.": "Pay a utility bill with the biller code and reference number.",
+    "Nemzetközi vagy más bankba irányuló utalás indítása.": "Start an international transfer or a transfer to another bank.",
+    "Csoportos fizetési fájl feltöltése, pl. havi bérszámfejtés.": "Upload a batch payment file, e.g. monthly payroll.",
+    "Ütemezett és ismétlődő fizetések listája.": "List of scheduled and recurring payments.",
+    "Ütemezett vagy ismétlődő fizetés törlése.": "Delete a scheduled or recurring payment.",
+    "Az ügyfél bankkártyáinak és hitelkártyáinak listája.": "The customer's debit and credit cards.",
+    "Elveszett vagy ellopott kártya letiltása.": "Block a lost or stolen card.",
+    "Korábban letiltott kártya feloldása.": "Unblock a previously blocked card.",
+    "A kártya aktuális napi vásárlási és készpénzfelvételi limitje.": "The card's current daily purchase and cash withdrawal limits.",
+    "A kártya napi vásárlási/készpénzfelvételi limitjének emelése vagy csökkentése.": "Raise or lower the card's daily purchase/cash withdrawal limit.",
+    "Az ügyfél számára elérhető hiteltermékek és hirdetett kamatok.": "Loan products available to the customer and their advertised rates.",
+    "Az ügyfél meglévő hitelei egyenleggel, törlesztőrészlettel és lejárattal.": "The customer's existing loans with balance, instalment and maturity.",
+    "Beadott hitelkérelem állapotának lekérdezése.": "Look up the status of a submitted loan application.",
+    "Új személyi kölcsön vagy lakáshitel igénylése.": "Apply for a new personal loan or mortgage.",
+    "Megújuló üzleti hitelkeret igénylése.": "Apply for a revolving business credit line.",
+    "Az ügyfél profilja és elérhetőségei.": "The customer's profile and contact details.",
+    "Az ügyfél telefonszámának vagy e-mail-címének módosítása.": "Change the customer's phone number or e-mail address.",
+    "Új ügyfélszolgálati kérés indítása.": "Open a new customer-service request.",
+    "Meglévő ügyfélszolgálati kérés állapota.": "Status of an existing customer-service request.",
+    "Általános számla- és termékfeltételek, díjak és kamatfeltételek.": "General account and product terms, fees and interest conditions.",
+    "Fiókok listája címmel és térképkoordinátákkal, városra vagy irányítószámra szűrhetően.": "List of branches with address and map coordinates, filterable by city or postal code.",
+    "A fiók heti nyitvatartása, az ünnepnapi eltérésekkel.": "The branch's weekly opening hours, including holiday exceptions.",
+    "Számlák": "Accounts",
+    "Áttekintés": "Overview",
+    "Számla részletei": "Account details",
+    "Tranzakciók": "Transactions",
+    "Keresés": "Search",
+    "Tranzakció vitatása": "Dispute a transaction",
+    "Kivonatok": "Statements",
+    "Üzleti": "Business",
+    "Összesített áttekintés": "Consolidated overview",
+    "Fizetések": "Payments",
+    "Pénz átutalása": "Transfer money",
+    "Számla befizetése": "Pay a bill",
+    "Nemzetközi átutalás": "International transfer",
+    "Csoportos / bérszámfejtési feltöltés": "Batch / payroll upload",
+    "Ütemezett fizetések": "Scheduled payments",
+    "Törlés": "Delete",
+    "Kártyák": "Cards",
+    "Kártya letiltása": "Block card",
+    "Kártya feloldása": "Unblock card",
+    "Limitek megtekintése": "View limits",
+    "Limitek módosítása": "Change limits",
+    "Hitelek": "Loans",
+    "Ajánlatok": "Offers",
+    "Hiteleim": "My loans",
+    "Igényléseim": "My applications",
+    "Állapot": "Status",
+    "Igénylés": "Apply",
+    "Hitelkeret": "Credit line",
+    "Profil és támogatás": "Profile and support",
+    "Profil": "Profile",
+    "Adataim": "My details",
+    "Elérhetőségek szerkesztése": "Edit contact details",
+    "Támogatás": "Support",
+    "Új kérés": "New request",
+    "Kéréseim": "My requests",
+    "Általános": "General",
+    "Feltételek és díjak": "Terms and fees",
+    "Fiókkereső": "Branch finder",
+    "Nyitvatartás": "Opening hours",
+    "Arány": "Share",
+    "Azonosító": "ID",
+    "Cím": "Address",
+    "Dátum": "Date",
+    "Díj / kamat": "Fee / rate",
+    "Egyenleg": "Balance",
+    "Eredeti összeg": "Original amount",
+    "Érték": "Value",
+    "Fajta": "Kind",
+    "Fennálló tartozás": "Outstanding debt",
+    "Fiók azonosító": "Branch ID",
+    "Forrásszámla": "Source account",
+    "Gyakoriság": "Frequency",
+    "Hátralévő": "Remaining",
+    "Hirdetett kamat": "Advertised rate",
+    "Hitel azonosító": "Loan ID",
+    "Időpont": "Time",
+    "Irányítószám": "Postal code",
+    "Kamat megnevezése": "Rate label",
+    "Kamat": "Rate",
+    "Kapcsolt számla": "Linked account",
+    "Kártya azonosító": "Card ID",
+    "Kategória": "Category",
+    "Kedvezményezett": "Beneficiary",
+    "Ki": "Who",
+    "Könyvelés dátuma": "Booking date",
+    "Következő fizetés": "Next payment",
+    "Következő teljesítés": "Next execution",
+    "Leírás": "Description",
+    "Lejár": "Expires",
+    "Lejárat": "Maturity",
+    "Limit típusa": "Limit type",
+    "Ma felhasznált": "Used today",
+    "Márka": "Brand",
+    "Megjegyzés": "Note",
+    "Mező": "Field",
+    "Nap / dátum": "Day / date",
+    "Név": "Name",
+    "Nyit": "Opens",
+    "Nyitva": "Opened",
+    "Összeg": "Amount",
+    "Pénznem": "Currency",
+    "Szám": "Number",
+    "Számla azonosító": "Account ID",
+    "Személyes ajánlat": "Personal offer",
+    "Térkép": "Map",
+    "Termék azonosító": "Product ID",
+    "Termék": "Product",
+    "Tétel": "Item",
+    "Típus": "Type",
+    "Törlesztő számla": "Repayment account",
+    "Törlesztőrészlet": "Instalment",
+    "Tranzakció azonosító": "Transaction ID",
+    "Üzenet": "Message",
+    "Város": "City",
+    "Zár": "Closes",
+    "Ettől": "From",
+    "Fiók": "Branch",
+    "Időszak": "Period",
+    "Kártya": "Card",
+    "Kérés": "Request",
+    "Min. összeg": "Min. amount",
+    "Számla": "Account",
+    "Ügyfél azonosító": "Customer ID",
+    "Teljes név": "Full name",
+    "Születési dátum": "Date of birth",
+    "Telefon": "Phone",
+    "Számlavezető fiók": "Home branch",
+    "Jogosultsági szint": "Entitlement tier",
+    "Ügyfél": "Customer",
+    "Nyitás dátuma": "Opening date",
+    "Nyilvántartott tranzakciók": "Recorded transactions",
+    "Utolsó könyvelés": "Latest booking",
+    "(mind)": "(all)",
+    "bármely": "any",
+    "változó": "variable",
+    "Teszt katalógus — Web Banking App menü és végpontok": "Test catalog — Web Banking App menu and endpoints",
+    "← Kezdőlap": "← Home",
+    "← Architektúra": "← Architecture",
+    "Bank Chat →": "Bank Chat →",
+    "Teszt katalógus": "Test catalog",
+    "Teszt adatok megjelenítése": "Show test data",
+    "Teszt adatok elrejtése": "Hide test data",
+    "Nyelv": "Language",
+    "Auto (felismerés)": "Auto (detect)",
+    "Nincs a kéréshez illő adat.": "No data for this request.",
+    "Nincs találat.": "No matches.",
+    "Keresés:": "Search:",
+    "Nincs tétel": "No items",
+    "Első": "First",
+    "Utolsó": "Last",
+    "Következő": "Next",
+    "Előző": "Previous",
+    "A Web Banking App menüje és a mögötte lévő REST végpontok vizuális referenciája (<code>src/bank_officer/endpoint_catalog.py</code>), amelyet a bank branch officer demóban az endpoint router használ. Minden alábbi menüpont a mellette látható végponthoz tartozik. A GET elemek <em>Teszt adatok megjelenítése</em> paneljén látható a végpont mock válasza a kiválasztott ügyfélhez.": "A visual reference of the Web Banking App's menu and the REST endpoints behind it (<code>src/bank_officer/endpoint_catalog.py</code>), which the endpoint router uses in the bank branch officer demo. Every menu item below belongs to the endpoint shown next to it. The <em>Show test data</em> panel of the GET items shows the endpoint's mock response for the selected customer."
+}, [
+    [/^(.+) \((retail|premium|business)\) nem jogosult erre a végpontra: legalább (\w+) szint szükséges hozzá\.$/, "$1 ($2) is not entitled to this endpoint: at least the $3 tier is required."],
+    [/^Ennél az ügyfélnél \((.+)\) nincs elérhető „(.+)” ehhez a végponthoz\.$/, "This customer ($1) has no “$2” available for this endpoint."],
+    [/^Kivonat (\S+): (\d+) tétel, jóváírás (.+), terhelés (.+), egyenleg (.+)\.$/, "Statement $1: $2 items, credits $3, debits $4, balance $5."],
+    [/^Összesített egyenleg: (.+), (\d+) számlán\.$/, "Total balance: $1, across $2 accounts."],
+    [/^(.+), (.+) - aktuális állapot: (.+)\.$/, "$1, $2 - current status: $3."],
+    [/^(.+) - aktuális állapot: (.+)\.$/, "$1 - current status: $2."]
+]);
+UILang.mount(document.querySelector(".top-nav"));
+UILang.mark(document, ".top-nav a, h1, .customer-bar label, summary, .description");
+UILang.mark(document, ".menu", "menu");
+UILang.mark(document, ".subtitle", "html");
+</script>
 <script>
 /*
  * Mock test data. Customers, accounts, transactions, products and offers
@@ -930,8 +1112,8 @@ function renderPanel(li) {
     requestLine.innerHTML = `GET ${esc(path)} <span class="status denied">403 Forbidden</span>`;
     const denied = document.createElement("p");
     denied.className = "denied";
-    denied.textContent = `${customer.name} (${customer.tier}) nem jogosult erre a végpontra: ` +
-      `legalább ${requiredTier} szint szükséges hozzá.`;
+    denied.textContent = T(`${customer.name} (${customer.tier}) nem jogosult erre a végpontra: ` +
+      `legalább ${requiredTier} szint szükséges hozzá.`);
     panel.appendChild(denied);
     return;
   }
@@ -943,7 +1125,7 @@ function renderPanel(li) {
     bar.className = "params";
     for (const param of view.params) {
       const label = document.createElement("label");
-      label.textContent = param.label;
+      label.textContent = T(param.label);
       let control;
       if (param.options) {
         const options = param.options(customer, state);
@@ -951,13 +1133,13 @@ function renderPanel(li) {
         if (state[param.name] === undefined) missingParam = param;
         control = document.createElement("select");
         for (const value of options) {
-          control.add(new Option(value === "" ? "(mind)" : value, value));
+          control.add(new Option(value === "" ? T("(mind)") : value, value));
         }
         control.value = state[param.name] ?? "";
       } else {
         control = document.createElement("input");
         control.type = param.type;
-        if (param.type === "number") { control.min = "0"; control.step = "1000"; control.placeholder = "bármely"; }
+        if (param.type === "number") { control.min = "0"; control.step = "1000"; control.placeholder = T("bármely"); }
         control.value = state[param.name] ?? "";
       }
       control.addEventListener("change", () => {
@@ -983,7 +1165,7 @@ function renderPanel(li) {
     requestLine.innerHTML = `GET ${esc(url)} <span class="status denied">404 Not Found</span>`;
     const note = document.createElement("p");
     note.className = "note";
-    note.textContent = `Ennél az ügyfélnél (${customer.name}) nincs elérhető „${missingParam.label}” ehhez a végponthez.`;
+    note.textContent = T(`Ennél az ügyfélnél (${customer.name}) nincs elérhető „${T(missingParam.label)}” ehhez a végponthez.`);
     panel.appendChild(note);
     return;
   }
@@ -994,7 +1176,7 @@ function renderPanel(li) {
   if (!Array.isArray(result) && result.note) {
     const note = document.createElement("p");
     note.className = "note";
-    note.textContent = result.note;
+    note.textContent = T(result.note);
     panel.appendChild(note);
   }
 
@@ -1004,8 +1186,8 @@ function renderPanel(li) {
   panel.appendChild(table);
   const simple = view.kv || view.simple;
   li._table = new DataTable(table, {
-    data: rows,
-    columns: (view.kv ? KV_COLUMNS : view.columns).map(col => ({ render: text, ...col })),
+    data: view.kv ? rows.map(r => ({ ...r, field: T(r.field) })) : rows,
+    columns: (view.kv ? KV_COLUMNS : view.columns).map(col => ({ render: text, ...col, title: T(col.title) })),
     order: view.order || (view.kv ? [] : [[0, "asc"]]),
     ordering: view.kv ? false : view.ordering !== false,
     paging: rows.length > 10,
@@ -1014,14 +1196,14 @@ function renderPanel(li) {
     info: !simple,
     scrollX: true,
     language: {
-      emptyTable: "Nincs a kéréshez illő adat.",
-      zeroRecords: "Nincs találat.",
-      search: "Keresés:",
-      info: "_START_–_END_ / _TOTAL_ tétel",
-      infoEmpty: "Nincs tétel",
-      infoFiltered: "(szűrve _MAX_ tételből)",
-      lengthMenu: "_MENU_ tétel/oldal",
-      paginate: { first: "Első", last: "Utolsó", next: "Következő", previous: "Előző" },
+      emptyTable: T("Nincs a kéréshez illő adat."),
+      zeroRecords: T("Nincs találat."),
+      search: T("Keresés:"),
+      info: T("_START_–_END_ / _TOTAL_ tétel"),
+      infoEmpty: T("Nincs tétel"),
+      infoFiltered: T("(szűrve _MAX_ tételből)"),
+      lengthMenu: T("_MENU_ tétel/oldal"),
+      paginate: { first: T("Első"), last: T("Utolsó"), next: T("Következő"), previous: T("Előző") },
     },
   });
 }
@@ -1049,7 +1231,7 @@ for (const li of document.querySelectorAll("li[data-endpoint]")) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "toggle-data";
-  button.textContent = "Teszt adatok megjelenítése";
+  button.textContent = T("Teszt adatok megjelenítése");
   button.setAttribute("aria-expanded", "false");
   li.querySelector(".tier").after(button);
 
@@ -1062,7 +1244,7 @@ for (const li of document.querySelectorAll("li[data-endpoint]")) {
     const open = panel.hidden;
     panel.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
-    button.textContent = open ? "Teszt adatok elrejtése" : "Teszt adatok megjelenítése";
+    button.textContent = T(open ? "Teszt adatok elrejtése" : "Teszt adatok megjelenítése");
     if (open) renderPanel(li);
     else if (li._table) { li._table.destroy(); li._table = null; panel.innerHTML = ""; }
   });
@@ -1075,6 +1257,16 @@ syncDark();
 darkQuery.addEventListener("change", syncDark);
 
 selectCustomer(customer.id);
+
+// Language switch: relabel the toggle buttons and redraw the open tables.
+UILang.onChange(() => {
+  for (const li of document.querySelectorAll("li[data-endpoint]")) {
+    const open = !li.querySelector(".data-panel").hidden;
+    li.querySelector(".toggle-data").textContent = T(open ? "Teszt adatok elrejtése" : "Teszt adatok megjelenítése");
+  }
+  renderOpenPanels();
+});
+UILang.apply();
 </script>
 <script>document.querySelectorAll('a[data-home]').forEach(a => a.href = location.protocol === 'file:' ? '../../../index.html' : '/');document.querySelectorAll('a[data-arch]').forEach(a => a.href = location.protocol === 'file:' ? '../../../bank-officer-agent-architecture-hu.html' : '/architecture.html');</script>
 </body>

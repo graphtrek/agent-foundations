@@ -1,6 +1,8 @@
 id: no_router
 label: Koordinátor + 3 specialista (router nélkül)
 description: Nincs Jev router. A koordinátor önállóan választ specialistát, és nincs kódszintű rövidre zárás a hozzáférés-elutasításnál (a tool-ok védelme marad).
+label_en: Coordinator + 3 specialists (no router)
+description_en: No Jev router. The coordinator picks a specialist on its own, and there is no code-level short-circuit on access refusal (the tools' own protection remains).
 router:
   enabled: false
   agent: endpoint_router
